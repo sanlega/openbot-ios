@@ -3,6 +3,7 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react()],
+  base: "/app/",
   root: ".",
   build: {
     outDir: "dist/app",

@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { readFile, readdir } from "node:fs/promises";
+import { extname, join } from "node:path";
 import { newId } from "@openbot/contracts";
 import type { DeviceRole } from "@openbot/contracts";
 import { E2E_CONTENT_TYPE } from "./framing.js";
@@ -220,21 +220,58 @@ function registerE2EHooks(app: FastifyInstance, ctx: RemoteCoreContext): void {
   });
 }
 
+function mimeType(fileName: string): string {
+  switch (extname(fileName)) {
+    case ".html":
+      return "text/html; charset=utf-8";
+    case ".js":
+    case ".mjs":
+      return "application/javascript; charset=utf-8";
+    case ".css":
+      return "text/css; charset=utf-8";
+    case ".webmanifest":
+      return "application/manifest+json";
+    case ".json":
+      return "application/json; charset=utf-8";
+    case ".svg":
+      return "image/svg+xml";
+    case ".png":
+      return "image/png";
+    case ".ico":
+      return "image/x-icon";
+    default:
+      return "application/octet-stream";
+  }
+}
+
 async function registerPwaStatic(app: FastifyInstance, pwaRoot: string): Promise<void> {
-  const files: Record<string, { path: string; type: string }> = {
-    "/app": { path: "index.html", type: "text/html; charset=utf-8" },
-    "/app/": { path: "index.html", type: "text/html; charset=utf-8" },
-    "/app/index.html": { path: "index.html", type: "text/html; charset=utf-8" },
-    "/app/manifest.webmanifest": { path: "manifest.webmanifest", type: "application/manifest+json" },
-    "/app/sw.js": { path: "sw.js", type: "application/javascript; charset=utf-8" },
-    "/app/app.js": { path: "app.js", type: "application/javascript; charset=utf-8" },
+  const serveFile = (route: string, relativePath: string) => {
+    app.get(route, async (_request, reply) => {
+      const contents = await readFile(join(pwaRoot, relativePath));
+      return reply.type(mimeType(relativePath)).send(contents);
+    });
   };
 
-  for (const [route, file] of Object.entries(files)) {
-    app.get(route, async (_request, reply) => {
-      const contents = await readFile(join(pwaRoot, file.path));
-      return reply.type(file.type).send(contents);
-    });
+  serveFile("/app", "index.html");
+  serveFile("/app/", "index.html");
+  serveFile("/app/index.html", "index.html");
+
+  for (const optional of ["manifest.webmanifest", "sw.js"]) {
+    try {
+      await readFile(join(pwaRoot, optional));
+      serveFile(`/app/${optional}`, optional);
+    } catch {
+      // Built UI may omit legacy PWA assets.
+    }
+  }
+
+  try {
+    const assets = await readdir(join(pwaRoot, "assets"));
+    for (const asset of assets) {
+      serveFile(`/app/assets/${asset}`, join("assets", asset));
+    }
+  } catch {
+    // No hashed assets yet — build step may not have run.
   }
 }
 

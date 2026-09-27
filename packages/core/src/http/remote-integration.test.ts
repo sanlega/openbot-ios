@@ -28,7 +28,7 @@ async function boot(): Promise<{ app: FastifyInstance; test: TestContext }> {
 }
 
 describe("WS11 remote pairing integration", () => {
-  it("completes QR pairing and serves the PWA shell", async () => {
+  it("completes QR pairing and serves the WS5 UI shell", async () => {
     const { app } = await boot();
     await app.inject({ method: "POST", url: "/api/devices/pair", payload: { name: "owner", role: "owner" } });
 
@@ -54,7 +54,8 @@ describe("WS11 remote pairing integration", () => {
 
     const pwa = await app.inject({ method: "GET", url: "/app/" });
     expect(pwa.statusCode).toBe(200);
-    expect(pwa.body).toContain("OpenBot Phone");
+    expect(pwa.body).toContain('id="root"');
+    expect(pwa.body).toMatch(/\/app\/assets\/.+\.js/);
   });
 
   it("encrypts remote HTTP responses so a proxy capture cannot read them", async () => {

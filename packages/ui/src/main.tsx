@@ -7,7 +7,12 @@ const root = document.getElementById("root");
 if (root) {
   createRoot(root).render(
     <StrictMode>
-      <DevApp apiBaseUrl={import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:3847"} />
+      <DevApp
+        apiBaseUrl={
+          import.meta.env.VITE_API_BASE ??
+          (typeof window !== "undefined" ? window.location.origin : "http://127.0.0.1:3847")
+        }
+      />
     </StrictMode>,
   );
 }

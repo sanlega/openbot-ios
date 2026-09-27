@@ -4,11 +4,10 @@ import { join } from "node:path";
 import { getPwaStaticRoot } from "./index.js";
 
 describe("@openbot/pwa", () => {
-  it("ships installable static assets", async () => {
+  it("ships the built WS5 UI shell", async () => {
     const root = getPwaStaticRoot();
     const html = await readFile(join(root, "index.html"), "utf8");
-    const manifest = await readFile(join(root, "manifest.webmanifest"), "utf8");
-    expect(html).toContain("manifest.webmanifest");
-    expect(JSON.parse(manifest).display).toBe("standalone");
+    expect(html).toContain('id="root"');
+    expect(html).toMatch(/\/app\/assets\/.+\.js/);
   });
 });
