@@ -4,17 +4,16 @@ _Última actualización: 2026-09-27 por cursor (WS5 builder)_
 
 ## En curso
 - Rama `cursor/ws5-chat-ui-c33e` (apilada sobre `cursor/ws0-contracts-store-fakes-8d1e`), WS5:
-  - `packages/ui` ✅ (MVP del plan §WS5): React 19 + Vite + messenger UI oscuro.
-    `Transport` HTTP/WS (plan §4.7), reducer sobre `OBEvent` con dedupe por
-    `event.id`, `MockClientApiServer` in-process para dev/tests, bot roster con
-    badges CoS/spawn, hilos DM con `participantIds` (listo para grupos 2–6),
-    `RouteChip`, tarjetas de aprobación, activity con filtro "Not delivered"
-    (promote/mute), audit log, setup wizard, Cmd+K. 13 tests nuevos en `@openbot/ui`.
-  - `apps/pwa` ✅: build Vite que monta `@openbot/ui` (`DevApp`).
-  - 154 tests en 20 archivos; `lint`/`typecheck`/`build`/`test`/`mh check` en verde.
-  - **Pendiente en WS5** (fuera del MVP de esta PR): computer panel/noVNC,
-    editor de routines, settings/devices/remote screens completos, digest UI,
-    Playwright mobile/desktop (WS13), integración Electron (WS6).
+  - `packages/ui` ✅ (plan §WS5): React 19 messenger UI + remaining screens:
+    computer panel (noVNC iframe, takeover, step timeline), routines editor
+    with dry-run → Enable live + run history, settings (engines, Jev key,
+    caps S1–S10, budgets), devices/remote (QR, Tailscale toggle), daily digest
+    in CoS thread, bot "why" profile panel. Thread `participantIds` kept
+    group-ready. 20 tests in `@openbot/ui`.
+  - `apps/pwa` ✅: Vite build mounting `@openbot/ui`.
+  - 157 tests in 21 files; `lint`/`typecheck`/`build`/`test`/`mh check` en verde.
+  - **WS5 functionally complete** for plan §WS5 MVP; Playwright E2E (WS13)
+    and Electron shell wiring (WS6) remain follow-ups.
 - Rama `cursor/metaharness-bootstrap-8d1e` (PR 1 aún sin abrir, ver Bloqueos):
   bootstrap de metaharness (`ADAPTERS="agents claude"`, contexto en inglés) +
   herramientas del monorepo (pnpm 10 + Node 22, TypeScript 6.0.3, ESLint flat
