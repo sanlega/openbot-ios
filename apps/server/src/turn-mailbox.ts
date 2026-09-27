@@ -1,8 +1,8 @@
-import type { Bot, EngineDriver, EngineId, TurnInput } from "@openbot/contracts";
+import type { Bot, ChainMode, EngineDriver, EngineId, TurnInput } from "@openbot/contracts";
 import type { CoreContext, TurnMailbox } from "@openbot/core";
 import { buildCosSystemPrompt, type AutonomyCaps, type CapCounterService } from "@openbot/cos";
 import { McpComposer, type SessionTokenService } from "@openbot/mcp";
-import type { Runtime, SessionStore } from "@openbot/runtime";
+import type { EnqueueTurnInput, Runtime, SessionStore } from "@openbot/runtime";
 import { VAULT_KEYS } from "./providers.js";
 
 type McpConnectors = Parameters<typeof McpComposer.forTurnAsync>[1]["connectors"];
@@ -23,14 +23,25 @@ interface EngineChoice {
   routeDecisionId?: string;
 }
 
+export interface BuildTurnArgs {
+  bot: Bot;
+  text: string;
+  chainId: string;
+  threadId: string;
+  mode: ChainMode;
+  /** Explicit engine override (the route chip); otherwise the Bot's pin or Jev's route. */
+  engine?: EngineId;
+}
+
+export type TurnBuilder = (args: BuildTurnArgs) => Promise<EnqueueTurnInput | { error: string }>;
+
 /**
- * The Client API's `message.send` → one engine turn (plan §4.7, M1): stores the
- * user's message in the Bot's thread, picks the engine and model (an explicit
- * override, the Bot's pin, or Jev's route), resumes the Bot's engine session,
- * injects the OpenBot MCP server with a per-turn session token, and hands the
- * turn to the runtime mailbox, which stores the Bot's reply.
+ * Everything one engine turn needs, shared by chat (`message.send`) and routine
+ * runs: engine and model (override, pin, or Jev's route), auth (vault key or
+ * CLI login), the CoS prompt, and the OpenBot MCP server with a session token
+ * bound to the turn (and to the chain's mode, so dry runs only simulate).
  */
-export function createTurnMailbox(ctx: CoreContext, deps: TurnMailboxDeps): TurnMailbox {
+export function createTurnBuilder(ctx: CoreContext, deps: TurnMailboxDeps): TurnBuilder {
   const modelCache = new Map<EngineId, string[]>();
 
   async function modelsFor(engine: EngineId): Promise<string[]> {
@@ -109,6 +120,54 @@ export function createTurnMailbox(ctx: CoreContext, deps: TurnMailboxDeps): Turn
     })}`;
   }
 
+  return async ({ bot, text, chainId, threadId, mode, engine }) => {
+    const choice = await chooseEngine(bot, text, engine);
+    if ("error" in choice) return { error: choice.error };
+    return {
+      bot,
+      text,
+      attachments: [],
+      systemPrompt: systemPromptFor(bot),
+      cwd: ctx.config.workspaceDir,
+      addDirs: [],
+      auth: await authFor(bot, choice.engine),
+      mcpServers: [],
+      permission: bot.permissionPreset,
+      allowTools: [],
+      denyTools: [],
+      model: choice.model,
+      effort: choice.effort,
+      limits: { maxSteps: 50 },
+      engine: choice.engine,
+      chainId,
+      threadId,
+      prepareTurn: async (turnId) => {
+        const mcp = deps.mcp();
+        if (!mcp) throw new Error("OpenBot MCP tools are not ready yet");
+        const { servers } = await McpComposer.forTurnAsync(mcp.tokens, {
+          bot,
+          turnId,
+          chainId,
+          mode,
+          harnessUrl: `http://127.0.0.1:${ctx.config.port}`,
+          connectors: mcp.connectors,
+        });
+        return { mcpServers: servers };
+      },
+    };
+  };
+}
+
+/**
+ * The Client API's `message.send` → one engine turn (plan §4.7, M1): stores the
+ * user's message in the Bot's thread and hands the turn built by
+ * {@link createTurnBuilder} to the runtime mailbox, which stores the reply.
+ */
+export function createTurnMailbox(
+  ctx: CoreContext,
+  deps: TurnMailboxDeps,
+  buildTurn: TurnBuilder = createTurnBuilder(ctx, deps),
+): TurnMailbox {
   return {
     enqueue: async (input) => {
       const bot = ctx.repos.bots.getById(input.botId);
@@ -118,9 +177,6 @@ export function createTurnMailbox(ctx: CoreContext, deps: TurnMailboxDeps): Turn
         return { ok: false, reason: `thread does not belong to bot ${bot.id}` };
       }
 
-      const choice = await chooseEngine(bot, input.text, input.engine);
-      if ("error" in choice) return { ok: false, reason: choice.error };
-
       let chainId = input.chainId;
       const chain = chainId ? ctx.repos.chains.getById(chainId) : undefined;
       if (!chain) {
@@ -128,6 +184,17 @@ export function createTurnMailbox(ctx: CoreContext, deps: TurnMailboxDeps): Turn
         chainId = deps.runtime.chains.create({ origin: "user", mode: "live" }).id;
       }
       const liveChainId = chainId!;
+      const mode = ctx.repos.chains.getById(liveChainId)?.mode ?? "live";
+
+      const turn = await buildTurn({
+        bot,
+        text: input.text,
+        chainId: liveChainId,
+        threadId: thread.id,
+        mode,
+        engine: input.engine,
+      });
+      if ("error" in turn) return { ok: false, reason: turn.error };
 
       const userMessage = deps.runtime.messages.create({
         threadId: thread.id,
@@ -148,45 +215,13 @@ export function createTurnMailbox(ctx: CoreContext, deps: TurnMailboxDeps): Turn
         payload: { messageId: userMessage.id, text: input.text, author: "user" },
       });
 
-      const mode = ctx.repos.chains.getById(liveChainId)?.mode ?? "live";
-      void deps.runtime.mailbox.submit({
-        bot,
-        text: input.text,
-        attachments: [],
-        systemPrompt: systemPromptFor(bot),
-        cwd: ctx.config.workspaceDir,
-        addDirs: [],
-        auth: await authFor(bot, choice.engine),
-        mcpServers: [],
-        permission: bot.permissionPreset,
-        allowTools: [],
-        denyTools: [],
-        model: choice.model,
-        effort: choice.effort,
-        limits: { maxSteps: 50 },
-        engine: choice.engine,
-        chainId: liveChainId,
-        threadId: thread.id,
-        prepareTurn: async (turnId) => {
-          const mcp = deps.mcp();
-          if (!mcp) throw new Error("OpenBot MCP tools are not ready yet");
-          const { servers } = await McpComposer.forTurnAsync(mcp.tokens, {
-            bot,
-            turnId,
-            chainId: liveChainId,
-            mode,
-            harnessUrl: `http://127.0.0.1:${ctx.config.port}`,
-            connectors: mcp.connectors,
-          });
-          return { mcpServers: servers };
-        },
-      });
+      void deps.runtime.mailbox.submit(turn);
       return {
         ok: true,
         chainId: liveChainId,
         messageId: userMessage.id,
-        engine: choice.engine,
-        model: choice.model,
+        engine: turn.engine,
+        model: turn.model,
       };
     },
     stop: async (turnId: string) => {

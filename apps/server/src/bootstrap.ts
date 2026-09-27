@@ -18,7 +18,11 @@ import {
 } from "@openbot/mcp";
 import { getPwaStaticRoot } from "@openbot/pwa";
 import { attachRemoteServices, registerRemoteIntegration } from "@openbot/remote";
-import { integrateRoutines, RoutineRuntimeAdapter } from "@openbot/routines";
+import {
+  applyRoutineLiveApproval,
+  integrateRoutines,
+  RoutineRuntimeAdapter,
+} from "@openbot/routines";
 import {
   createRuntime,
   type ApprovalStore,
@@ -35,7 +39,7 @@ import {
 } from "@openbot/runtime";
 import type { FastifyInstance } from "fastify";
 import { bootstrapProviders } from "./providers.js";
-import { createTurnMailbox, RepoSessionStore } from "./turn-mailbox.js";
+import { createTurnBuilder, createTurnMailbox, RepoSessionStore } from "./turn-mailbox.js";
 
 export interface BootstrapOptions {
   computerProvider?: ComputerProvider;
@@ -86,15 +90,19 @@ export async function bootstrapHarness(
   const mcp: {
     current?: { tokens: SessionTokenService; connectors: McpToolServices["connectors"] };
   } = {};
-  ctx.mailbox = createTurnMailbox(ctx, {
+  const turnDeps = {
     runtime,
     drivers: providers.drivers,
     autonomyCaps,
     caps,
     mcp: () => mcp.current,
-  });
-  ctx.onApprovalResolved = (approvalId, resolution) =>
+  };
+  const buildTurn = createTurnBuilder(ctx, turnDeps);
+  ctx.mailbox = createTurnMailbox(ctx, turnDeps, buildTurn);
+  ctx.onApprovalResolved = (approvalId, resolution) => {
     runtime.broker.settleResolved(approvalId, resolution);
+    applyRoutineLiveApproval(ctx, approvalId, resolution);
+  };
   ctx.computerProvider = options.computerProvider ?? providers.computerProvider;
 
   await wireConnectors(ctx);
@@ -109,7 +117,7 @@ export async function bootstrapHarness(
   });
 
   const { orchestrator } = await integrateRoutines(app, ctx, {
-    runtime: new RoutineRuntimeAdapter(runtime, ctx),
+    runtime: new RoutineRuntimeAdapter(runtime, ctx, buildTurn),
   });
 
   const mcpServices = createMcpServices(ctx, {

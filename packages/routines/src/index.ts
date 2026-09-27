@@ -10,7 +10,12 @@ export { matchTriggerEvent, hashPayload, matchesDeterministicFilter } from "./ma
 export { checkRunCaps, checkRoutineCreationCaps, recordRunSpend } from "./caps.js";
 export type { RoutineRuntime, RoutineRunInput, RoutineRunResult } from "./runtime-spi.js";
 export { SimulatedRoutineRuntime, type SimulatedRuntimeOptions } from "./simulated-runtime.js";
-export { RoutineRuntimeAdapter } from "./runtime-adapter.js";
+export {
+  RoutineRuntimeAdapter,
+  describeSimulatedAction,
+  type RoutineTurnBuilder,
+} from "./runtime-adapter.js";
+export { applyRoutineLiveApproval } from "./live-approval.js";
 export { integrateRoutines, type IntegrateRoutinesResult } from "./integrate.js";
 export { registerRoutineHookRoutes } from "./routes.js";
 export { OpenBotEventTriggerSource } from "./trigger-sources/openbot-events.js";
