@@ -69,7 +69,7 @@ describe("runFastLoop", () => {
     });
 
     expect(result.status).toBe("escalated");
-    expect(result.summary).toMatch(/confidence below confirm/i);
+    expect(result.summary).toMatch(/wasn.t sure what to do/i);
   });
 
   it("never acts on an element index that was not observed", async () => {
@@ -102,7 +102,7 @@ describe("runFastLoop", () => {
     });
 
     expect(result.status).toBe("escalated");
-    expect(result.summary).toMatch(/999|act failed|not returned/i);
+    expect(result.summary).toMatch(/isn.t on the page/i);
   });
 
   it("raises approval path for sensitive Pay targets", async () => {

@@ -155,7 +155,8 @@ export class FakeEngineDriver implements EngineDriver {
    * Scripted tool use for E2E tests, one directive per line of the user text:
    * `@tool <name> <json>` calls an OpenBot MCP tool through the `openbot`
    * server injected for the turn (as a real engine's MCP client would), and
-   * `@approve <tool> <json>` asks permission for an engine-native tool.
+   * `@approve <tool> <json>` asks permission for an engine-native tool, and
+   * `@servers` writes the names of the turn's injected MCP servers.
    */
   private async runDirectives(
     input: TurnInput,
@@ -167,6 +168,14 @@ export class FakeEngineDriver implements EngineDriver {
     for (const [index, directive] of directives.entries()) {
       if (isInterrupted()) return;
       const toolUseId = `${sessionId}_directive_${index}`;
+      if (directive.kind === "servers") {
+        // Test hook: which MCP servers the harness injected into this turn.
+        hooks.emit({
+          type: "text_delta",
+          text: `[mcp servers: ${input.mcpServers.map((s) => s.name).join(", ")}] `,
+        });
+        continue;
+      }
       if (directive.kind === "approve") {
         await hooks.requestApproval({ toolName: directive.name, input: directive.args, toolUseId });
         continue;
@@ -214,7 +223,7 @@ export class FakeEngineDriver implements EngineDriver {
 }
 
 interface Directive {
-  kind: "tool" | "approve";
+  kind: "tool" | "approve" | "servers";
   name: string;
   args: Record<string, unknown>;
 }
@@ -222,6 +231,10 @@ interface Directive {
 function parseDirectives(text: string): Directive[] {
   const directives: Directive[] = [];
   for (const line of text.split("\n")) {
+    if (line.trim() === "@servers") {
+      directives.push({ kind: "servers", name: "servers", args: {} });
+      continue;
+    }
     const match = /^@(tool|approve)\s+([\w.-]+)\s*(\{.*\})?\s*$/.exec(line.trim());
     if (!match) continue;
     let args: Record<string, unknown>;

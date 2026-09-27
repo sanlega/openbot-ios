@@ -1,24 +1,16 @@
 /** Vault key naming for connector secrets (plan E4 — never in DB/logs/events). */
 
-export const COMPOSIO_API_KEY = "composio.apiKey";
-
-export function composioOAuthAppKeys(appId: string): { clientId: string; clientSecret: string } {
-  const base = `composio.oauth.${appId}`;
-  return { clientId: `${base}.clientId`, clientSecret: `${base}.clientSecret` };
+/** Prefix of every vault key that belongs to one connection. */
+export function connectionKeyPrefix(connectionId: string): string {
+  return `connection.${connectionId}.`;
 }
 
-export function connectionSecretKey(connectionId: string): string {
-  return `connection.${connectionId}.secret`;
-}
-
-export function connectionOAuthStateKey(connectionId: string): string {
-  return `connection.${connectionId}.oauthState`;
-}
-
+/** Non-secret setup (catalogue id, plain values, registry template) as JSON. */
 export function connectionMcpConfigKey(connectionId: string): string {
   return `connection.${connectionId}.mcpConfig`;
 }
 
-export function connectionEnvKey(connectionId: string, envName: string): string {
-  return `connection.${connectionId}.env.${envName}`;
+/** One secret setup value (a token, a client secret). */
+export function connectionEnvKey(connectionId: string, key: string): string {
+  return `connection.${connectionId}.env.${key}`;
 }

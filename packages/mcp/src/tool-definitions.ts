@@ -158,15 +158,58 @@ export const OPENBOT_TOOL_DEFINITIONS: Tool[] = [
   },
   {
     name: "computer_task",
-    description: "Run a computer-use task on this bot's screen via the Jev fast loop.",
+    description:
+      "Operate this bot's computer (browser/desktop) toward a goal. Jev picks each click/type/key step from what's on screen; OpenBot checks and runs it, and risky steps ask the user. You author any text to type: pass it in `inputs` keyed by field label, or answer later with computer_steer when the result says needsText. Returns after `waitSeconds` (default 20) with progress; use computer_status to follow a running task.",
     inputSchema: {
       type: "object",
       properties: {
-        goal: { type: "string" },
-        startUrl: { type: "string" },
+        goal: { type: "string", description: "What should be true when the task is done" },
+        startUrl: { type: "string", description: "Page to open first" },
         maxSteps: { type: "number" },
+        inputs: {
+          type: "object",
+          additionalProperties: { type: "string" },
+          description: 'Text for fields by label, e.g. {"Search": "openbot", "Subject": "Q3"}',
+        },
+        waitSeconds: { type: "number", description: "0–60; default 20" },
       },
       required: ["goal"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "computer_status",
+    description: "Progress of a computer task: status, recent steps, and any text it needs.",
+    inputSchema: {
+      type: "object",
+      properties: { taskId: { type: "string" }, waitSeconds: { type: "number" } },
+      required: ["taskId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "computer_steer",
+    description:
+      "Guide a running computer task: add an instruction for the next steps, and/or give the text it asked for (needsText).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        taskId: { type: "string" },
+        instruction: { type: "string" },
+        text: { type: "string" },
+        waitSeconds: { type: "number" },
+      },
+      required: ["taskId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "computer_cancel",
+    description: "Stop a computer task.",
+    inputSchema: {
+      type: "object",
+      properties: { taskId: { type: "string" } },
+      required: ["taskId"],
       additionalProperties: false,
     },
   },

@@ -63,9 +63,16 @@ except Exception:
         await this.shell.run("xdotool", ["type", "--", action.text]);
         return { ok: true };
       case "key":
-        if (action.text) await this.shell.run("xdotool", ["key", action.text]);
+        if (action.text) await this.shell.run("xdotool", ["key", xdotoolKey(action.text)]);
         return { ok: true };
       case "scroll":
+        await this.shell.run("xdotool", [
+          "click",
+          "--repeat",
+          "5",
+          action.text === "up" ? "4" : "5",
+        ]);
+        return { ok: true };
       case "wait":
       case "done":
         return { ok: true };
@@ -88,4 +95,9 @@ except Exception:
     await this.shell.run("xdotool", ["key", "Return"]);
     return { ok: true };
   }
+}
+
+/** Logical key names (see COMPUTER_KEYS) → xdotool key names. */
+function xdotoolKey(name: string): string {
+  return name === "Enter" ? "Return" : name;
 }

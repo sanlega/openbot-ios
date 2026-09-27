@@ -41,8 +41,26 @@ export const RequestApprovalSchema = z.object({
 export const ComputerTaskSchema = z.object({
   goal: z.string().min(1),
   startUrl: z.string().url().optional(),
-  maxSteps: z.number().int().positive().optional(),
+  maxSteps: z.number().int().positive().max(200).optional(),
+  inputs: z.record(z.string(), z.string()).optional(),
+  waitSeconds: z.number().min(0).max(60).optional(),
 });
+
+export const ComputerStatusSchema = z.object({
+  taskId: z.string().min(1),
+  waitSeconds: z.number().min(0).max(60).optional(),
+});
+
+export const ComputerSteerSchema = z
+  .object({
+    taskId: z.string().min(1),
+    instruction: z.string().min(1).optional(),
+    text: z.string().optional(),
+    waitSeconds: z.number().min(0).max(60).optional(),
+  })
+  .refine((v) => v.instruction !== undefined || v.text !== undefined, {
+    message: "give an instruction, text, or both",
+  });
 
 export const CreateRoutineSchema = z.object({
   name: z.string().min(1),
@@ -82,6 +100,9 @@ export const TOOL_INPUT_SCHEMAS: Record<string, z.ZodTypeAny> = {
   create_bot: CreateBotSchema,
   request_approval: RequestApprovalSchema,
   computer_task: ComputerTaskSchema,
+  computer_status: ComputerStatusSchema,
+  computer_steer: ComputerSteerSchema,
+  computer_cancel: z.object({ taskId: z.string().min(1) }),
   computer_screenshot: z.object({}),
   create_routine: CreateRoutineSchema,
   update_routine: UpdateRoutineSchema,

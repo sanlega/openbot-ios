@@ -10,7 +10,7 @@ import type { CoreContext, SetupValidator, SetupValidatorKind } from "./context.
  *
  * Known call sites once those workstreams land: WS12 registers
  * `POST /hooks/:routineId`; WS4 registers `POST /internal/tools/:name`; WS3/
- * WS10/WS11 register `claude_login`/`codex_login`/`composio`/`tailscale`/
+ * WS10/WS11 register `claude_login`/`codex_login`/`tailscale`/
  * `cloudflare` validators.
  */
 export interface ModuleHost {

@@ -107,6 +107,8 @@ export class McpRuntimeServiceAdapter implements McpRuntimeService {
         ...classifyToolCall(input.tool_name, input.input, this.ctx.config.workspaceDir),
         summary: `Permission prompt: ${input.tool_name}`,
         detail: JSON.stringify(input.input ?? {}),
+        // A connector tool: writes the catalogue marks (or does not know) need a card.
+        ...this.ctx.connectorService?.classifyTool(session.botId, input.tool_name, input.input),
       },
       { mode: session.mode, preset: session.bot.permissionPreset },
     );

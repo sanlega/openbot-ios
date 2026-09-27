@@ -114,8 +114,16 @@ export class DisplaySessionManager {
         );
         session.lastObservation = undefined;
         return { ok: true };
-      case "wait":
       case "scroll":
+        // Mouse wheel: button 4 scrolls up, 5 down.
+        await this.shell.run(
+          "xdotool",
+          ["click", "--repeat", "5", action.text === "up" ? "4" : "5"],
+          env,
+        );
+        session.lastObservation = undefined;
+        return { ok: true };
+      case "wait":
       case "done":
         return { ok: true };
       case "type":
@@ -123,7 +131,7 @@ export class DisplaySessionManager {
         await this.shell.run("xdotool", ["type", "--", action.text], env);
         return { ok: true };
       case "key":
-        if (action.text) await this.shell.run("xdotool", ["key", action.text], env);
+        if (action.text) await this.shell.run("xdotool", ["key", xdotoolKey(action.text)], env);
         return { ok: true };
       case "click":
       case "select":
@@ -260,4 +268,9 @@ async function waitForPort(port: number, timeoutMs = 15_000): Promise<void> {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Logical key names (see COMPUTER_KEYS) → xdotool key names. */
+function xdotoolKey(name: string): string {
+  return name === "Enter" ? "Return" : name;
 }

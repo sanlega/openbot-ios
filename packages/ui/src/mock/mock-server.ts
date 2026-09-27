@@ -2,7 +2,15 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 import { WebSocketServer, type WebSocket } from "ws";
 import { monotonicFactory } from "ulid";
-import type { Approval, Bot, Message, OBEvent, Thread } from "@openbot/contracts";
+import type {
+  Approval,
+  Bot,
+  CatalogEntry,
+  ConnectionView,
+  Message,
+  OBEvent,
+  Thread,
+} from "@openbot/contracts";
 import type { SetupValidateRequest } from "../api/types.js";
 import {
   SEED_APPROVALS,
@@ -25,6 +33,94 @@ import {
 
 const ulid = monotonicFactory();
 
+/** A few curated entries in the harness's catalogue shape (`packages/connectors`). */
+const MOCK_CATALOG: Array<Omit<CatalogEntry, "connected" | "connectionId">> = [
+  {
+    id: "curated:github",
+    name: "GitHub",
+    publisher: "GitHub",
+    category: "Development",
+    description: "Repositories, issues, pull requests, and code search on GitHub.",
+    kind: "remote",
+    auth: "token",
+    setup: {
+      fields: [
+        {
+          key: "GITHUB_TOKEN",
+          label: "Personal access token",
+          help: "A fine-grained token with access to the repositories the Bot may use.",
+          secret: true,
+          placeholder: "github_pat_…",
+        },
+      ],
+      docsUrl: "https://github.com/github/github-mcp-server",
+    },
+    tools: [
+      { name: "list_issues", write: false },
+      { name: "issue_write", write: true },
+    ],
+    verified: true,
+  },
+  {
+    id: "curated:notion",
+    name: "Notion",
+    publisher: "Notion",
+    category: "Productivity",
+    description: "Search, read, and edit pages and databases in your Notion workspace.",
+    kind: "remote",
+    auth: "oauth",
+    setup: { fields: [], docsUrl: "https://developers.notion.com/docs/mcp" },
+    verified: true,
+  },
+  {
+    id: "curated:filesystem",
+    name: "Filesystem",
+    publisher: "Model Context Protocol",
+    category: "System",
+    description: "Read and write files inside one folder you choose.",
+    kind: "local",
+    auth: "none",
+    setup: {
+      fields: [
+        {
+          key: "FOLDER",
+          label: "Folder",
+          help: "Absolute path of the only folder the Bot may access.",
+          secret: false,
+          placeholder: "/path/to/folder",
+        },
+      ],
+    },
+    verified: true,
+  },
+  {
+    id: "curated:time",
+    name: "Time",
+    publisher: "Model Context Protocol",
+    category: "Productivity",
+    description: "Current time and time-zone conversions.",
+    kind: "local",
+    auth: "none",
+    setup: { fields: [] },
+    tools: [{ name: "get_current_time", write: false }],
+    verified: true,
+  },
+];
+
+const MOCK_COMMUNITY: Array<Omit<CatalogEntry, "connected" | "connectionId">> = [
+  {
+    id: "registry:io.github.example/weather",
+    name: "weather",
+    publisher: "io.github.example",
+    category: "Community",
+    description: "Weather forecasts (example community server).",
+    kind: "local",
+    auth: "none",
+    setup: { fields: [] },
+    verified: false,
+  },
+];
+
 async function readJson<T>(req: IncomingMessage): Promise<T> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) {
@@ -37,7 +133,7 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
   });
   res.end(JSON.stringify(body));
@@ -57,6 +153,7 @@ export class MockClientApiServer {
   private routines = structuredClone(SEED_ROUTINES);
   private routineRuns = structuredClone(SEED_ROUTINE_RUNS);
   private takeoverByBot = new Map<string, boolean>();
+  private connections: ConnectionView[] = [];
   private remote: {
     enabled: boolean;
     via?: "lan" | "tailscale" | "cloudflare";
@@ -181,7 +278,7 @@ export class MockClientApiServer {
     if (req.method === "OPTIONS") {
       res.writeHead(204, {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
       });
       res.end();
@@ -456,6 +553,121 @@ export class MockClientApiServer {
       const botId = path.split("/")[3]!;
       const bot = SEED_BOTS.find((b) => b.id === botId);
       return sendJson(res, 200, { justification: bot?.justification ?? null });
+    }
+    // Connectors: same shapes as packages/core/src/http/routes/connectors.ts.
+    if (method === "GET" && path === "/api/connectors/catalog") {
+      const source = url.searchParams.get("source") ?? "curated";
+      const q = (url.searchParams.get("q") ?? "").toLowerCase();
+      const pool = source === "community" ? MOCK_COMMUNITY : MOCK_CATALOG;
+      const entries: CatalogEntry[] = pool
+        .filter((e) => !q || `${e.name} ${e.description} ${e.category}`.toLowerCase().includes(q))
+        .map((e) => {
+          const connection = this.connections.find((c) => c.catalogId === e.id);
+          return {
+            ...e,
+            connected: Boolean(connection),
+            ...(connection ? { connectionId: connection.id } : {}),
+          };
+        });
+      return sendJson(res, 200, { entries });
+    }
+    if (method === "POST" && path === "/api/connectors/connect") {
+      const body = await readJson<{
+        catalogId?: string;
+        values?: Record<string, string>;
+        displayName?: string;
+      }>(req);
+      const entry = [...MOCK_CATALOG, ...MOCK_COMMUNITY].find((e) => e.id === body.catalogId);
+      if (!entry) {
+        return sendJson(res, 404, {
+          error: "unknown_catalog_entry",
+          reason: `Unknown connector "${body.catalogId}".`,
+        });
+      }
+      if (entry.auth === "oauth") {
+        return sendJson(res, 409, {
+          error: "oauth_not_supported_yet",
+          reason: `${entry.name} needs OAuth sign-in, which is coming soon.`,
+        });
+      }
+      const missing = (entry.setup?.fields ?? [])
+        .filter((f) => !f.optional && !body.values?.[f.key]?.trim())
+        .map((f) => f.key);
+      if (missing.length > 0) {
+        return sendJson(res, 400, {
+          error: "missing_fields",
+          reason: `Missing ${missing.join(", ")} for ${entry.name}.`,
+          fields: missing,
+        });
+      }
+      const connection: ConnectionView = {
+        id: `connection_${ulid()}`,
+        catalogId: entry.id,
+        name: body.displayName ?? entry.name,
+        status: "connected",
+        createdAt: new Date().toISOString(),
+      };
+      this.connections.push(connection);
+      this.appendEvent({
+        ts: connection.createdAt,
+        type: "connector.connected",
+        payload: { connectionId: connection.id, catalogId: entry.id, name: connection.name },
+      });
+      return sendJson(res, 201, { connection });
+    }
+    if (method === "GET" && path === "/api/connectors/connections") {
+      return sendJson(res, 200, { connections: this.connections });
+    }
+    if (method === "DELETE" && path.match(/^\/api\/connectors\/connections\/[^/]+$/)) {
+      const id = path.split("/")[4]!;
+      const connection = this.connections.find((c) => c.id === id);
+      if (!connection) return sendJson(res, 404, { error: "not_found" });
+      this.connections = this.connections.filter((c) => c.id !== id);
+      for (const [i, bot] of SEED_BOTS.entries()) {
+        if (!bot.connectors.includes(id)) continue;
+        const patch = { connectors: bot.connectors.filter((c) => c !== id) };
+        SEED_BOTS[i] = { ...bot, ...patch };
+        this.appendEvent({
+          ts: new Date().toISOString(),
+          type: "bot.updated",
+          botId: bot.id,
+          payload: { patch, bot: SEED_BOTS[i] },
+        });
+      }
+      this.appendEvent({
+        ts: new Date().toISOString(),
+        type: "connector.disconnected",
+        payload: { connectionId: id, catalogId: connection.catalogId },
+      });
+      return sendJson(res, 200, { ok: true });
+    }
+    if (method === "GET" && path.match(/^\/api\/bots\/[^/]+\/connectors$/)) {
+      const bot = SEED_BOTS.find((b) => b.id === path.split("/")[3]);
+      if (!bot) return sendJson(res, 404, { error: "not_found" });
+      return sendJson(res, 200, { connectors: bot.connectors });
+    }
+    if (method === "PUT" && path.match(/^\/api\/bots\/[^/]+\/connectors$/)) {
+      const botId = path.split("/")[3]!;
+      const idx = SEED_BOTS.findIndex((b) => b.id === botId);
+      if (idx < 0) return sendJson(res, 404, { error: "not_found" });
+      const body = await readJson<{ connectors?: string[] }>(req);
+      const connectors = [...new Set(body.connectors ?? [])];
+      const unknown = connectors.filter((c) => !this.connections.some((x) => x.id === c));
+      if (unknown.length > 0) {
+        return sendJson(res, 400, {
+          error: "unknown_connection",
+          reason: `unknown connection(s): ${unknown.join(", ")}`,
+        });
+      }
+      const patch = { connectors };
+      SEED_BOTS[idx] = { ...SEED_BOTS[idx]!, ...patch };
+      this.appendEvent({
+        ts: new Date().toISOString(),
+        type: "bot.updated",
+        botId,
+        payload: { patch, bot: SEED_BOTS[idx] },
+      });
+      return sendJson(res, 200, { connectors });
     }
     if (method === "GET" && path === "/api/routines") {
       return sendJson(res, 200, { routines: this.routines });

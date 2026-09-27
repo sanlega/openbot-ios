@@ -114,8 +114,6 @@ function patchFor(
       return { codex: { ok: result.ok, mode: "api_key" } };
     case "codex_login":
       return { codex: { ok: result.ok, mode: "login" } };
-    case "composio":
-      return { composio: { ok: result.ok } };
     case "tailscale":
       return { tailscale: { ok: result.ok } };
     case "cloudflare":

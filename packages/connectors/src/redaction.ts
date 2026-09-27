@@ -3,7 +3,7 @@ const REDACTED = "[REDACTED]";
 /** Patterns that commonly appear in connector/API secrets. */
 const SECRET_PATTERNS = [
   /\bsk-[A-Za-z0-9_-]{8,}\b/g,
-  /\bcomposio_[A-Za-z0-9_-]{8,}\b/gi,
+  /\b(gh[pousr]_|github_pat_)[A-Za-z0-9_]{16,}\b/g,
   /\b(api[_-]?key|token|secret|password|authorization)\s*[:=]\s*["']?[^\s"',}{]+/gi,
   /\bBearer\s+[A-Za-z0-9._-]+\b/gi,
 ];

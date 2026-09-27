@@ -83,7 +83,6 @@ export interface SetupValidateRequest {
     | "openai"
     | "claude_login"
     | "codex_login"
-    | "composio"
     | "tailscale"
     | "cloudflare";
   value?: string;
@@ -220,13 +219,6 @@ export interface SettingsPatch {
 }
 
 export type AppScreen =
-  | "bots"
-  | "activity"
-  | "audit"
-  | "routines"
-  | "connectors"
-  | "settings"
-  | "devices"
-  | "computer";
+  "bots" | "activity" | "audit" | "routines" | "connectors" | "settings" | "devices" | "computer";
 
 export type ThreadPanel = "chat" | "computer" | "profile";

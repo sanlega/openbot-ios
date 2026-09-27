@@ -159,6 +159,15 @@ export class PermissionBroker {
     );
   }
 
+  /**
+   * Always creates an approval card, for callers whose own rules already decided
+   * the user must confirm (e.g. a destructive computer step). Built-in denies
+   * still win: check `evaluate` first.
+   */
+  requireApproval(req: BrokerRequest, reason: string): BrokerDecision {
+    return this.ask(req, reason);
+  }
+
   private ask(req: BrokerRequest, reason: string): BrokerDecision {
     const expiresAt = new Date(
       this.opts.clock.now().getTime() + (this.opts.approvalTimeoutMs ?? APPROVAL_TIMEOUT_MS),

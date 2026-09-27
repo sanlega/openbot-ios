@@ -1,42 +1,53 @@
-import type { McpServerSpec } from "./engine-driver.js";
+/**
+ * Connectors (D-019): MCP servers the user connects once and assigns per Bot.
+ * Shapes of `/api/connectors/*` (plan `2026-09-28-connectors.md`, "API contract").
+ */
 
-/** Plan §4.6 (WS10 implements; WS4/WS12 consume). */
+export type ConnectorKind = "remote" | "local";
+export type ConnectorAuth = "none" | "token" | "oauth";
+export type ConnectorSource = "curated" | "community";
 
-export interface CatalogApp {
-  id: string;
-  name: string;
-  description?: string;
+/** One value the user enters when connecting (a token, a folder, an OAuth client id…). */
+export interface ConnectorSetupField {
+  key: string;
+  label: string;
+  help?: string;
+  /** Secret values live only in the vault; never in the DB, events, or logs. */
+  secret: boolean;
+  placeholder?: string;
+  /** Required unless `optional` is true. */
+  optional?: boolean;
 }
 
-/** Provider-side view of a connection, distinct from the persisted `Connection` entity in `entities.ts`. */
-export interface ProviderConnection {
+export interface ConnectorToolInfo {
+  name: string;
+  /** Write tools go through the permission broker (approval card); reads do not. */
+  write: boolean;
+}
+
+export interface CatalogEntry {
+  /** `curated:<slug>` or `registry:<registry server name>`. */
   id: string;
-  appId: string;
-  displayName: string;
+  name: string;
+  publisher: string;
+  category: string;
+  description: string;
+  kind: ConnectorKind;
+  auth: ConnectorAuth;
+  setup?: { fields: ConnectorSetupField[]; docsUrl?: string; steps?: string[] };
+  tools?: ConnectorToolInfo[];
+  /** First-party curated entry; registry (community) entries are always `false`. */
+  verified: boolean;
+  connected: boolean;
+  /** First matching connection when `connected`. */
+  connectionId?: string;
+}
+
+/** `GET /api/connectors/connections` item. */
+export interface ConnectionView {
+  id: string;
+  catalogId: string;
+  name: string;
   status: "connected" | "disconnected" | "error";
-}
-
-export interface TriggerDef {
-  slug: string;
-  name: string;
-  description?: string;
-}
-
-export interface ConnectorProvider {
-  /** `'mcp' | 'composio' | string`. */
-  id: string;
-  validateKey?(key: string): Promise<{ ok: boolean }>;
-  searchCatalog(q: string, page?: number): Promise<CatalogApp[]>;
-  connect(appId: string): Promise<{ authUrl?: string; connectionId: string }>;
-  listConnections(): Promise<ProviderConnection[]>;
-  mcpServerFor(botId: string, connectionIds: string[]): Promise<McpServerSpec>;
-  toolMeta(connectionId: string): Promise<Record<string, { sideEffect: boolean }>>;
-  listTriggers?(connectionId: string): Promise<TriggerDef[]>;
-  /** Outbound only — no inbound port needed. Returns an unsubscribe function. */
-  subscribeTrigger?(
-    connectionId: string,
-    slug: string,
-    config: unknown,
-    onEvent: (e: { id: string; payload: unknown }) => void,
-  ): Promise<() => void>;
+  createdAt: string;
 }

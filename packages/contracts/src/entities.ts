@@ -223,7 +223,8 @@ export type Device = z.infer<typeof Device>;
 
 export const Connection = z.object({
   id: z.string(),
-  provider: z.enum(["mcp", "composio"]),
+  provider: z.enum(["mcp"]),
+  /** Catalogue id the connection was made from (`curated:…` or `registry:…`). */
   appId: z.string(),
   displayName: z.string(),
   status: z.enum(["connected", "disconnected", "error"]),
@@ -407,7 +408,6 @@ export const SetupState = z.object({
   typesafe: z.object({ ok: z.boolean() }).optional(),
   claude: z.object({ ok: z.boolean(), mode: z.enum(["login", "api_key"]).optional() }).optional(),
   codex: z.object({ ok: z.boolean(), mode: z.enum(["login", "api_key"]).optional() }).optional(),
-  composio: z.object({ ok: z.boolean() }).optional(),
   tailscale: z.object({ ok: z.boolean() }).optional(),
   cloudflare: z.object({ ok: z.boolean() }).optional(),
   completedAt: isoTimestamp().optional(),

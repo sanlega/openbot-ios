@@ -16,7 +16,8 @@ import {
 import { createCoreContext, loadConfig, type CoreContext } from "@openbot/core";
 import { CapCounterService, DEFAULT_AUTONOMY_CAPS } from "@openbot/cos";
 import { FakeDecisionService } from "@openbot/decisions";
-import { SessionTokenService } from "@openbot/mcp";
+import { wireConnectors } from "@openbot/connectors";
+import { ConnectorMcpComposer, SessionTokenService } from "@openbot/mcp";
 import { createRuntime, InMemoryEventSink, type Runtime } from "@openbot/runtime";
 import { RepoChainStore, RepoMessageStore, RepoTurnStore } from "./bootstrap.js";
 import { createTurnMailbox, RepoSessionStore } from "./turn-mailbox.js";
@@ -24,6 +25,9 @@ import { createTurnMailbox, RepoSessionStore } from "./turn-mailbox.js";
 /** Records every turn it gets, replies "done", and reports a stable session id. */
 class RecordingDriver implements EngineDriver {
   readonly inputs: TurnInput[] = [];
+  /** Tools to ask permission for in each turn (like an engine's approval hook). */
+  askFor: string[] = [];
+  readonly decisions = new Map<string, "allow" | "deny" | "pending">();
   constructor(
     readonly id: "claude" | "codex",
     private readonly models: string[],
@@ -39,6 +43,12 @@ class RecordingDriver implements EngineDriver {
   }
   startTurn(input: TurnInput, hooks: TurnHooks): TurnHandle {
     this.inputs.push(input);
+    for (const toolName of this.askFor) {
+      this.decisions.set(toolName, "pending");
+      void hooks
+        .requestApproval({ toolName, input: {}, toolUseId: toolName })
+        .then((d) => this.decisions.set(toolName, d));
+    }
     hooks.emit({ type: "text_delta", text: `done by ${this.id}` });
     const done: Promise<TurnResult> = Promise.resolve({
       sessionId: `${this.id}-session`,
@@ -68,6 +78,7 @@ async function setup(drivers: { claude?: RecordingDriver; codex?: RecordingDrive
   });
   ctx.decisionService = new FakeDecisionService();
   const core = ctx;
+  const connectors = wireConnectors(core);
   const runtime: Runtime = createRuntime({
     decisions: ctx.decisionService,
     drivers,
@@ -88,7 +99,7 @@ async function setup(drivers: { claude?: RecordingDriver; codex?: RecordingDrive
     drivers,
     autonomyCaps: DEFAULT_AUTONOMY_CAPS,
     caps: new CapCounterService(core.clock),
-    mcp: () => ({ tokens }),
+    mcp: () => ({ tokens, connectors: new ConnectorMcpComposer(core) }),
   });
 
   function addBot(overrides: Partial<Bot> = {}): { bot: Bot; threadId: string } {
@@ -123,7 +134,7 @@ async function setup(drivers: { claude?: RecordingDriver; codex?: RecordingDrive
     for (let i = 0; i < 20; i++) await new Promise((r) => setImmediate(r));
   }
 
-  return { core, runtime, mailbox, tokens, addBot, settle };
+  return { core, runtime, mailbox, tokens, connectors, addBot, settle };
 }
 
 describe("createTurnMailbox (message.send → engine turn)", () => {
@@ -223,6 +234,50 @@ describe("createTurnMailbox (message.send → engine turn)", () => {
     expect(
       await mailbox.enqueue({ botId: bot.id, threadId: "thr_other", text: "x" }),
     ).toMatchObject({ ok: false, reason: expect.stringContaining("thread") });
+  });
+});
+
+describe("connectors in turns", () => {
+  it("injects only the Bot's assigned connections", async () => {
+    const claude = new RecordingDriver("claude", ["claude-sonnet"]);
+    const { mailbox, connectors, addBot, settle } = await setup({ claude });
+    const fs = await connectors.connect({
+      catalogId: "curated:filesystem",
+      values: { FOLDER: "/tmp/shared" },
+    });
+    const { bot: withFs } = addBot({ connectors: [fs.id] });
+    const { bot: without } = addBot();
+
+    await mailbox.enqueue({ botId: withFs.id, text: "list files" });
+    await settle();
+    await mailbox.enqueue({ botId: without.id, text: "list files" });
+    await settle();
+
+    expect(claude.inputs.map((i) => i.mcpServers.map((s) => s.name))).toEqual([
+      ["openbot", "filesystem"],
+      ["openbot"],
+    ]);
+    expect(claude.inputs[0]!.mcpServers[1]!.args).toContain("/tmp/shared");
+  });
+
+  it("sends connector writes to an approval card and lets reads run", async () => {
+    const claude = new RecordingDriver("claude", ["claude-sonnet"]);
+    claude.askFor = ["mcp__filesystem__read_text_file", "mcp__filesystem__write_file"];
+    const { runtime, mailbox, connectors, addBot, settle } = await setup({ claude });
+    const fs = await connectors.connect({
+      catalogId: "curated:filesystem",
+      values: { FOLDER: "/tmp/shared" },
+    });
+    const { bot } = addBot({ connectors: [fs.id] });
+
+    await mailbox.enqueue({ botId: bot.id, text: "tidy up" });
+    await settle();
+
+    expect(claude.decisions.get("mcp__filesystem__read_text_file")).toBe("allow");
+    expect(claude.decisions.get("mcp__filesystem__write_file")).toBe("pending");
+    const pending = runtime.approvals.listPending();
+    expect(pending).toHaveLength(1);
+    expect(pending[0]).toMatchObject({ kind: "connector_action", botId: bot.id });
   });
 });
 

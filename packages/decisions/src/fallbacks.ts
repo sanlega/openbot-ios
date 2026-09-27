@@ -42,6 +42,8 @@ export function conservativeFallbackAnswers(
       return conservativeRiskAnswers(questions);
     case "trigger":
       return { matches_trigger: { type: "noul", noul: 0 } };
+    case "computer":
+      return conservativeComputerAnswers(questions);
     case "loop":
       return {
         is_loop: { type: "noul", noul: 0.8 },
@@ -52,6 +54,28 @@ export function conservativeFallbackAnswers(
         Object.entries(questions).map(([id, question]) => [id, synthesizeAnswer(question)]),
       );
   }
+}
+
+/**
+ * Without Jev the computer loop must not act: every choice comes back with zero
+ * confidence (the "human" band), so the loop stops and escalates instead of
+ * clicking whatever option happened to be listed first.
+ */
+function conservativeComputerAnswers(
+  questions: Record<string, JevQuestion>,
+): Record<string, JevAnswer> {
+  const answers: Record<string, JevAnswer> = {};
+  for (const [id, question] of Object.entries(questions)) {
+    if (question.type === "choice") {
+      const choice = id === "op" ? "wait" : id === "target_index" ? "none" : "";
+      answers[id] = { type: "choice", choice, confidence: 0, probabilities: {} };
+    } else if (question.type === "noul") {
+      answers[id] = { type: "noul", noul: 1 };
+    } else {
+      answers[id] = synthesizeAnswer(question);
+    }
+  }
+  return answers;
 }
 
 function conservativeSpawnAnswers(

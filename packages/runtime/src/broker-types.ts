@@ -4,7 +4,7 @@ export type BrokerActionKind = "tool" | "computer_action" | "connector_action" |
  * A generic description of one action a Bot wants to take, independent of
  * which workstream originated it (WS4's tool handlers, WS9's fast loop, etc.).
  * The permission broker (plan §4.1 E6/§5 WS2) never needs to know about MCP,
- * Playwright, or Composio directly — only this shape.
+ * Playwright, or connector servers directly — only this shape.
  */
 export interface BrokerRequest {
   botId: string;

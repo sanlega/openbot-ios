@@ -47,14 +47,16 @@ export class DarwinLocalDriver implements LocalDriver {
         if (!action.text) return { ok: false, reason: "type requires text" };
         await this.shell.run("osascript", [
           "-e",
-          `tell application "System Events" to keystroke "${action.text.replace(/"/g, '\\"')}"`,
+          `tell application "System Events" to keystroke ${appleScriptString(action.text)}`,
         ]);
         return { ok: true };
       case "key":
-        if (action.text) {
+        {
+          const code = MAC_KEY_CODES[action.text ?? ""];
+          if (code === undefined) return { ok: false, reason: `unknown key: ${action.text}` };
           await this.shell.run("osascript", [
             "-e",
-            `tell application "System Events" to key code ${action.text}`,
+            `tell application "System Events" to key code ${code}`,
           ]);
         }
         return { ok: true };
@@ -83,4 +85,12 @@ export class DarwinLocalDriver implements LocalDriver {
     if (result.code !== 0) return { ok: false, reason: result.stderr || "osascript click failed" };
     return { ok: true };
   }
+}
+
+/** Logical key names (see COMPUTER_KEYS) → macOS virtual key codes. */
+const MAC_KEY_CODES: Record<string, number> = { Enter: 36, Return: 36, Tab: 48, Escape: 53 };
+
+/** An AppleScript string literal: backslashes and quotes escaped, so typed text can't break out. */
+export function appleScriptString(text: string): string {
+  return `"${text.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }

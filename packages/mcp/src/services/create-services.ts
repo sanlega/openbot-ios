@@ -27,7 +27,7 @@ export function createMcpServices(ctx: CoreContext, deps: McpServiceDeps): McpTo
       runtime: deps.runtime,
       caps: deps.caps,
     }),
-    computer: new McpComputerServiceAdapter(ctx),
+    computer: new McpComputerServiceAdapter(ctx, deps.runtime),
     routines: new McpRoutineServiceAdapter(ctx, deps.orchestrator),
     connectors: new ConnectorMcpComposer(ctx),
   };

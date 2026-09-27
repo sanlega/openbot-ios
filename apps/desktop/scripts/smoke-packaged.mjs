@@ -81,7 +81,6 @@ async function main() {
     OPENBOT_FAKE_JEV: "1",
     OPENBOT_FAKE_ENGINES: "1",
     OPENBOT_FAKE_COMPUTER: "1",
-    OPENBOT_FAKE_COMPOSIO: "1",
     OPENBOT_PWA_STATIC_ROOT: pwaStatic,
     NODE_PATH: join(extractDir, "node_modules"),
   };

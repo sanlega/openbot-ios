@@ -3,23 +3,22 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { FakeClock } from "@openbot/testkit";
 import { createCoreContext, type CoreContext } from "@openbot/core";
-import { wireConnectors, type ConnectorService } from "./index.js";
-import type { MockComposioClient } from "./composio/mock-client.js";
+import type { DefaultConnectorService } from "./connector-service.js";
+import { MockMcpRegistryClient, type McpRegistryClient } from "./mcp-registry.js";
+import { wireConnectors } from "./wire.js";
 
 export interface ConnectorTestContext {
   ctx: CoreContext;
-  service: ConnectorService;
-  composioClient: MockComposioClient;
+  service: DefaultConnectorService;
   clock: FakeClock;
   cleanup: () => Promise<void>;
 }
 
 export async function createConnectorTestContext(options?: {
-  composioClient?: MockComposioClient;
+  registry?: McpRegistryClient;
 }): Promise<ConnectorTestContext> {
   const openbotHome = await mkdtemp(join(tmpdir(), "openbot-connectors-test-"));
   const clock = new FakeClock(new Date("2026-01-01T00:00:00.000Z"));
-  const composioKey = "composio_test_key_12345678";
 
   const ctx = await createCoreContext({
     clock,
@@ -41,14 +40,13 @@ export async function createConnectorTestContext(options?: {
     },
   });
 
-  const { MockComposioClient } = await import("./composio/mock-client.js");
-  const composioClient = options?.composioClient ?? new MockComposioClient(composioKey);
-  const service = await wireConnectors(ctx, { composioClient, composioApiKey: composioKey });
+  const service = wireConnectors(ctx, {
+    registry: options?.registry ?? new MockMcpRegistryClient([]),
+  });
 
   return {
     ctx,
     service,
-    composioClient,
     clock,
     cleanup: async () => {
       ctx.closeDb();

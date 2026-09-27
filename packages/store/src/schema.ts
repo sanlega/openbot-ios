@@ -327,6 +327,7 @@ export const setupState = sqliteTable("setup_state", {
   typesafe: text("typesafe", { mode: "json" }).$type<{ ok: boolean }>(),
   claude: text("claude", { mode: "json" }).$type<{ ok: boolean; mode?: string }>(),
   codex: text("codex", { mode: "json" }).$type<{ ok: boolean; mode?: string }>(),
+  /** Unused since D-019 (hosted connector provider removed); kept to avoid a migration. */
   composio: text("composio", { mode: "json" }).$type<{ ok: boolean }>(),
   tailscale: text("tailscale", { mode: "json" }).$type<{ ok: boolean }>(),
   cloudflare: text("cloudflare", { mode: "json" }).$type<{ ok: boolean }>(),

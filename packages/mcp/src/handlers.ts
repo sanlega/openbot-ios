@@ -22,6 +22,8 @@ const SIDE_EFFECT_TOOLS = new Set([
   "cancel_input",
   "request_approval",
   "computer_task",
+  "computer_steer",
+  "computer_cancel",
   "create_routine",
   "update_routine",
   "run_routine",
@@ -97,6 +99,12 @@ export class ToolRouter {
         return this.services.runtime.requestApproval(session, parsed.data as never);
       case "computer_task":
         return this.services.computer.computerTask(session, parsed.data as never);
+      case "computer_status":
+        return this.services.computer.computerStatus(session, parsed.data as never);
+      case "computer_steer":
+        return this.services.computer.computerSteer(session, parsed.data as never);
+      case "computer_cancel":
+        return this.services.computer.computerCancel(session, parsed.data as never);
       case "computer_screenshot":
         return this.services.computer.computerScreenshot(session);
       case "create_routine":

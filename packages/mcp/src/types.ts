@@ -69,7 +69,35 @@ export interface ComputerTaskInput {
   goal: string;
   startUrl?: string;
   maxSteps?: number;
+  /** Text for fields, keyed by field label (e.g. {"Search": "openbot"}). */
+  inputs?: Record<string, string>;
+  /** How long to wait for the task before returning its progress (default 20 s, max 60). */
+  waitSeconds?: number;
 }
+
+export interface ComputerStatusInput {
+  taskId: string;
+  waitSeconds?: number;
+}
+
+export interface ComputerSteerInput {
+  taskId: string;
+  instruction?: string;
+  text?: string;
+  waitSeconds?: number;
+}
+
+/** What the engine sees about a running or finished computer task. */
+export type ComputerTaskView = {
+  taskId: string;
+  status: string;
+  steps: number;
+  summary?: string;
+  /** Set when the task waits for text: answer with computer_steer({taskId, text}). */
+  needsText?: string;
+  recentSteps: string[];
+  page?: { url?: string; title?: string };
+};
 
 export interface CreateRoutineInput {
   name: string;

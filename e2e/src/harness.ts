@@ -30,8 +30,8 @@ export interface TestHarness {
 }
 
 /**
- * Starts `openbot serve` on a random loopback port with fake engines, a fake
- * computer and fake Composio. Jev is the in-process fake unless `jev` points
+ * Starts `openbot serve` on a random loopback port with fake engines and a
+ * fake computer. Jev is the in-process fake unless `jev` points
  * the server at an HTTP endpoint (the real `DecisionService` then runs).
  */
 /** A port the OS says is free right now (random ports collided when tests run in parallel). */
@@ -58,7 +58,8 @@ export async function startTestHarness(options: HarnessOptions = {}): Promise<Te
     PORT: String(port),
     OPENBOT_FAKE_ENGINES: "1",
     OPENBOT_FAKE_COMPUTER: "1",
-    OPENBOT_FAKE_COMPOSIO: "1",
+    // Community catalogue: never reach the public MCP Registry from tests.
+    OPENBOT_MCP_REGISTRY_URL: "http://127.0.0.1:9",
     ...(jev.kind === "fake"
       ? { OPENBOT_FAKE_JEV: "1", JEV_API_KEY: "" }
       : { OPENBOT_FAKE_JEV: "", JEV_API_KEY: jev.apiKey, JEV_BASE_URL: jev.url }),

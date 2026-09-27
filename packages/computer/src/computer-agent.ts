@@ -58,7 +58,12 @@ export class ComputerAgentImpl implements ComputerAgent {
     });
 
     return {
-      status: result.status === "takeover" ? "escalated" : result.status,
+      status:
+        result.status === "takeover"
+          ? "escalated"
+          : result.status === "cancelled"
+            ? "failed"
+            : result.status,
       steps: result.steps,
       usd: estimateUsd(result.steps),
       summary: result.summary,

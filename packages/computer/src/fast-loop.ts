@@ -8,18 +8,21 @@ import type {
   Screen,
 } from "@openbot/contracts";
 import { bandForAnswer } from "@openbot/decisions";
-import { buildComputerQuestions } from "@openbot/decisions";
+import { buildComputerQuestions, COMPUTER_KEYS } from "@openbot/decisions";
 import { buildDecisionState } from "@openbot/decisions";
 import type { ComputerActionBroker } from "./broker.js";
 import { DefaultComputerActionBroker } from "./broker.js";
 import { isSensitiveLabel } from "./sensitive-target.js";
 
-export type StepOutcome = "executed" | "escalated" | "blocked" | "done" | "takeover" | "denied";
+export type StepOutcome =
+  "executed" | "escalated" | "blocked" | "done" | "takeover" | "denied" | "cancelled";
 
 export interface ComputerStepEvent {
   step: number;
   observation: Observation;
   action?: Action;
+  /** Label of the element the action targeted, for timelines. */
+  targetLabel?: string;
   decisionId?: string;
   opBand?: Band;
   targetBand?: Band;
@@ -44,14 +47,22 @@ export interface FastLoopOptions {
   startUrl?: string;
   broker?: ComputerActionBroker;
   onStep?: (event: ComputerStepEvent) => void;
-  /** LLM hook for free-text entry when Jev picks `type` (plan §4.5). */
+  /**
+   * Text for a `type` step. Jev picks the field; the engine that started the task
+   * authors the text (Jev has no free-text output). May wait for the engine to
+   * answer; resolving `null` escalates the task.
+   */
   textForType?: (ctx: TypeTextContext) => Promise<string | null>;
+  /** Extra instructions the engine added while the task runs (steering). */
+  instructions?: () => string[];
+  /** Checked before every step; true stops the loop as cancelled. */
+  shouldStop?: () => boolean;
   /** Same observation hash repeated this many times triggers escalation. */
   stallThreshold?: number;
 }
 
 export interface FastLoopResult {
-  status: "completed" | "failed" | "escalated" | "takeover";
+  status: "completed" | "failed" | "escalated" | "takeover" | "cancelled";
   steps: number;
   lastObservation?: Observation;
   summary?: string;
@@ -59,6 +70,7 @@ export interface FastLoopResult {
 
 const DEFAULT_MAX_STEPS = 50;
 const DEFAULT_STALL_THRESHOLD = 3;
+const RECENT_STEPS_IN_STATE = 6;
 
 export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopResult> {
   const {
@@ -73,22 +85,33 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
     broker: optionsBroker,
     onStep,
     textForType,
+    instructions,
+    shouldStop,
     stallThreshold = DEFAULT_STALL_THRESHOLD,
   } = options;
 
   const broker = optionsBroker ?? new DefaultComputerActionBroker();
+  const recent: string[] = [];
+  const remember = (line: string) => {
+    recent.push(line);
+    if (recent.length > RECENT_STEPS_IN_STATE) recent.shift();
+  };
 
   if (startUrl) {
     const nav = await screen.act({ op: "navigate", url: startUrl });
     if (!nav.ok) {
       return { status: "failed", steps: 0, summary: nav.reason ?? "navigation failed" };
     }
+    remember(`opened ${startUrl}`);
   }
 
   let steps = 0;
   const observationHashes: string[] = [];
 
   while (steps < maxSteps) {
+    if (shouldStop?.()) {
+      return { status: "cancelled", steps, summary: "cancelled" };
+    }
     steps += 1;
     const observation = await screen.observe();
     const hash = hashObservation(observation);
@@ -99,19 +122,17 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
         step: steps,
         observation,
         outcome: "escalated",
-        reason: "stall: observation unchanged",
+        reason: "The page stopped changing, so I stopped to avoid repeating myself.",
       };
       onStep?.(event);
-      return {
-        status: "escalated",
-        steps,
-        lastObservation: observation,
-        summary: event.reason,
-      };
+      return { status: "escalated", steps, lastObservation: observation, summary: event.reason };
     }
 
+    const extra = instructions?.() ?? [];
     const state = buildDecisionState({
       goal,
+      ...(extra.length > 0 ? { instructions: extra } : {}),
+      ...(recent.length > 0 ? { recent_steps: [...recent] } : {}),
       url: observation.url,
       title: observation.title,
       observed_elements: observation.elements.map((el) => ({
@@ -124,11 +145,11 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
 
     const indices = observation.elements.map((el) => String(el.index));
     const questions = buildComputerQuestions(indices);
-    const decision = await decisionService.decide({
-      purpose: "computer",
-      state,
-      questions,
-    });
+    const decision = await decisionService.decide({ purpose: "computer", state, questions });
+
+    if (shouldStop?.()) {
+      return { status: "cancelled", steps, lastObservation: observation, summary: "cancelled" };
+    }
 
     const opAnswer = decision.answers.op;
     const targetAnswer = decision.answers.target_index;
@@ -139,8 +160,20 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
     const op = parseChoice(opAnswer, "wait") as ActionOp;
     const targetChoice = parseChoice(targetAnswer, "none");
 
-    if (op === "done") {
+    if (decision.provider !== "jev" && opBand === "human") {
       const event: ComputerStepEvent = {
+        step: steps,
+        observation,
+        decisionId: decision.decisionId,
+        outcome: "escalated",
+        reason: "Jev is unavailable, so I stopped instead of guessing.",
+      };
+      onStep?.(event);
+      return { status: "escalated", steps, lastObservation: observation, summary: event.reason };
+    }
+
+    if (op === "done") {
+      onStep?.({
         step: steps,
         observation,
         action: { op: "done" },
@@ -148,8 +181,7 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
         opBand,
         targetBand,
         outcome: "done",
-      };
-      onStep?.(event);
+      });
       return {
         status: "completed",
         steps,
@@ -166,15 +198,10 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
         action: { op: "blocked" },
         decisionId: decision.decisionId,
         outcome: "takeover",
-        reason: "blocked — user takeover requested",
+        reason: "This step needs you (login, 2FA, CAPTCHA, or payment). Take over the screen.",
       };
       onStep?.(event);
-      return {
-        status: "takeover",
-        steps,
-        lastObservation: observation,
-        summary: event.reason,
-      };
+      return { status: "takeover", steps, lastObservation: observation, summary: event.reason };
     }
 
     if (opBand === "human" || (targetChoice !== "none" && targetBand === "human")) {
@@ -185,15 +212,10 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
         opBand,
         targetBand,
         outcome: "escalated",
-        reason: "confidence below confirm band",
+        reason: "I wasn't sure what to do next on this page.",
       };
       onStep?.(event);
-      return {
-        status: "escalated",
-        steps,
-        lastObservation: observation,
-        summary: event.reason,
-      };
+      return { status: "escalated", steps, lastObservation: observation, summary: event.reason };
     }
 
     const targetIndex = targetChoice === "none" ? undefined : Number.parseInt(targetChoice, 10);
@@ -202,32 +224,63 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
         ? observation.elements.find((el) => el.index === targetIndex)
         : undefined;
 
+    // A target must be something that was actually observed on this page.
+    if (targetIndex !== undefined && !targetElement) {
+      const event: ComputerStepEvent = {
+        step: steps,
+        observation,
+        decisionId: decision.decisionId,
+        outcome: "escalated",
+        reason: "The chosen element isn't on the page.",
+      };
+      onStep?.(event);
+      return { status: "escalated", steps, lastObservation: observation, summary: event.reason };
+    }
+
     const sensitiveLabel = targetElement ? isSensitiveLabel(targetElement.label) : false;
     const isDestructive =
       destructiveAnswer?.type === "noul" ? destructiveAnswer.noul >= 0.5 : false;
 
-    let action: Action = { op, target: targetIndex, text: undefined };
-    if (op === "type") {
-      const text = textForType
-        ? await textForType({ goal, observation, target: targetElement })
-        : null;
-      if (!text) {
+    let action: Action = { op, target: targetIndex };
+    if (op === "key") {
+      const key = parseChoice(decision.answers.key_name, "Enter");
+      action = { op, text: (COMPUTER_KEYS as readonly string[]).includes(key) ? key : "Enter" };
+    } else if (op === "scroll") {
+      action = {
+        op,
+        text: parseChoice(decision.answers.scroll_direction, "down") === "up" ? "up" : "down",
+      };
+    } else if (op === "type") {
+      if (!targetElement) {
         const event: ComputerStepEvent = {
           step: steps,
           observation,
           decisionId: decision.decisionId,
+          outcome: "escalated",
+          reason: "I needed a field to type into and couldn't find one.",
+        };
+        onStep?.(event);
+        return { status: "escalated", steps, lastObservation: observation, summary: event.reason };
+      }
+      const text = textForType
+        ? await textForType({ goal, observation, target: targetElement })
+        : null;
+      if (shouldStop?.()) {
+        return { status: "cancelled", steps, lastObservation: observation, summary: "cancelled" };
+      }
+      if (!text) {
+        const event: ComputerStepEvent = {
+          step: steps,
+          observation,
+          targetLabel: targetElement.label,
+          decisionId: decision.decisionId,
           opBand,
           targetBand,
           outcome: "escalated",
-          reason: "type action needs text from engine",
+          reason: `I needed text for "${targetElement.label}" and didn't get it.`,
         };
         onStep?.(event);
-        return {
-          status: "escalated",
-          steps,
-          lastObservation: observation,
-          summary: event.reason,
-        };
+        return { status: "escalated", steps, lastObservation: observation, summary: event.reason };
       }
       action = { ...action, text };
     }
@@ -246,9 +299,10 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
         step: steps,
         observation,
         action,
+        targetLabel: targetElement?.label,
         decisionId: decision.decisionId,
         outcome: "denied",
-        reason: "broker denied action",
+        reason: "You denied this step.",
       };
       onStep?.(event);
       return { status: "failed", steps, lastObservation: observation, summary: event.reason };
@@ -258,17 +312,13 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
         step: steps,
         observation,
         action,
+        targetLabel: targetElement?.label,
         decisionId: decision.decisionId,
         outcome: "blocked",
-        reason: "approval required",
+        reason: "This step needs your approval.",
       };
       onStep?.(event);
-      return {
-        status: "escalated",
-        steps,
-        lastObservation: observation,
-        summary: "approval card required",
-      };
+      return { status: "escalated", steps, lastObservation: observation, summary: event.reason };
     }
 
     const result = await screen.act(action);
@@ -278,9 +328,10 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
         step: steps,
         observation,
         action,
+        targetLabel: targetElement?.label,
         decisionId: decision.decisionId,
         outcome: "takeover",
-        reason: result.reason ?? "provider blocked",
+        reason: result.reason ?? "The computer needs you to take over.",
       };
       onStep?.(event);
       return { status: "takeover", steps, lastObservation: observation, summary: event.reason };
@@ -291,23 +342,21 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
         step: steps,
         observation,
         action,
+        targetLabel: targetElement?.label,
         decisionId: decision.decisionId,
         outcome: "escalated",
-        reason: result.reason ?? "act failed",
+        reason: result.reason ?? "The action failed.",
       };
       onStep?.(event);
-      return {
-        status: "escalated",
-        steps,
-        lastObservation: observation,
-        summary: event.reason,
-      };
+      return { status: "escalated", steps, lastObservation: observation, summary: event.reason };
     }
 
+    remember(describeAction(action, targetElement));
     onStep?.({
       step: steps,
       observation,
       action,
+      targetLabel: targetElement?.label,
       decisionId: decision.decisionId,
       opBand,
       targetBand,
@@ -320,8 +369,23 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
     status: "escalated",
     steps,
     lastObservation,
-    summary: "maxSteps reached",
+    summary: `Stopped after ${steps} steps without finishing.`,
   };
+}
+
+/** A short line Jev sees next step, so it doesn't redo what just happened. */
+function describeAction(action: Action, target?: ObservedElement): string {
+  const what = target ? ` "${target.label}"` : "";
+  switch (action.op) {
+    case "type":
+      return `typed into${what}`;
+    case "key":
+      return `pressed ${action.text ?? "a key"}`;
+    case "scroll":
+      return `scrolled ${action.text ?? "down"}`;
+    default:
+      return `${action.op}${what}`;
+  }
 }
 
 function parseChoice(

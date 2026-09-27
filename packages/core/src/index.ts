@@ -38,4 +38,10 @@ export { runDoctor, type DoctorCheck, type DoctorReport } from "./doctor.js";
 export { buildServer } from "./http/server.js";
 export type { BuildServerOptions } from "./http/server.js";
 export { requireAuth, requireOwner, isLoopback } from "./http/auth.js";
-export type { ConnectorService, ConnectorConnectInput } from "./connector-service.js";
+export {
+  ConnectorError,
+  type ConnectorService,
+  type ConnectorConnectInput,
+  type ConnectorErrorCode,
+  type ConnectorToolClass,
+} from "./connector-service.js";

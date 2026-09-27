@@ -76,8 +76,8 @@ reaches into another package's internals directly.
 
 Key paths:
 - `packages/contracts` — shared zod schemas/types (bots, threads, messages, chains,
-  approvals, routines, events, `EngineDriver`, `DecisionService`, `Computer`,
-  `ConnectorProvider` SPIs) plus fixtures. Changing this needs a coordinator-reviewed
+  approvals, routines, events, connector catalogue shapes, `EngineDriver`,
+  `DecisionService`, `Computer` SPIs) plus fixtures. Changing this needs a coordinator-reviewed
   PR (see `.ai/memory/plans/openbot-v1.md` §4).
 - `packages/store` — SQLite schema, Drizzle migrations (`migrations/0000_init.sql` = all v1 tables),
   repositories.
@@ -101,7 +101,7 @@ Key paths:
   tokens per turn, tool definitions (base vs CoS-only tools), per-turn MCP config
   composer.
 - `packages/testkit` — fake clock, fake trigger source, conformance helpers.
-- `packages/connectors` — `ConnectorProvider` SPI: raw MCP + MCP Registry, Composio.
+- `packages/connectors` — connector service: curated MCP catalogue, MCP Registry (community), per-Bot MCP servers.
 - `packages/remote` — pairing, device crypto, E2E framing, Tailscale/Cloudflare
   managers.
 - `packages/routines` — scheduler, trigger sources, run orchestration, dry-run

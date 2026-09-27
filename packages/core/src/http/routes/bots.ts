@@ -180,8 +180,19 @@ export function registerBotRoutes(app: FastifyInstance, ctx: CoreContext): void 
     if (!ctx.repos.bots.getById(id)) return reply.code(404).send({ error: "not_found" });
     const body = parseOrReject(BotConnectorsBody, request.body, reply);
     if (!body) return;
-    ctx.repos.bots.update(id, { connectors: body.connectors });
-    return { connectors: body.connectors };
+    const connectors = [...new Set(body.connectors)];
+    const unknown = connectors.filter((c) => !ctx.repos.connections.getById(c));
+    if (unknown.length > 0) {
+      return reply.code(400).send({
+        error: "unknown_connection",
+        reason: `unknown connection(s): ${unknown.join(", ")}`,
+      });
+    }
+    const patch = { connectors };
+    ctx.repos.bots.update(id, patch);
+    const bot = ctx.repos.bots.getById(id);
+    await ctx.eventBus.publish({ type: "bot.updated", botId: id, payload: { patch, bot } });
+    return { connectors };
   });
 }
 

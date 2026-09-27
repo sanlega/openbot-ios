@@ -128,7 +128,7 @@ export async function bootstrapHarness(
   };
   ctx.computerProvider = options.computerProvider ?? providers.computerProvider;
 
-  await wireConnectors(ctx);
+  wireConnectors(ctx);
   await attachRemoteServices(ctx);
   await registerRemoteIntegration(app, ctx, getPwaStaticRoot());
 

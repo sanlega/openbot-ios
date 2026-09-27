@@ -1,6 +1,9 @@
 import type { Bot, McpServerSpec } from "@openbot/contracts";
 import type {
+  ComputerStatusInput,
+  ComputerSteerInput,
   ComputerTaskInput,
+  ComputerTaskView,
   CreateBotInput,
   CreateRoutineInput,
   MessageUserInput,
@@ -46,7 +49,19 @@ export interface McpComputerService {
   computerTask(
     session: SessionContext,
     input: ComputerTaskInput,
-  ): Promise<ToolResult<{ taskId: string; status: string; steps: number }>>;
+  ): Promise<ToolResult<ComputerTaskView>>;
+  computerStatus(
+    session: SessionContext,
+    input: ComputerStatusInput,
+  ): Promise<ToolResult<ComputerTaskView>>;
+  computerSteer(
+    session: SessionContext,
+    input: ComputerSteerInput,
+  ): Promise<ToolResult<ComputerTaskView>>;
+  computerCancel(
+    session: SessionContext,
+    input: { taskId: string },
+  ): Promise<ToolResult<ComputerTaskView>>;
   computerScreenshot(session: SessionContext): Promise<ToolResult<{ screenshotPath: string }>>;
 }
 

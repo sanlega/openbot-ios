@@ -1,6 +1,7 @@
 import { newId, type Bot, type McpServerSpec } from "@openbot/contracts";
 import type {
   ComputerTaskInput,
+  ComputerTaskView,
   CreateBotInput,
   CreateRoutineInput,
   MessageUserInput,
@@ -127,12 +128,34 @@ export class FakeComputerService implements McpComputerService {
   async computerTask(
     session: SessionContext,
     input: ComputerTaskInput,
-  ): Promise<ToolResult<{ taskId: string; status: string; steps: number }>> {
+  ): Promise<ToolResult<ComputerTaskView>> {
     this.taskCalls.push({ session, input });
+    const taskId = newId("computerTask");
     if (session.mode === "dry_run") {
-      return allowed({ taskId: newId("computerTask"), status: "simulated", steps: 0 });
+      return allowed({ taskId, status: "simulated", steps: 0, recentSteps: [] });
     }
-    return allowed({ taskId: newId("computerTask"), status: "completed", steps: 3 });
+    return allowed({ taskId, status: "completed", steps: 3, recentSteps: [] });
+  }
+
+  async computerStatus(
+    _session: SessionContext,
+    input: { taskId: string },
+  ): Promise<ToolResult<ComputerTaskView>> {
+    return allowed({ taskId: input.taskId, status: "completed", steps: 3, recentSteps: [] });
+  }
+
+  async computerSteer(
+    _session: SessionContext,
+    input: { taskId: string },
+  ): Promise<ToolResult<ComputerTaskView>> {
+    return allowed({ taskId: input.taskId, status: "running", steps: 1, recentSteps: [] });
+  }
+
+  async computerCancel(
+    _session: SessionContext,
+    input: { taskId: string },
+  ): Promise<ToolResult<ComputerTaskView>> {
+    return allowed({ taskId: input.taskId, status: "cancelled", steps: 1, recentSteps: [] });
   }
 
   async computerScreenshot(

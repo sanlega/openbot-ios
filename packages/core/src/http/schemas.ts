@@ -102,7 +102,6 @@ export const SetupValidateBody = z.object({
     "openai",
     "claude_login",
     "codex_login",
-    "composio",
     "tailscale",
     "cloudflare",
   ]),
@@ -137,26 +136,11 @@ export const BotConnectorsBody = z.object({
 });
 
 export const ConnectConnectorBody = z.object({
-  provider: z.enum(["mcp", "composio"]),
-  appId: z.string().min(1),
-  displayName: z.string().optional(),
-  mcpConfig: z
-    .object({
-      transport: z.enum(["stdio", "http"]),
-      command: z.string().optional(),
-      args: z.array(z.string()).optional(),
-      url: z.string().optional(),
-      env: z.record(z.string(), z.string()).optional(),
-    })
-    .optional(),
+  catalogId: z.string().min(1),
+  values: z.record(z.string(), z.string()).default({}),
+  displayName: z.string().trim().min(1).max(80).optional(),
 });
 export type ConnectConnectorBody = z.infer<typeof ConnectConnectorBody>;
-
-export const OAuthCompleteBody = z.object({
-  state: z.string().optional(),
-  code: z.string().optional(),
-});
-export type OAuthCompleteBody = z.infer<typeof OAuthCompleteBody>;
 
 export const TakeoverBody = z.object({
   on: z.boolean(),

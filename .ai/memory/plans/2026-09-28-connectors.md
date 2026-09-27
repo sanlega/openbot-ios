@@ -82,7 +82,7 @@ the Docker sandbox; any change resets approval).
 | 6 | Slice 3: custom connectors, then bot-drafted tools behind approval | unit + E2E |
 
 Progress:
-- [ ] T1 · [ ] T2 · [ ] T3 · [ ] T4 · [ ] T5 · [ ] T6
+- [x] T1 · [x] T2 · [x] T3 · [ ] T4 · [ ] T5 · [ ] T6
 
 ## Risks
 

@@ -67,14 +67,7 @@ export interface CoreRepos {
 
 /** Setup-wizard validation kinds (plan §4.7 `setup/validate`). */
 export type SetupValidatorKind =
-  | "typesafe"
-  | "anthropic"
-  | "openai"
-  | "claude_login"
-  | "codex_login"
-  | "composio"
-  | "tailscale"
-  | "cloudflare";
+  "typesafe" | "anthropic" | "openai" | "claude_login" | "codex_login" | "tailscale" | "cloudflare";
 
 export type SetupValidator = (value?: string) => Promise<{ ok: boolean; reason?: string }>;
 

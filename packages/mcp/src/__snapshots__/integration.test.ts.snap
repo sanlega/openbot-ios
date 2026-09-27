@@ -72,6 +72,24 @@ exports[`McpComposer > snapshots tool input schemas 1`] = `
     ],
   },
   {
+    "name": "computer_status",
+    "required": [
+      "taskId",
+    ],
+  },
+  {
+    "name": "computer_steer",
+    "required": [
+      "taskId",
+    ],
+  },
+  {
+    "name": "computer_cancel",
+    "required": [
+      "taskId",
+    ],
+  },
+  {
     "name": "computer_screenshot",
     "required": [],
   },

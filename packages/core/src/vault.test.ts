@@ -42,12 +42,14 @@ describe("FileVault", () => {
       const vault = new FileVault(vaultPath, keyPath);
 
       await vault.set("anthropic.apiKey", "sk-ant-abc123");
-      await vault.set("composio.token", "composio-xyz789");
-      expect(new Set(await vault.list())).toEqual(new Set(["anthropic.apiKey", "composio.token"]));
+      await vault.set("connection.test.token", "connector-xyz789");
+      expect(new Set(await vault.list())).toEqual(
+        new Set(["anthropic.apiKey", "connection.test.token"]),
+      );
 
-      await vault.delete("composio.token");
+      await vault.delete("connection.test.token");
       expect(await vault.list()).toEqual(["anthropic.apiKey"]);
-      expect(await vault.get("composio.token")).toBeUndefined();
+      expect(await vault.get("connection.test.token")).toBeUndefined();
 
       const { readFile } = await import("node:fs/promises");
       const raw = await readFile(vaultPath, "utf8").catch(() => undefined as unknown as string);

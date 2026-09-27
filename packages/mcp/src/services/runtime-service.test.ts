@@ -116,4 +116,50 @@ describe("McpRuntimeServiceAdapter.permissionPrompt", () => {
     }
     expect(runtime.approvals.listPending()).toHaveLength(0);
   });
+
+  it("classifies connector tools: catalogue writes get a card, reads run", async () => {
+    const { runtime, service, session } = await setup();
+    const classify = (write: boolean, action: string) => ({
+      kind: "connector_action" as const,
+      action,
+      target: "GitHub",
+      sideEffect: write,
+      readOnly: !write,
+      summary: `GitHub: ${action}`,
+    });
+    harness!.ctx.connectorService = {
+      catalog: async () => ({ entries: [] }),
+      connect: async () => {
+        throw new Error("unused");
+      },
+      listConnections: () => [],
+      disconnect: async () => false,
+      mcpServersForBot: async () => [],
+      classifyTool: (botId, toolName) =>
+        botId !== session.botId
+          ? undefined
+          : toolName === "mcp__github__issue_write"
+            ? classify(true, "issue_write")
+            : toolName === "mcp__github__list_issues"
+              ? classify(false, "list_issues")
+              : undefined,
+    };
+
+    expect(
+      await service.permissionPrompt(session, { tool_name: "mcp__github__list_issues", input: {} }),
+    ).toEqual({ allowed: true, behavior: "allow" });
+    expect(runtime.approvals.listPending()).toHaveLength(0);
+
+    const write = service.permissionPrompt(session, {
+      tool_name: "mcp__github__issue_write",
+      input: { title: "Bug" },
+    });
+    const approvalId = await pendingApprovalId(runtime);
+    expect(runtime.approvals.get(approvalId)).toMatchObject({
+      kind: "connector_action",
+      summary: "GitHub: issue_write",
+    });
+    runtime.broker.resolveApproval(approvalId, "deny");
+    expect(await write).toEqual({ allowed: true, behavior: "deny" });
+  });
 });

@@ -161,6 +161,9 @@ export function createTurnBuilder(ctx: CoreContext, deps: TurnMailboxDeps): Turn
       engine: choice.engine,
       chainId,
       threadId,
+      // Connector tools (engine approval hooks): catalogue writes are side effects.
+      classifyApproval: (r) =>
+        ctx.connectorService?.classifyTool(bot.id, r.toolName, r.input) ?? {},
       prepareTurn: async (turnId) => {
         const mcp = deps.mcp();
         if (!mcp) throw new Error("OpenBot MCP tools are not ready yet");
