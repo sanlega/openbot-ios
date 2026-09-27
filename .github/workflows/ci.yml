@@ -40,11 +40,16 @@ jobs:
       - name: Format check
         run: pnpm format:check
 
-      - name: Typecheck
-        run: pnpm typecheck
-
+      # Build before typecheck: `tsc -p ... --noEmit` on a downstream package with
+      # TS project `references` needs its upstream packages' `dist/*.d.ts` to
+      # already exist (TS6305) on a fresh checkout with no dist/ committed. `pnpm
+      # build` runs topologically and emits those first; a bare `pnpm typecheck`
+      # on a clean tree fails on any package two or more hops from a leaf.
       - name: Build
         run: pnpm build
+
+      - name: Typecheck
+        run: pnpm typecheck
 
       - name: Test
         run: pnpm test

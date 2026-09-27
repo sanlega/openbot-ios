@@ -47,8 +47,57 @@ export class BotsRepo {
     return row ? toBot(row) : undefined;
   }
 
-  list(): Bot[] {
-    return this.db.select().from(bots).all().map(toBot);
+  getBySlug(slug: string): Bot | undefined {
+    const row = this.db.select().from(bots).where(eq(bots.slug, slug)).get();
+    return row ? toBot(row) : undefined;
+  }
+
+  list(options: { includeHidden?: boolean; includeArchived?: boolean } = {}): Bot[] {
+    return this.db
+      .select()
+      .from(bots)
+      .all()
+      .map(toBot)
+      .filter((bot) => options.includeHidden || !bot.hidden)
+      .filter((bot) => options.includeArchived || !bot.archivedAt);
+  }
+
+  /** Partial update (plan §4.7 `bots`: CRUD). Immutable fields (`id`, `slug`, `createdBy`) are never patched here. */
+  update(
+    id: string,
+    patch: Partial<
+      Omit<Bot, "id" | "slug" | "createdBy" | "justification" | "limits"> & {
+        limits?: Bot["limits"];
+      }
+    >,
+  ): void {
+    this.db
+      .update(bots)
+      .set({
+        ...(patch.name !== undefined ? { name: patch.name } : {}),
+        ...(patch.label !== undefined ? { label: patch.label } : {}),
+        ...(patch.description !== undefined ? { description: patch.description } : {}),
+        ...(patch.avatar !== undefined ? { avatar: patch.avatar } : {}),
+        ...(patch.pinned !== undefined ? { pinned: patch.pinned } : {}),
+        ...(patch.hidden !== undefined ? { hidden: patch.hidden } : {}),
+        ...(patch.lastActiveAt !== undefined ? { lastActiveAt: new Date(patch.lastActiveAt) } : {}),
+        ...(patch.routing !== undefined ? { routing: patch.routing } : {}),
+        ...(patch.auth !== undefined ? { auth: patch.auth } : {}),
+        ...(patch.permissionPreset !== undefined
+          ? { permissionPreset: patch.permissionPreset }
+          : {}),
+        ...(patch.computer !== undefined ? { computer: patch.computer } : {}),
+        ...(patch.connectors !== undefined ? { connectors: patch.connectors } : {}),
+        ...(patch.limits !== undefined
+          ? { dailyUsd: patch.limits.dailyUsd, dailyTokens: patch.limits.dailyTokens }
+          : {}),
+      })
+      .where(eq(bots.id, id))
+      .run();
+  }
+
+  archive(id: string, at: Date): void {
+    this.db.update(bots).set({ archivedAt: at }).where(eq(bots.id, id)).run();
   }
 }
 
