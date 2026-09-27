@@ -136,6 +136,22 @@ export const BotConnectorsBody = z.object({
   connectors: z.array(z.string()),
 });
 
+export const ConnectConnectorBody = z.object({
+  provider: z.enum(["mcp", "composio"]),
+  appId: z.string().min(1),
+  displayName: z.string().optional(),
+  mcpConfig: z
+    .object({
+      transport: z.enum(["stdio", "http"]),
+      command: z.string().optional(),
+      args: z.array(z.string()).optional(),
+      url: z.string().optional(),
+      env: z.record(z.string(), z.string()).optional(),
+    })
+    .optional(),
+});
+export type ConnectConnectorBody = z.infer<typeof ConnectConnectorBody>;
+
 export const TakeoverBody = z.object({
   on: z.boolean(),
 });

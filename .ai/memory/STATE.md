@@ -1,8 +1,25 @@
 # Estado actual
 
-_Última actualización: 2026-09-27 por cursor (continuación WS1)_
+_Última actualización: 2026-09-27 por cursor (WS10 connector catalog)_
 
 ## En curso
+- Rama `cursor/ws10-connector-catalog-a747` (apilada sobre WS1; PR pendiente),
+  **WS10 completo** según el plan §5:
+  - `packages/connectors` (`@openbot/connectors`) ✅: `ConnectorProvider` SPI con
+    `McpProvider` (Registry + manual stdio/HTTP, secretos en vault),
+    `ComposioProvider` (validateKey, catálogo, OAuth pendiente, MCP por bot,
+    `sideEffect` en toolMeta, triggers outbound vía `subscribeTrigger`),
+    `DefaultConnectorService` (agregador extensible a Pipedream),
+    `wireConnectors()` (validador `composio` del wizard + `ctx.connectorService`).
+  - Integración mínima en WS1: `CoreContext.connectorService`,
+    rutas `/api/connectors/*` ya no devuelven 501 cuando `wireConnectors` corre;
+    `apps/server` llama `wireConnectors` en `openbot serve`.
+  - `packages/store`: `ConnectionsRepo.update()` para toolMeta/triggers tras OAuth.
+  - Tests: mock Composio (herramientas + trigger stream), fixture MCP stdio,
+    grep de redacción sobre DB/vault/NDJSON; live Composio opt-in
+    (`OPENBOT_COMPOSIO_LIVE=1` + `COMPOSIO_API_KEY`).
+  - 212 tests workspace en verde (`format:check`/`lint`/`typecheck`/`build`/`test`/`mh check`).
+  - Sin cambios a `@openbot/contracts`.
 - Rama `cursor/ws1-core-harness-09d8` (apilada sobre WS0; PR
   https://github.com/sanlega/OpenBot/pull/3, lista para review), **WS1
   completo** según el plan §5:
