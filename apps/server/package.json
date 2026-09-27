@@ -24,6 +24,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@openbot/connectors": "workspace:*",
     "@openbot/contracts": "workspace:*",
     "@openbot/core": "workspace:*",
     "@openbot/mcp": "workspace:*",

@@ -29,6 +29,7 @@ import { DeviceAuth, generateDeviceSecret } from "./device-auth.js";
 import { EventBus } from "./event-bus.js";
 import { NdjsonWriter, NullNdjsonWriter } from "./ndjson-writer.js";
 import { FileVault, type Vault } from "./vault.js";
+import type { ConnectorService } from "./connector-service.js";
 
 /** One instance of every WS1 repository, sharing the same `Db` handle. */
 export interface CoreRepos {
@@ -87,6 +88,8 @@ export interface CoreContext {
   decisionService?: DecisionService;
   /** Wired in by WS9; computer status/start/live-view/takeover routes 501 until this is set. */
   computerProvider?: ComputerProvider;
+  /** Wired in by WS10; connector catalog/connect/triggers routes 501 until this is set. */
+  connectorService?: ConnectorService;
   /** Setup-wizard validators for engine/connector/remote kinds; WS3/WS10/WS11 register theirs at boot. */
   validators: Partial<Record<SetupValidatorKind, SetupValidator>>;
 }

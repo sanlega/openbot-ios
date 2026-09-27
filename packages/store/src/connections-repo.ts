@@ -37,6 +37,13 @@ export class ConnectionsRepo {
     this.db.update(connections).set({ status }).where(eq(connections.id, id)).run();
   }
 
+  update(
+    id: string,
+    patch: Partial<Pick<Connection, "status" | "toolMeta" | "triggers" | "displayName">>,
+  ): void {
+    this.db.update(connections).set(patch).where(eq(connections.id, id)).run();
+  }
+
   delete(id: string): void {
     this.db.delete(connections).where(eq(connections.id, id)).run();
   }

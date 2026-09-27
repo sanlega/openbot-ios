@@ -6,6 +6,7 @@ import {
   resolveBindHost,
   runDoctor,
 } from "@openbot/core";
+import { wireConnectors } from "@openbot/connectors";
 import { integrateMcp } from "@openbot/mcp";
 
 const USAGE = "Usage: openbot <serve|doctor|pair> [options]";
@@ -33,6 +34,7 @@ export async function runCli(argv: string[]): Promise<void> {
 
 async function serve(): Promise<void> {
   const ctx = await createCoreContext();
+  wireConnectors(ctx);
   const app = await buildServer(ctx);
   await integrateMcp(app, ctx);
   const host = resolveBindHost(computeBindHostFlags(ctx));

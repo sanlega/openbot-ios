@@ -10,8 +10,12 @@ declare module "fastify" {
 
 const LOOPBACK_ADDRESSES = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
 
-function isLoopback(ip: string): boolean {
+export function isLoopback(ip: string): boolean {
   return LOOPBACK_ADDRESSES.has(ip);
+}
+
+function isLoopbackIp(ip: string): boolean {
+  return isLoopback(ip);
 }
 
 /**
@@ -52,6 +56,15 @@ export function requireOwner(request: FastifyRequest, reply: FastifyReply): bool
   if (!requireAuth(request, reply)) return false;
   if (request.device?.role !== "owner") {
     reply.code(403).send({ error: "forbidden", reason: "owner device required" });
+    return false;
+  }
+  return true;
+}
+
+/** OAuth browser callbacks must arrive on loopback only — never expose off-host. */
+export function requireLoopback(request: FastifyRequest, reply: FastifyReply): boolean {
+  if (!isLoopbackIp(request.ip)) {
+    reply.code(403).send({ error: "forbidden", reason: "oauth callback requires loopback" });
     return false;
   }
   return true;
