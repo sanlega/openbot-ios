@@ -96,6 +96,7 @@ jobs:
           OPENBOT_FAKE_ENGINES: "1"
           OPENBOT_FAKE_COMPUTER: "1"
           OPENBOT_FAKE_COMPOSIO: "1"
+          OPENBOT_HARNESS_NODE: "1"
 
       - name: Desktop Playwright smoke
         if: runner.os != 'Linux'
@@ -105,6 +106,7 @@ jobs:
           OPENBOT_FAKE_ENGINES: "1"
           OPENBOT_FAKE_COMPUTER: "1"
           OPENBOT_FAKE_COMPOSIO: "1"
+          OPENBOT_HARNESS_NODE: "1"
 
   integration-e2e:
     name: integration e2e

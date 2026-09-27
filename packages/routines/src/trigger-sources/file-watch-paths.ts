@@ -1,4 +1,9 @@
-import { resolve } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
+
+function isUnderRoot(candidate: string, root: string): boolean {
+  const rel = relative(root, candidate);
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
 import type { Routine } from "@openbot/contracts";
 import type { CoreContext } from "@openbot/core";
 
@@ -31,7 +36,7 @@ export function resolveWatchPath(
 
   for (const candidate of candidates) {
     const normalized = resolve(candidate);
-    if (roots.some((root) => normalized === root || normalized.startsWith(`${root}/`))) {
+    if (roots.some((root) => isUnderRoot(normalized, root))) {
       return normalized;
     }
   }

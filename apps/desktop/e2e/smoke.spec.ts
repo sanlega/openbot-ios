@@ -19,6 +19,7 @@ test.describe("OpenBot desktop shell", () => {
         OPENBOT_FAKE_ENGINES: "1",
         OPENBOT_FAKE_COMPUTER: "1",
         OPENBOT_FAKE_COMPOSIO: "1",
+        OPENBOT_HARNESS_NODE: "1",
         ELECTRON_DISABLE_SECURITY_WARNINGS: "true",
       },
     });

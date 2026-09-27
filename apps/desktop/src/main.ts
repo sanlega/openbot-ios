@@ -21,7 +21,7 @@ import {
   harnessBaseUrl,
   harnessWsUrl,
 } from "./config.js";
-import { HarnessHost } from "./harness-host.js";
+import { createNodeForkFactory, HarnessHost } from "./harness-host.js";
 import { HarnessEventStream } from "./event-stream.js";
 import { Vault } from "./vault.js";
 import { parseDeepLink } from "./deep-link.js";
@@ -102,7 +102,7 @@ function startHarness(): void {
   harnessHost = new HarnessHost({
     port,
     openbotHome,
-    fork: utilityProcess,
+    fork: process.env.OPENBOT_HARNESS_NODE === "1" ? createNodeForkFactory() : utilityProcess,
   });
   harnessHost.start();
 }

@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadConfig, resolveBindHost } from "./config.js";
 
@@ -29,11 +30,12 @@ describe("resolveBindHost", () => {
 
 describe("loadConfig", () => {
   it("derives every data-dir path under OPENBOT_HOME", () => {
-    const config = loadConfig({ env: { OPENBOT_HOME: "/tmp/example-home" } });
-    expect(config.openbotHome).toBe("/tmp/example-home");
-    expect(config.dbPath.startsWith("/tmp/example-home")).toBe(true);
-    expect(config.vaultPath.startsWith("/tmp/example-home")).toBe(true);
-    expect(config.vaultKeyPath.startsWith("/tmp/example-home")).toBe(true);
+    const home = join("tmp", "example-home");
+    const config = loadConfig({ env: { OPENBOT_HOME: home } });
+    expect(config.openbotHome).toBe(home);
+    expect(config.dbPath.startsWith(home)).toBe(true);
+    expect(config.vaultPath.startsWith(home)).toBe(true);
+    expect(config.vaultKeyPath.startsWith(home)).toBe(true);
   });
 
   it("defaults the port to 4577 and respects PORT", () => {

@@ -1,3 +1,4 @@
+import { fork as nodeFork } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
@@ -34,6 +35,28 @@ const require = createRequire(import.meta.url);
 export function resolveServerEntryPath(): string {
   const indexPath = require.resolve("@openbot/server");
   return join(dirname(indexPath), "main.js");
+}
+
+/** Node child_process fork for CI/tests where Electron's utilityProcess ABI breaks native modules. */
+export function createNodeForkFactory(): UtilityProcessFactory {
+  return {
+    fork(modulePath, args, options) {
+      const child = nodeFork(modulePath, args ?? [], {
+        env: options?.env as NodeJS.ProcessEnv,
+        stdio: "inherit",
+      });
+      return {
+        on(event, listener) {
+          if (event === "spawn") child.on("spawn", () => listener());
+          if (event === "exit") child.on("exit", (code) => listener(code));
+        },
+        kill: () => {
+          child.kill();
+        },
+        pid: child.pid,
+      };
+    },
+  };
 }
 
 /** Spawns the harness in an Electron `utilityProcess` and restarts it after unexpected exits. */
