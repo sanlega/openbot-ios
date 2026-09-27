@@ -1,6 +1,8 @@
-import type { Bot, EngineId } from "@openbot/contracts";
+import type { Bot, EngineId, ModelInfo } from "@openbot/contracts";
 import type { CoreContext } from "@openbot/core";
+import { listClaudeModelsForKey } from "@openbot/engines-claude";
 import type { EngineChooser, TurnMailboxDeps } from "./turn-mailbox.js";
+import { VAULT_KEYS } from "./providers.js";
 
 /**
  * When the CoS creates a Bot, Jev picks its engine and model once, from what the
@@ -34,14 +36,22 @@ export function pinModelOnSpawn(ctx: CoreContext, chooseEngine: EngineChooser): 
 }
 
 /** Every available engine's models, for the profile's model picker. */
-export function modelLister(deps: TurnMailboxDeps) {
+export function modelLister(
+  ctx: CoreContext,
+  deps: TurnMailboxDeps,
+  fetchClaudeModels: typeof listClaudeModelsForKey = listClaudeModelsForKey,
+) {
   return async () => {
     const engines = (Object.keys(deps.drivers) as EngineId[]).filter((e) => deps.drivers[e]);
     return Promise.all(
-      engines.map(async (engine) => ({
-        engine,
-        models: (await deps.drivers[engine]?.listModels()) ?? [],
-      })),
+      engines.map(async (engine): Promise<{ engine: EngineId; models: ModelInfo[] }> => {
+        if (engine === "claude") {
+          const apiKey =
+            process.env.ANTHROPIC_API_KEY || (await ctx.vault.get(VAULT_KEYS.anthropic));
+          if (apiKey) return { engine, models: (await fetchClaudeModels(apiKey)).models };
+        }
+        return { engine, models: (await deps.drivers[engine]?.listModels()) ?? [] };
+      }),
     );
   };
 }

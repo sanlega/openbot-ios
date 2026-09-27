@@ -122,7 +122,7 @@ export async function bootstrapHarness(
   ctx.mailbox = createTurnMailbox(ctx, turnDeps, buildTurn);
   wakeOnBotMessages(ctx, turnDeps, buildTurn);
   pinModelOnSpawn(ctx, createEngineChooser(ctx, turnDeps));
-  ctx.listModels = modelLister(turnDeps);
+  ctx.listModels = modelLister(ctx, turnDeps);
   ctx.onApprovalResolved = (approvalId, resolution) => {
     runtime.broker.settleResolved(approvalId, resolution);
     applyRoutineLiveApproval(ctx, approvalId, resolution);

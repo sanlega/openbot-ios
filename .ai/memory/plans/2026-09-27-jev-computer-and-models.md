@@ -51,7 +51,10 @@ Progress:
 - [x] T1: all 18 branch heads rewritten and scanned. GitHub pull refs 1–16 remain stale and require Support purge before the repo can safely become public.
 - [x] T2/T3: research complete; see `reports/Control Jev y modelos disponibles.md` and `research_notes/Control Jev y modelos/`.
 - [x] T4: safe boundary established: Jev makes bounded typed decisions; OpenBot observes/acts through Computer SPI and permissions broker.
-- [x] T5 (partial): Codex driver now calls the authenticated app-server `model/list`, maps visible IDs and labels, paginates, and retains its bundled catalog on unsupported/error responses. Added driver coverage. Claude API-key catalog and UI error/source status remain to implement.
+- [x] T5 (partial): Codex driver calls authenticated app-server `model/list`; Claude's
+  `/api/models` now calls Anthropic Models API when an API key is available from the
+  environment or vault. CLI-login mode uses bundled Claude aliases. Focused tests cover
+  key vs CLI catalog selection. UI source metadata remains outside this slice.
 - [x] T5 (computer): `ComputerTaskManager` runs tasks in the background;
   MCP `computer_task` (returns progress after `waitSeconds`), `computer_status`,
   `computer_steer` (instruction and/or text), `computer_cancel`; engines author
@@ -59,9 +62,11 @@ Progress:
   risky steps create a real approval card (`PermissionBroker.requireApproval`)
   and wait; Jev failure never auto-acts; UI timeline with Stop and text entry;
   prompt block for bots with a computer. Remaining: live run with a real Jev key
-  and Docker desktop to tune questions and measure latency; Claude API-key model
-  list still to wire into `/api/models`.
-- [ ] T6: handoff remains to commit; local toolchain verification limited to Codex test/typecheck/format because remote current-head CI fails and shell default Node/pnpm are too old.
+  and Docker desktop to tune questions and measure latency.
+- [x] T6: state and session handoff updated; full local checks and desktop E2E pass using
+  Node 22.23.3. The installed desktop bundle was rebuilt and relaunched locally.
+- [ ] Manual Jev test with a real Jev key and Docker desktop remains; no real task was
+  started during this session.
 
 ## Risks
 
@@ -74,4 +79,4 @@ Progress:
 
 ## Open questions
 
-- Which exact Jev service/API is intended by “Jev can do it almost instantly”? Verify against official documentation before choosing a transport or tool shape.
+- Confirm the Jev Computer tab and real task latency with the owner in a live session.

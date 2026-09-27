@@ -38,12 +38,13 @@ _Last updated: 2026-09-28 by Claude_
   (open MCP only, Composio removed). UI done: Connectors screen (gallery,
   community, connected, connect dialog) and per-bot toggles in the profile.
   Backend T1–T3 (remove Composio, curated catalogue + routes, per-bot MCP
-  injection) is in progress as uncommitted changes in the working tree (CI
-  workflow, E2E harness, connectors, contracts, core, store). Do not commit them
-  until build, typecheck, lint, unit, and E2E pass.
+  injection) is committed on the branch. Plan T4 UI is also implemented; review its
+  acceptance checklist before marking complete. OAuth and custom connectors remain later
+  slices in that plan.
 - Also done: command palette (bots, screens, actions), "Waiting for your
-  approval" turn state, Claude Models API listing for API-key mode
-  (`listClaudeModelsForKey`, not yet wired into `/api/models`).
+  approval" turn state. Claude Models API discovery is wired into `/api/models`
+  for API-key mode. CLI-login bots retain bundled aliases because Claude Code
+  exposes no documented model-list endpoint for subscription OAuth.
 - Owner approved (2026-09-28): (1) pushing the branch — done, PR #18 head now
   includes the CI fix; CI result not visible from this shell (no `gh`); (2) a LAN
   mode for phone pairing. Design: owner toggle "Allow phones on this Wi-Fi" in
@@ -51,7 +52,8 @@ _Last updated: 2026-09-28 by Claude_
   harness), pairing QR lists private-range LAN IPv4s; non-loopback requests still
   need a paired device token and pairing still needs the QR secret. Starts after
   the connectors backend work lands (same packages).
-- Local commits on `claude/product-polish` are not pushed yet.
+- The working tree is clean aside from the current model catalog integration task;
+  local updates are committed and pushed when validated.
 
 ## Jev computer control (owner priority, 2026-09-28)
 - Implemented and pushed: background computer tasks the engine can follow,
@@ -63,6 +65,21 @@ _Last updated: 2026-09-28 by Claude_
 - Next: live test with a real Jev key + Docker desktop (tune question wording,
   measure latency, check Spanish pages), then consider streaming step events
   into the chat's turn steps.
+
+## Message sending / desktop diagnosis (2026-09-28)
+- The Chief's `o4-mini` turn stayed open after `turn.started`; OpenBot later restarted
+  and marked it `turn.interrupted` with "OpenBot restarted before this turn finished."
+  A subsequent Claude turn failed immediately with the Claude session-limit message.
+  There was no active turn left that continued to hold the composer.
+- Root cause of the long-running o4 attempt: the installed `OpenBot.app` was built at
+  00:25, before commit `aa028d1` at 00:34 fixed recursive `initialize` waiting in Codex
+  app-server startup. The current source has a regression test for initialize + `model/list`.
+- Rebuilt and installed the current app after backing up the previous bundle under
+  `~/openbot-backups/`. The new app's `/api/models` returns in 36 ms with seven Codex
+  models. `/api/computer/tasks` responds; the current task list is empty. The user's
+  Application Support data was not modified.
+- Jev task timeline and steer/stop controls live inside each bot's Computer tab. That tab
+  is shown only for Bots with computer access. No real task was launched during diagnosis.
 
 ## Product status
 - OpenBot is an early desktop preview for managing persistent Claude Code and Codex Bots.
@@ -100,8 +117,9 @@ _Last updated: 2026-09-28 by Claude_
 ## Known gaps
 - Real Claude/Codex and Jev credentials, Docker on other operating systems, and
   remote-provider integrations need broader manual testing.
-- Jev computer steering and account-aware Claude model discovery are researched but not
-  yet implemented. Codex discovery needs full CI after its local changes are pushed.
+- A real-key Jev + Docker live-use test remains. Current GitHub CI run 75 marked all jobs
+  failed, but the connector could not fetch job logs. Local tests/build/typecheck/format/
+  lint and desktop E2E pass.
 - The GitHub Support purge for closed PR refs and cached views remains outstanding; keep
   the repository private until resolved.
 - Desktop packages are unsigned and will show operating-system warnings.
