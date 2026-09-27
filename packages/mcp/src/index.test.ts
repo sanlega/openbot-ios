@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { PACKAGE_NAME } from "./index.js";
+import { OPENBOT_TOOL_DEFINITIONS } from "./index.js";
 
-describe("@openbot/mcp placeholder", () => {
-  it("exports its package name as a build/import smoke test", () => {
-    expect(PACKAGE_NAME).toBe("@openbot/mcp");
+describe("@openbot/mcp", () => {
+  it("exports OpenBot tool definitions for MCP discovery", () => {
+    expect(OPENBOT_TOOL_DEFINITIONS.map((t) => t.name)).toContain("message_user");
+    expect(OPENBOT_TOOL_DEFINITIONS.map((t) => t.name)).toContain("create_bot");
   });
 });

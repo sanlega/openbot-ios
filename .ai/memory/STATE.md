@@ -1,39 +1,76 @@
 # Estado actual
 
-_Última actualización: 2026-09-27 por cursor (WS3 builder)_
+_Última actualización: 2026-09-27 por cursor (WS4 MCP server)_
 
 ## En curso
-- Rama `cursor/ws3-engine-adapters-6820` (WS3, apilada sobre
-  `cursor/ws0-contracts-store-fakes-8d1e`): adaptadores de motor + auth.
-  - `@openbot/engines-common` ✅: `auth.ts`, resolución de CLI (incl. shims
-    `.cmd`), cargador de fixtures JSONL.
-  - `@openbot/engines-claude` ✅: `ClaudeDriver` (proceso stream-json de larga
-    duración, `--resume`, MCP + `permission_prompt`, steer/interrupt).
-  - `@openbot/engines-codex` ✅: `CodexDriver` + `CodexAppServer` compartido,
-    MCP por hilo vía `thread/start`, aprobaciones v2 `item/*/requestApproval`,
-    tipos generados + comprobación de deriva de esquema.
-  - `@openbot/engines-conformance` ✅: suite compartida + replays dorados de
-    fixtures; conformidad CLI real opt-in (`OPENBOT_E2E_REAL=1`).
-  - `packages/engines/DECISIONS.md` ✅ (E-WS3-001..003).
-  - 177 tests (169 pasando + 8 omitidos real-CLI); `format:check`/`lint`/
-    `typecheck`/`test`/`mh check` en verde en Linux.
-- Rama `cursor/ws0-contracts-store-fakes-8d1e` (PR #2, base apilada): WS0
-  completo (ver historial abajo).
-
-## Próximos pasos
-1. Abrir PR WS3 → `cursor/ws0-contracts-store-fakes-8d1e` (draft).
-2. Spike de seguimiento WS3 con credenciales reales antes de M1
-   (`OPENBOT_E2E_REAL=1`): aprobaciones, steer/interrupt en vivo, deltas
-   `--include-partial-messages`.
-3. WS2/WS1 pueden importar `ClaudeDriver`/`CodexDriver` cuando integren el
-   runtime y el wizard de setup.
-
-## Bloqueos / preguntas abiertas
-- Aprobaciones Codex/Claude en vivo no verificadas (spike sin credenciales);
-  drivers construidos contra esquemas + fixtures dorados.
-- CI real en matriz 3 SO pendiente de corrida en GitHub Actions.
-
-## Histórico WS0 (rama base)
+- Rama `cursor/ws4-mcp-server-d8cd` (apilada sobre WS1; PR pendiente),
+  **WS4 completo** según el plan §5:
+  - `packages/mcp` (`@openbot/mcp`) ✅: stdio shim (`openbot-mcp`),
+    `POST /internal/tools/:name` con token `X-OpenBot-Session`, handlers
+    §4.9 (`list_bots`, `get_bot_status`, `create_bot` CoS-only,
+    `send_message`, `message_user`, `request_approval`, `computer_task`,
+    `computer_screenshot`, rutinas, `report_done`, `permission_prompt`),
+    `McpComposer.forTurnAsync`, fakes para WS2/WS8/WS9/WS12.
+  - `apps/server`: `integrateMcp()` en `openbot serve`.
+  - 219 tests en el workspace (`pnpm lint typecheck build test`, `mh check`
+    en verde). Sin cambios a `@openbot/contracts`.
+  - Pendiente: cablear servicios reales cuando WS2/WS8/WS9/WS12 aterricen
+    (sustituir `createFakeMcpServices()`); test e2e shim→stdio con motor fake.
+- Rama `cursor/ws1-core-harness-09d8` (apilada sobre WS0; PR
+  https://github.com/sanlega/OpenBot/pull/3, lista para review), **WS1
+  completo** según el plan §5:
+  - `packages/store`: 17 repos nuevos (uno por entidad del plan que faltaba)
+    + `BotsRepo` extendido (`getBySlug`/`list`/`update`/`archive`). 37 tests.
+  - `packages/core` (`@openbot/core`) ✅: `config.ts` (`loadConfig`,
+    `resolveBindHost` — loopback por defecto, sólo se abre si remoto+device
+    auth están ambos activos), `vault.ts` (`FileVault` AES-256-GCM+0600,
+    `InMemoryVault`), `device-auth.ts` (token firmado stateless, D-018),
+    `event-bus.ts` (persist → NDJSON → fan-out, un `publish()` por evento),
+    `context.ts` (`CoreContext`, registro de servicios con campos
+    opcionales/enchufables para WS2/WS7/WS9/WS10/WS11/WS12, D-019),
+    `module-host.ts` (para que otros workstreams registren rutas/
+    validadores), `doctor.ts` (`openbot doctor`: CLIs de motor, Docker/
+    Podman, tailscale/cloudflared, permisos del directorio de datos).
+  - Client API (plan §4.7) completo en `packages/core/src/http/`: 10
+    módulos de rutas (`health`/`bots`/`threads`/`safety`/`devices`/
+    `settings-setup`/`computer`/`connectors`/`routines`/
+    `remote-and-audit`) + `server.ts` que los ensambla con
+    `@fastify/websocket`. CRUD real para bots/threads/messages/approvals/
+    rules/devices/routines/settings; lo que depende de un workstream no
+    aterrizado (DecisionService de WS7, ComputerProvider de WS9,
+    ConnectorProvider de WS10, orquestador de WS12) devuelve
+    `501 {error, reason}` en vez de fingir o lanzar 500.
+  - WebSocket `/api/ws` (`ws.ts`): `{subscribe, since}` sin huecos (probado
+    con un socket real, no `.inject()`); comando `approval.resolve`
+    implementado, `message.send`/`turn.stop`/`routine.run` responden
+    "not implemented" estructurado hasta que WS2/WS12 aterricen.
+  - `apps/server` (`@openbot/server`) ✅: `openbot serve|doctor|pair` real
+    (`cli.ts`), reemplaza el esqueleto mínimo de WS0.
+  - Los 5 criterios de aceptación de WS1 verificados con tests: CRUD
+    (`http/server.test.ts`), replay del WS sin huecos (`ws.test.ts`,
+    `event-bus.test.ts`), el harness nunca escucha más allá de loopback sin
+    remoto+device-auth (`config.test.ts`), un approver no puede cambiar caps
+    (`http/server.test.ts`), p95 publish→WS < 50ms (`ws.test.ts`). Estado
+    sobrevive un restart real (`restart.test.ts`) y el vault hace
+    round-trip (`vault.test.ts`, corre en las 3 SO vía la matriz de CI).
+  - `.github/workflows/ci.yml`: `Build` antes de `Typecheck` (D-017, bug
+    real de TS6305 en checkout limpio, no específico de WS1 pero
+    descubierto y arreglado en esta rama).
+  - 204 tests en 25 archivos, todo el workspace en verde
+    (`format:check`/`lint`/`typecheck`/`build`/`test`/`mh check`).
+  - Sin cambios a `@openbot/contracts` (ver el handoff de esta sesión para
+    el detalle del `DecisionService.route()` del plan que no existe en el
+    contrato real).
+  - Pendiente: un hook en `CoreContext` para que WS12 conecte el
+    orquestador de rutinas/turnos (hoy 501); `apps/desktop` (WS6) todavía no
+    consume `buildServer`/`createCoreContext`.
+- Rama `cursor/metaharness-bootstrap-8d1e` (PR 1 aún sin abrir, ver Bloqueos):
+  bootstrap de metaharness (`ADAPTERS="agents claude"`, contexto en inglés) +
+  herramientas del monorepo (pnpm 10 + Node 22, TypeScript 6.0.3, ESLint flat
+  config, Prettier, Vitest, CI de 3 SO). Plan copiado a
+  `.ai/memory/plans/openbot-v1.md`; decisiones D-001..D-014 registradas.
+- Rama `cursor/ws0-contracts-store-fakes-8d1e` (apilada sobre la anterior; PR 2
+  aún sin abrir, ver Bloqueos), WS0 en curso:
   - `packages/contracts` ✅: zod para todas las entidades del plan §4.1, el
     contrato de eventos §4.2 (`OBEvent`/`EventType`, 58 tipos con un fixture
     cada uno), las SPI `EngineDriver`/`ComputerProvider`/`ConnectorProvider`/
@@ -101,9 +138,15 @@ _Última actualización: 2026-09-27 por cursor (WS3 builder)_
 2. Tras la PR 2, abrir WS1-WS12 en paralelo (uno por workstream) contra los
    contratos y los falsos de WS0.
 
-## Bloqueos / preguntas abiertas (histórico)
+## Bloqueos / preguntas abiertas
 - **El PAT (`GH_TOKEN`) puede leer/empujar pero no crear pull requests.**
-  Acción pendiente del usuario: permiso "Pull requests" → "Read and write".
+  `gh pr create` y `POST /repos/sanlega/OpenBot/pulls` devuelven 403 con
+  cabecera `x-accepted-github-permissions: pull_requests=write`, es decir al
+  token le falta el permiso de **escritura** en "Pull requests" (aunque sí
+  puede leerlos). Acción pendiente del usuario: en la página de permisos del
+  PAT de grano fino, poner **"Pull requests" → "Read and write"** y guardar.
+  No bloquea el trabajo en las ramas (push/pull funcionan); solo bloquea abrir
+  las PRs. Se reintentará `gh pr create` en cuanto se corrija.
 - El WS3 (motores) tiene un spike sin credenciales ya hecho
   (`internal/engine-spike.md` en el store del proyecto); falta un spike de
   seguimiento con credenciales reales antes del cierre de M1 (no bloquea

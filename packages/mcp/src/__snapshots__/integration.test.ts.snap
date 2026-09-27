@@ -1,0 +1,96 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`McpComposer > snapshots tool input schemas 1`] = `
+[
+  {
+    "name": "list_bots",
+    "required": [],
+  },
+  {
+    "name": "get_bot_status",
+    "required": [
+      "bot",
+    ],
+  },
+  {
+    "name": "create_bot",
+    "required": [
+      "name",
+      "description",
+      "responsibility",
+      "why_not_existing",
+      "lifetime",
+      "boundary",
+      "user_requested",
+    ],
+  },
+  {
+    "name": "send_message",
+    "required": [
+      "bot",
+      "text",
+    ],
+  },
+  {
+    "name": "message_user",
+    "required": [
+      "kind",
+      "body",
+    ],
+  },
+  {
+    "name": "request_approval",
+    "required": [
+      "summary",
+      "detail",
+    ],
+  },
+  {
+    "name": "computer_task",
+    "required": [
+      "goal",
+    ],
+  },
+  {
+    "name": "computer_screenshot",
+    "required": [],
+  },
+  {
+    "name": "create_routine",
+    "required": [
+      "name",
+      "prompt",
+      "trigger",
+    ],
+  },
+  {
+    "name": "list_routines",
+    "required": [],
+  },
+  {
+    "name": "update_routine",
+    "required": [
+      "id",
+      "patch",
+    ],
+  },
+  {
+    "name": "run_routine",
+    "required": [
+      "id",
+    ],
+  },
+  {
+    "name": "report_done",
+    "required": [
+      "summary",
+    ],
+  },
+  {
+    "name": "permission_prompt",
+    "required": [
+      "tool_name",
+    ],
+  },
+]
+`;
