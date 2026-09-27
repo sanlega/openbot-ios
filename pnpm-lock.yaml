@@ -109,9 +109,15 @@ importers:
 
   apps/server:
     dependencies:
+      '@openbot/computer-docker':
+        specifier: workspace:*
+        version: link:../../packages/computer/docker
       '@openbot/computer-fake':
         specifier: workspace:*
         version: link:../../packages/computer/fake
+      '@openbot/computer-local':
+        specifier: workspace:*
+        version: link:../../packages/computer/local
       '@openbot/connectors':
         specifier: workspace:*
         version: link:../../packages/connectors
@@ -127,6 +133,15 @@ importers:
       '@openbot/decisions':
         specifier: workspace:*
         version: link:../../packages/decisions
+      '@openbot/engines-claude':
+        specifier: workspace:*
+        version: link:../../packages/engines/claude
+      '@openbot/engines-codex':
+        specifier: workspace:*
+        version: link:../../packages/engines/codex
+      '@openbot/engines-common':
+        specifier: workspace:*
+        version: link:../../packages/engines/common
       '@openbot/engines-fake':
         specifier: workspace:*
         version: link:../../packages/engines/fake
@@ -149,6 +164,9 @@ importers:
         specifier: 5.12.5
         version: 5.12.5
     devDependencies:
+      '@openbot/testkit':
+        specifier: workspace:*
+        version: link:../../packages/testkit
       '@types/node':
         specifier: 22.20.4
         version: 22.20.4

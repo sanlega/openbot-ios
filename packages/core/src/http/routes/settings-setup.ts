@@ -71,6 +71,15 @@ export function registerSettingsAndSetupRoutes(app: FastifyInstance, ctx: CoreCo
     await ctx.eventBus.publish({ type: "setup.changed", payload: { kind: body.kind, result } });
     return { result, setup };
   });
+
+  app.post("/api/setup/complete", async (request, reply) => {
+    if (!requireAuth(request, reply)) return;
+    const setup = ctx.repos.setupState.patch({
+      completedAt: ctx.clock.now().toISOString(),
+    });
+    await ctx.eventBus.publish({ type: "setup.changed", payload: { completed: true } });
+    return { setup };
+  });
 }
 
 async function validate(

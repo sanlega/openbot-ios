@@ -13,7 +13,7 @@ export interface TestHarness {
   close: () => Promise<void>;
 }
 
-/** Starts `openbot serve` with fakes on a random loopback port. */
+/** Starts `openbot serve` with explicit fake providers on a random loopback port. */
 export async function startTestHarness(): Promise<TestHarness> {
   const home = await mkdtemp(join(tmpdir(), "openbot-e2e-"));
   const port = 18000 + Math.floor(Math.random() * 1000);
@@ -22,6 +22,9 @@ export async function startTestHarness(): Promise<TestHarness> {
     OPENBOT_HOME: home,
     PORT: String(port),
     OPENBOT_FAKE_JEV: "1",
+    OPENBOT_FAKE_ENGINES: "1",
+    OPENBOT_FAKE_COMPUTER: "1",
+    OPENBOT_FAKE_COMPOSIO: "1",
     JEV_API_KEY: "",
   };
 
