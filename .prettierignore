@@ -6,6 +6,7 @@ AGENTS.md
 CLAUDE.md
 **/dist/**
 **/build/**
+apps/pwa/static/**
 **/release/**
 **/test-results/**
 **/coverage/**
