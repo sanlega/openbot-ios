@@ -1,0 +1,122 @@
+{
+  "startPage": "inbox",
+  "pages": {
+    "inbox": {
+      "url": "https://fake.local/inbox",
+      "title": "Inbox — 2 unread",
+      "elements": [
+        { "role": "link", "label": "Compose" },
+        { "role": "listitem", "label": "Email from Alice: Q3 numbers" },
+        { "role": "listitem", "label": "Email from Bob: Lunch?" },
+        { "role": "button", "label": "Refresh" },
+        { "role": "link", "label": "Settings" },
+        { "role": "link", "label": "Search" }
+      ],
+      "onClick": { "0": "compose", "4": "settings", "5": "search" }
+    },
+    "compose": {
+      "url": "https://fake.local/compose",
+      "title": "New message",
+      "elements": [
+        { "role": "textbox", "label": "To" },
+        { "role": "textbox", "label": "Subject" },
+        { "role": "textbox", "label": "Body" },
+        { "role": "button", "label": "Send" },
+        { "role": "button", "label": "Discard" }
+      ],
+      "onClick": { "3": "sent", "4": "inbox" }
+    },
+    "sent": {
+      "url": "https://fake.local/sent",
+      "title": "Message sent",
+      "elements": [{ "role": "link", "label": "Back to inbox" }],
+      "onClick": { "0": "inbox" }
+    },
+    "settings": {
+      "url": "https://fake.local/settings",
+      "title": "Settings",
+      "elements": [
+        { "role": "checkbox", "label": "Enable notifications" },
+        { "role": "button", "label": "Save" },
+        { "role": "link", "label": "Back to inbox" }
+      ],
+      "onClick": { "2": "inbox" }
+    },
+    "search": {
+      "url": "https://fake.local/search",
+      "title": "Search mail",
+      "elements": [
+        { "role": "textbox", "label": "Query" },
+        { "role": "button", "label": "Search" },
+        { "role": "link", "label": "Back to inbox" }
+      ],
+      "onClick": { "2": "inbox" }
+    },
+    "login": {
+      "url": "https://fake.local/login",
+      "title": "Sign in",
+      "elements": [
+        { "role": "textbox", "label": "Username" },
+        { "role": "textbox", "label": "Password" },
+        { "role": "button", "label": "Sign in" }
+      ],
+      "onClick": { "2": "inbox" }
+    },
+    "checkout": {
+      "url": "https://fake.local/checkout",
+      "title": "Checkout",
+      "elements": [
+        { "role": "textbox", "label": "Card number" },
+        { "role": "button", "label": "Pay now" },
+        { "role": "button", "label": "Cancel" }
+      ],
+      "onClick": { "2": "inbox" }
+    },
+    "profile": {
+      "url": "https://fake.local/profile",
+      "title": "Profile",
+      "elements": [
+        { "role": "textbox", "label": "Display name" },
+        { "role": "button", "label": "Save profile" },
+        { "role": "link", "label": "Back to inbox" }
+      ],
+      "onClick": { "2": "inbox" }
+    },
+    "calendar": {
+      "url": "https://fake.local/calendar",
+      "title": "Calendar",
+      "elements": [
+        { "role": "button", "label": "Create event" },
+        { "role": "link", "label": "Back to inbox" }
+      ],
+      "onClick": { "1": "inbox" }
+    },
+    "files": {
+      "url": "https://fake.local/files",
+      "title": "Files",
+      "elements": [
+        { "role": "button", "label": "Upload" },
+        { "role": "link", "label": "Back to inbox" }
+      ],
+      "onClick": { "1": "inbox" }
+    },
+    "help": {
+      "url": "https://fake.local/help",
+      "title": "Help center",
+      "elements": [
+        { "role": "link", "label": "Getting started" },
+        { "role": "link", "label": "Back to inbox" }
+      ],
+      "onClick": { "1": "inbox" }
+    },
+    "confirm": {
+      "url": "https://fake.local/confirm",
+      "title": "Confirm action",
+      "elements": [
+        { "role": "button", "label": "Confirm delete" },
+        { "role": "button", "label": "Cancel" }
+      ],
+      "onClick": { "1": "inbox" }
+    }
+  }
+}
