@@ -28,9 +28,9 @@ function safeSend(socket: WebSocket, payload: unknown): void {
  * gaps (events are read from the same durable log `EventBus.replaySince`
  * uses), then streams every event published from then on. Also accepts
  * commands (`message.send`, `approval.resolve`, `turn.stop`, `routine.run`).
- * Only `approval.resolve` is implemented directly here — the other three need
- * the runtime mailbox/scheduler (WS2/WS12) and reply with a structured
- * "not implemented" result instead of silently dropping the command.
+ * `message.send`, `turn.stop`, and `routine.run` go through the runtime
+ * mailbox/scheduler (`ctx.mailbox`, `ctx.routineOrchestrator`) and reply with a
+ * structured "not wired" result when those are absent.
  */
 export function registerWebSocketRoute(app: FastifyInstance, ctx: CoreContext): void {
   app.get("/api/ws", { websocket: true }, (socket: WebSocket, request: FastifyRequest) => {
@@ -128,7 +128,15 @@ async function handleCommand(
   ctx: CoreContext,
   command: RunCommand,
   role: "owner" | "approver",
-): Promise<{ ok: boolean; reason?: string; runId?: string }> {
+): Promise<{
+  ok: boolean;
+  reason?: string;
+  runId?: string;
+  chainId?: string;
+  messageId?: string;
+  engine?: string;
+  model?: string;
+}> {
   if (command.command === "approval.resolve") {
     const id = command.payload?.id;
     const resolution = command.payload?.resolution;
@@ -177,25 +185,18 @@ async function handleCommand(
     const engine = command.payload?.engine;
     if (
       typeof botId !== "string" ||
-      typeof threadId !== "string" ||
-      typeof chainId !== "string" ||
-      typeof text !== "string"
+      typeof text !== "string" ||
+      (threadId !== undefined && typeof threadId !== "string") ||
+      (chainId !== undefined && typeof chainId !== "string") ||
+      (engine !== undefined && engine !== "claude" && engine !== "codex" && engine !== "fake")
     ) {
       return {
         ok: false,
         reason:
-          "expected { botId: string, threadId: string, chainId: string, text: string, engine?: 'claude'|'codex'|'fake' }",
+          "expected { botId: string, text: string, threadId?: string, chainId?: string, engine?: 'claude'|'codex'|'fake' }",
       };
     }
-    const resolvedEngine =
-      engine === "claude" || engine === "codex" || engine === "fake" ? engine : "fake";
-    return ctx.mailbox.enqueue({
-      botId,
-      threadId,
-      chainId,
-      text,
-      engine: resolvedEngine,
-    });
+    return ctx.mailbox.enqueue({ botId, threadId, chainId, text, engine });
   }
 
   if (command.command === "turn.stop") {

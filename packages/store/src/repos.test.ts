@@ -219,6 +219,9 @@ describe("TurnsRepo", () => {
     expect(fetched?.usage.inputTokens).toBe(10);
     expect(repo.listByChain(chainId)).toHaveLength(1);
     expect(repo.listByBot(bot.id)).toHaveLength(1);
+
+    repo.setSessionId(turn.id, "sess-42");
+    expect(repo.getById(turn.id)?.sessionId).toBe("sess-42");
   });
 });
 
@@ -450,6 +453,36 @@ describe("EngineSessionsRepo", () => {
     const touchedAt = new Date();
     repo.touch(session.id, touchedAt);
     expect(repo.getForBotAndEngine(bot.id, "claude")?.lastUsedAt).toBe(touchedAt.toISOString());
+  });
+
+  it("upserts one row per bot and engine, and deletes it", () => {
+    const db = useDb();
+    const bot = createBot(db);
+    const repo = new EngineSessionsRepo(db);
+    const first = new Date("2026-09-27T10:00:00.000Z");
+    const second = new Date("2026-09-27T11:00:00.000Z");
+
+    repo.upsert({
+      id: `${bot.id}:codex`,
+      botId: bot.id,
+      engine: "codex",
+      sessionId: "a",
+      at: first,
+    });
+    repo.upsert({
+      id: `${bot.id}:codex`,
+      botId: bot.id,
+      engine: "codex",
+      sessionId: "b",
+      at: second,
+    });
+
+    const stored = repo.getForBotAndEngine(bot.id, "codex");
+    expect(stored).toMatchObject({ sessionId: "b", createdAt: first.toISOString() });
+    expect(stored?.lastUsedAt).toBe(second.toISOString());
+
+    repo.deleteForBotAndEngine(bot.id, "codex");
+    expect(repo.getForBotAndEngine(bot.id, "codex")).toBeUndefined();
   });
 });
 

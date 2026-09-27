@@ -10,6 +10,8 @@ import type {
   TurnHooks,
   TurnInput,
 } from "@openbot/contracts";
+import type { MessageStore } from "./message-store.js";
+import type { SessionStore } from "./session-store.js";
 import type { BrokerRequest } from "./broker-types.js";
 import type { PermissionBroker } from "./broker.js";
 import type { SpendCaps } from "./caps.js";
@@ -26,6 +28,11 @@ export interface EnqueueTurnInput extends TurnInput {
   spendLimits?: { dailyUsdPerBot?: number; dailyUsdGlobal?: number };
   /** Overrides the default tool -> `BrokerRequest` classification, for tests/callers that know more about a specific tool (e.g. a computer action's observed target label). */
   classifyApproval?: (r: ToolApprovalRequest) => Partial<BrokerRequest>;
+  /**
+   * Called once the turn id exists and before the engine starts, for inputs that
+   * depend on it — e.g. the OpenBot MCP server, whose session token names the turn.
+   */
+  prepareTurn?: (turnId: string) => Promise<Partial<Pick<TurnInput, "mcpServers">>>;
 }
 
 export interface TurnOutcome {
@@ -55,6 +62,10 @@ export interface MailboxOptions {
   turns: TurnStore;
   spendCaps?: SpendCaps;
   clock: Clock;
+  /** When set, the Bot's direct reply is persisted to its DM thread. */
+  messages?: MessageStore;
+  /** When set, a turn without an explicit `sessionId` resumes the Bot's last engine session. */
+  sessions?: SessionStore;
 }
 
 const READ_ONLY_TOOL_RE = /^(read|get|list|search|observe|screenshot|status)/i;
@@ -174,6 +185,10 @@ export class Mailbox {
       }
     }
 
+    const storedSessionId = input.sessionId
+      ? undefined
+      : this.opts.sessions?.get(botId, input.engine);
+    const sessionId = input.sessionId ?? storedSessionId;
     const turnId = newId("turn");
     const startedAt = this.opts.clock.now().toISOString();
     this.opts.turns.create({
@@ -183,7 +198,7 @@ export class Mailbox {
       engine: input.engine,
       model: input.model,
       effort: input.effort,
-      sessionId: input.sessionId,
+      sessionId,
     });
     this.opts.events.emit({
       ts: startedAt,
@@ -193,6 +208,27 @@ export class Mailbox {
       turnId,
       payload: { engine: input.engine, model: input.model },
     });
+
+    let turnInput: TurnInput = { ...input, sessionId };
+    if (input.prepareTurn) {
+      try {
+        turnInput = { ...turnInput, ...(await input.prepareTurn(turnId)) };
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        this.opts.turns.update(turnId, { status: "failed" });
+        this.opts.events.emit({
+          ts: this.opts.clock.now().toISOString(),
+          type: "turn.failed",
+          botId,
+          chainId: input.chainId,
+          turnId,
+          payload: { errorMessage: reason },
+        });
+        resolve({ status: "failed", turnId, reason });
+        this.pump(botId);
+        return;
+      }
+    }
 
     let replyText = "";
     const pendingToolEffects: Promise<void>[] = [];
@@ -206,7 +242,7 @@ export class Mailbox {
       requestApproval: (r: ToolApprovalRequest) => this.handleApprovalRequest(botId, input, r),
     };
 
-    const active: ActiveTurn = { handle: driver.startTurn(input, hooks), turnId };
+    const active: ActiveTurn = { handle: driver.startTurn(turnInput, hooks), turnId };
     this.active.set(botId, active);
 
     let result;
@@ -223,6 +259,12 @@ export class Mailbox {
         : "failed"
       : "completed";
     this.opts.turns.update(turnId, { status, sessionId: result.sessionId });
+    if (status === "completed" && result.sessionId) {
+      this.opts.sessions?.set(botId, input.engine, result.sessionId);
+    } else if (status === "failed" && storedSessionId) {
+      // Don't keep resuming a session the engine just failed on.
+      this.opts.sessions?.clear(botId, input.engine);
+    }
     this.opts.events.emit({
       ts: this.opts.clock.now().toISOString(),
       type:
@@ -238,14 +280,29 @@ export class Mailbox {
     });
 
     if (status === "completed" && replyText.length > 0) {
+      // A dry-run chain has zero side effects, including the Bot's thread.
+      const message =
+        chain.mode === "dry_run"
+          ? undefined
+          : this.opts.messages?.create({
+              threadId: input.threadId,
+              author: { type: "bot", id: botId },
+              text: replyText,
+              attachments: [],
+              chainId: input.chainId,
+              hop: 0,
+              proactive: false,
+              delivery: "delivered",
+              pushed: false,
+            });
       this.opts.events.emit({
-        ts: this.opts.clock.now().toISOString(),
+        ts: message?.createdAt ?? this.opts.clock.now().toISOString(),
         type: "message.created",
         botId,
         threadId: input.threadId,
         chainId: input.chainId,
         turnId,
-        payload: { text: replyText, proactive: false },
+        payload: { text: replyText, proactive: false, messageId: message?.id },
       });
     }
 

@@ -1,7 +1,7 @@
 import type { Approval, Chain, ComputerProvider, Message, Rule, Turn } from "@openbot/contracts";
 import { newId, type Clock } from "@openbot/contracts";
 import { wireConnectors } from "@openbot/connectors";
-import type { CoreContext, TurnMailbox } from "@openbot/core";
+import type { CoreContext } from "@openbot/core";
 import {
   CapCounterService,
   DEFAULT_AUTONOMY_CAPS,
@@ -10,7 +10,12 @@ import {
   SpawnGate,
   type AutonomyCaps,
 } from "@openbot/cos";
-import { createMcpServices, integrateMcp } from "@openbot/mcp";
+import {
+  createMcpServices,
+  integrateMcp,
+  type McpToolServices,
+  type SessionTokenService,
+} from "@openbot/mcp";
 import { getPwaStaticRoot } from "@openbot/pwa";
 import { attachRemoteServices, registerRemoteIntegration } from "@openbot/remote";
 import { integrateRoutines, RoutineRuntimeAdapter } from "@openbot/routines";
@@ -30,6 +35,7 @@ import {
 } from "@openbot/runtime";
 import type { FastifyInstance } from "fastify";
 import { bootstrapProviders } from "./providers.js";
+import { createTurnMailbox, RepoSessionStore } from "./turn-mailbox.js";
 
 export interface BootstrapOptions {
   computerProvider?: ComputerProvider;
@@ -73,9 +79,20 @@ export async function bootstrapHarness(
     approvalStore: new RepoApprovalStore(ctx),
     turnStore: new RepoTurnStore(ctx),
     ruleStore: new RepoRuleStore(ctx),
+    sessionStore: new RepoSessionStore(ctx),
   });
 
-  ctx.mailbox = createTurnMailbox(ctx, runtime);
+  // Filled once `integrateMcp` has run below; turns read it lazily.
+  const mcp: {
+    current?: { tokens: SessionTokenService; connectors: McpToolServices["connectors"] };
+  } = {};
+  ctx.mailbox = createTurnMailbox(ctx, {
+    runtime,
+    drivers: providers.drivers,
+    autonomyCaps,
+    caps,
+    mcp: () => mcp.current,
+  });
   ctx.computerProvider = options.computerProvider ?? providers.computerProvider;
 
   await wireConnectors(ctx);
@@ -100,7 +117,8 @@ export async function bootstrapHarness(
     caps,
     orchestrator,
   });
-  await integrateMcp(app, ctx, { services: mcpServices });
+  const { tokens } = await integrateMcp(app, ctx, { services: mcpServices });
+  mcp.current = { tokens, connectors: mcpServices.connectors };
 
   digest.start();
   return {
@@ -159,64 +177,6 @@ function createCoreEventSink(ctx: CoreContext): EventSink {
         chainId: input.chainId,
         payload: input.payload ?? {},
       };
-    },
-  };
-}
-
-function createTurnMailbox(ctx: CoreContext, runtime: Runtime): TurnMailbox {
-  return {
-    enqueue: async (input: {
-      botId: string;
-      threadId: string;
-      chainId: string;
-      text: string;
-      engine: "claude" | "codex" | "fake";
-    }) => {
-      const bot = ctx.repos.bots.getById(input.botId);
-      if (!bot) return { ok: false, reason: `unknown bot ${input.botId}` };
-
-      let chainId = input.chainId;
-      if (!ctx.repos.chains.getById(chainId)) {
-        const chain = runtime.chains.create({ origin: "user", mode: "live" });
-        chainId = chain.id;
-        ctx.repos.chains.create(chain);
-      }
-
-      void runtime.mailbox.submit({
-        bot,
-        text: input.text,
-        attachments: [],
-        systemPrompt: bot.description,
-        cwd: ctx.config.workspaceDir,
-        addDirs: [],
-        auth: { mode: "api_key", env: {} },
-        mcpServers: [],
-        permission: bot.permissionPreset,
-        allowTools: [],
-        denyTools: [],
-        model: bot.routing.model ?? "fake-default",
-        limits: { maxSteps: 50 },
-        engine: input.engine,
-        chainId,
-        threadId: input.threadId,
-      });
-      return { ok: true };
-    },
-    stop: async (turnId: string) => {
-      const turn = ctx.repos.turns.getById(turnId);
-      if (!turn) return { ok: false, reason: "turn not found" };
-      await runtime.mailbox.stop(turn.botId);
-      return { ok: true };
-    },
-    steer: async (turnId: string, text: string) => {
-      const turn = ctx.repos.turns.getById(turnId);
-      if (!turn) return { ok: false, reason: "turn not found" };
-      try {
-        await runtime.mailbox.steer(turn.botId, text);
-        return { ok: true };
-      } catch (error) {
-        return { ok: false, reason: String(error) };
-      }
     },
   };
 }
@@ -296,15 +256,26 @@ class CosNotifyGateAdapter implements RuntimeNotifyGate {
   }
 }
 
-class RepoChainStore implements ChainStore {
+export class RepoChainStore implements ChainStore {
   constructor(private readonly ctx: CoreContext) {}
 
   save(chain: Chain): void {
-    if (!this.ctx.repos.chains.getById(chain.id)) {
+    const stored = this.ctx.repos.chains.getById(chain.id);
+    if (!stored) {
       this.ctx.repos.chains.create(chain);
       return;
     }
     this.ctx.repos.chains.setStatus(chain.id, chain.status);
+    // The chain manager saves whole chains; persist its counters too, or the
+    // chain limits (turns, hops, spend) would never see them grow.
+    this.ctx.repos.chains.incrementCounters(chain.id, {
+      botMessages: chain.botMessages - stored.botMessages,
+      turns: chain.turns - stored.turns,
+      usd: chain.usd - stored.usd,
+      tokens: chain.tokens - stored.tokens,
+      computerSteps: chain.computerSteps - stored.computerSteps,
+      wallMin: chain.wallMin - stored.wallMin,
+    });
   }
 
   get(id: string): Chain | undefined {
@@ -316,7 +287,7 @@ class RepoChainStore implements ChainStore {
   }
 }
 
-class RepoMessageStore implements MessageStore {
+export class RepoMessageStore implements MessageStore {
   constructor(private readonly ctx: CoreContext) {}
 
   create(input: Omit<Message, "id" | "createdAt">): Message {
@@ -379,7 +350,7 @@ class RepoApprovalStore implements ApprovalStore {
   }
 }
 
-class RepoTurnStore implements TurnStore {
+export class RepoTurnStore implements TurnStore {
   constructor(private readonly ctx: CoreContext) {}
 
   create(input: Omit<Turn, "id" | "createdAt" | "usage" | "status"> & { id?: string }): Turn {
@@ -398,6 +369,7 @@ class RepoTurnStore implements TurnStore {
     if (patch.status || patch.usage) {
       this.ctx.repos.turns.updateStatus(id, patch.status ?? "running", patch.usage);
     }
+    if (patch.sessionId) this.ctx.repos.turns.setSessionId(id, patch.sessionId);
     const turn = this.ctx.repos.turns.getById(id);
     if (!turn) throw new Error(`TurnStore: unknown turn ${id}`);
     return { ...turn, ...patch };

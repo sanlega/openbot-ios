@@ -79,11 +79,21 @@ export type SetupValidator = (value?: string) => Promise<{ ok: boolean; reason?:
 export interface TurnMailbox {
   enqueue(input: {
     botId: string;
-    threadId: string;
-    chainId: string;
+    /** The Bot's DM thread; defaults to it, and must match it when given. */
+    threadId?: string;
+    /** Continues this chain when it exists; otherwise a new live chain starts. */
+    chainId?: string;
     text: string;
-    engine: "claude" | "codex" | "fake";
-  }): Promise<{ ok: boolean; reason?: string }>;
+    /** Explicit engine override (the route chip); otherwise the Bot's pin or Jev's route. */
+    engine?: EngineId;
+  }): Promise<{
+    ok: boolean;
+    reason?: string;
+    chainId?: string;
+    messageId?: string;
+    engine?: EngineId;
+    model?: string;
+  }>;
   stop(turnId: string): Promise<{ ok: boolean; reason?: string }>;
   steer(turnId: string, text: string): Promise<{ ok: boolean; reason?: string }>;
 }

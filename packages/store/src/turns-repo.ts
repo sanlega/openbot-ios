@@ -40,6 +40,10 @@ export class TurnsRepo {
     return this.db.select().from(turns).where(eq(turns.botId, botId)).all().map(toTurn);
   }
 
+  setSessionId(id: string, sessionId: string): void {
+    this.db.update(turns).set({ sessionId }).where(eq(turns.id, id)).run();
+  }
+
   updateStatus(id: string, status: Turn["status"], usage?: Turn["usage"]): void {
     this.db
       .update(turns)
