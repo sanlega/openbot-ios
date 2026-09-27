@@ -76,20 +76,32 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        env:
+          npm_config_msvs_version: "2022"
 
       - name: Build workspace
         run: pnpm build
 
       - name: Install Playwright browsers
-        run: pnpm --filter @openbot/desktop exec playwright install
+        run: pnpm --filter @openbot/desktop exec playwright install --with-deps chromium
 
       - name: Desktop Playwright smoke (Linux)
         if: runner.os == 'Linux'
         run: xvfb-run pnpm --filter @openbot/desktop test:e2e
+        env:
+          OPENBOT_FAKE_JEV: "1"
+          OPENBOT_FAKE_ENGINES: "1"
+          OPENBOT_FAKE_COMPUTER: "1"
+          OPENBOT_FAKE_COMPOSIO: "1"
 
       - name: Desktop Playwright smoke
         if: runner.os != 'Linux'
         run: pnpm --filter @openbot/desktop test:e2e
+        env:
+          OPENBOT_FAKE_JEV: "1"
+          OPENBOT_FAKE_ENGINES: "1"
+          OPENBOT_FAKE_COMPUTER: "1"
+          OPENBOT_FAKE_COMPOSIO: "1"
 
   integration-e2e:
     name: integration e2e
@@ -141,6 +153,8 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        env:
+          npm_config_msvs_version: "2022"
 
       - name: Build workspace
         run: pnpm build
@@ -148,4 +162,5 @@ jobs:
       - name: Package desktop (unsigned)
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          npm_config_build_from_source: "false"
         run: pnpm --filter @openbot/desktop run pack

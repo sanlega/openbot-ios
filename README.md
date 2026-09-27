@@ -32,14 +32,14 @@ and optional Composio/Tailscale. Keys are stored in a local vault under
 **Try the M1 milestone:** create a bot from the sidebar, open its thread, send a
 message, and wait for a reply.
 
-| Step | Action |
-|------|--------|
-| Install | `pnpm install && pnpm build` |
-| Launch | `pnpm --filter @openbot/desktop start` |
-| Setup | Complete the wizard (Jev + Claude + Codex) |
-| First bot | New bot → name it → send a message |
+| Step              | Action                                                    |
+| ----------------- | --------------------------------------------------------- |
+| Install           | `pnpm install && pnpm build`                              |
+| Launch            | `pnpm --filter @openbot/desktop start`                    |
+| Setup             | Complete the wizard (Jev + Claude + Codex)                |
+| First bot         | New bot → name it → send a message                        |
 | Docker (optional) | Install Docker Desktop; set bot computer access to Docker |
-| Phone (optional) | Tailscale + Pair device QR in settings |
+| Phone (optional)  | Tailscale + Pair device QR in settings                    |
 
 Headless / browser UI: `pnpm --filter @openbot/server dev serve` then open
 [http://127.0.0.1:4577/app](http://127.0.0.1:4577/app).

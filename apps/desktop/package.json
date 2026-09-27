@@ -30,6 +30,7 @@
   "build": {
     "appId": "com.openbot.desktop",
     "productName": "OpenBot",
+    "npmRebuild": false,
     "directories": {
       "output": "release"
     },
