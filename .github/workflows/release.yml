@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS Apple Silicon
+            os: macos-latest
+            target: "--mac dmg --arm64"
+            artifact: macos-arm64
+            files: "apps/desktop/release/*.dmg"
+          - name: macOS Intel
+            os: macos-15-intel
+            target: "--mac dmg --x64"
+            artifact: macos-x64
+            files: "apps/desktop/release/*.dmg"
+          - name: Windows x64
+            os: windows-2022
+            target: "--win nsis --x64"
+            artifact: windows-x64
+            files: "apps/desktop/release/*.exe"
+          - name: Linux x64
+            os: ubuntu-latest
+            target: "--linux AppImage deb --x64"
+            artifact: linux-x64
+            files: |
+              apps/desktop/release/*.AppImage
+              apps/desktop/release/*.deb
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          npm_config_msvs_version: "2022"
+
+      - name: Build workspace
+        run: pnpm build
+
+      - name: Rebuild native modules for Electron
+        run: pnpm --filter @openbot/desktop run rebuild:native
+
+      - name: Build unsigned installers
+        shell: bash
+        run: pnpm --filter @openbot/desktop exec electron-builder ${{ matrix.target }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          npm_config_build_from_source: "false"
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: openbot-${{ matrix.artifact }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create checksums
+        run: cd release-assets && sha256sum * > SHA256SUMS
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" release-assets/* --verify-tag --title "OpenBot $GITHUB_REF_NAME" --notes-file CHANGELOG.md

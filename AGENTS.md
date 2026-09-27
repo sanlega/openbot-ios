@@ -44,6 +44,13 @@ vive en `.ai/`. No hace falta que el humano te repita nada; léelo tú.
    Es la señal de la que aprende la automejora (skill `self-improve`).
 3. Haz commit de `.ai/memory/` junto con el código: la memoria viaja con git.
 
+### Public repository privacy
+- Treat `.ai/memory/` as public project documentation. Record durable project facts only;
+  never include conversation transcripts, personal names, local usernames or paths,
+  machine-specific deployment details, credentials, or customer data.
+- Use neutral, synthetic names in tests, screenshots, and examples.
+- Put personal or machine-specific working notes in `.ai/local/`, which is ignored.
+
 # Project
 
 - **Name**: OpenBot

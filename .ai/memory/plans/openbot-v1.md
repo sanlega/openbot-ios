@@ -6,7 +6,6 @@ tables below, sections 9–10, and section 11 (Chief of Staff selectivity). Rout
 are back in v1.
 
 - **Repo**: https://github.com/sanlega/OpenBot.
-- **Harness**: [private metaharness repository URL removed]
 - **This is the working plan.** Update it, and log a decision (`mh decision`), when
   scope changes. Decisions U1–U11 below are logged individually in
   `.ai/memory/DECISIONS.md` as D-001 onward, alongside the engineering decisions

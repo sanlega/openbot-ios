@@ -46,11 +46,11 @@ no bundled credentials.
 
 ## Get OpenBot
 
-OpenBot is in active development. To try a desktop build without setting up Node,
-open the [latest successful CI run](https://github.com/sanlega/OpenBot/actions/workflows/ci.yml),
-select the **desktop package** job for your operating system, and download its
-artifact. CI builds unsigned packages for macOS, Windows, and Linux; these are
-development builds, not signed releases.
+OpenBot is in active development. Download an installer from the
+[latest GitHub Release](https://github.com/sanlega/OpenBot/releases/latest):
+macOS DMGs are provided for Apple Silicon and Intel, Windows has an x64 installer,
+and Linux has AppImage and `.deb` packages. Installers are unsigned, so your
+operating system may show a security warning.
 
 Or build from source. You need Node.js **22.12 or newer** and pnpm **10**:
 
@@ -90,6 +90,9 @@ The monorepo uses TypeScript, Electron, React, Fastify, SQLite, and pnpm workspa
 Unit and integration tests use fake engines and services by default, so routine
 development does not require provider credentials. Playwright covers desktop and
 cross-package flows.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for pull request guidance and the optional
+AI-assisted workflow included with the repository.
 
 ## Project status
 

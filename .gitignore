@@ -7,6 +7,14 @@ coverage/
 .DS_Store
 *.log
 
+# Local credentials and AI-client configuration
+.env*
+!.env.example
+!.env.sample
+.codex/
+.claude/settings.local.json
+.mcp.json
+
 # app data dir (OPENBOT_HOME default)
 .openbot/
 

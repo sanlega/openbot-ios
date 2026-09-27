@@ -96,7 +96,7 @@ Formato: fecha, contexto, decisión, consecuencias.
 
 - **Fecha**: 2026-09-27
 
-- **Context**: OpenBot is developed with metaharness ([private metaharness repository URL removed]). Agents expected to work here: Claude Code, Codex, and Cursor.
+- **Context**: OpenBot includes its reusable agent workflow under `.ai/`; contributors may use Claude Code, Codex, Cursor, or any compatible editor.
 - **Decision**: `.ai/` is the single source of truth. `ADAPTERS="agents claude"`: `AGENTS.md` covers Codex, Cursor, and other agent-file readers; `CLAUDE.md` + `.claude/` cover Claude Code (hooks: brief at session start, guard before risky tools, stop-check at the end). Skills are generated into `.claude/skills/` and `.agents/skills/`. Hooks and `.mcp.json` invoke `bash .ai/bin/mh ...` (not the file directly) so they still work if the executable bit on `.ai/bin/mh` is ever lost (e.g. some archive/zip extraction or Windows checkouts).
 - **Alternatives discarded**: all five adapters (gemini, copilot, cursor too) — more generated files with no current user; add later with `mh sync` after editing `.ai/config`.
 - **Consequences**: after editing `.ai/context`, skills, or `.ai/config`, run `bash .ai/bin/mh sync`; CI runs `mh check` and fails on adapter drift.

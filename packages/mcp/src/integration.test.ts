@@ -84,7 +84,7 @@ describe("POST /internal/tools/* integration", () => {
     harness = await createMcpTestHarness();
     const h = harness;
     const cos = makeBot({ name: "CoS", slug: "cos", isChiefOfStaff: true });
-    const spawn = makeBot({ name: "Research Helper", slug: "ideas", createdBy: cos.id });
+    const spawn = makeBot({ name: "Research Helper", slug: "research", createdBy: cos.id });
     const mine = makeBot({ name: "Mine", slug: "mine", createdBy: "user" });
     const worker = makeBot({ name: "Worker", slug: "worker" });
     for (const b of [cos, spawn, mine, worker]) h.ctx.repos.bots.create(b);

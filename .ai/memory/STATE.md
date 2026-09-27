@@ -5,11 +5,14 @@ _Last updated: 2026-09-27 by Codex_
 ## In progress
 - Prepare the first downloadable GitHub release (`v0.1.0`) and polish the public repository.
   Plan: `.ai/memory/plans/2026-09-27-github-release.md`.
-- Review the branch against `main`, complete a privacy/history audit, add reproducible
-  cross-platform installer releases, and wait for PR CI before merging.
-- Before public release, remove private development diary material from the current tree
-  and decide how to clean it from historical commits. No real credentials were found in
-  the scan; credential-shaped matches were synthetic test fixtures.
+- Current tree cleanup, contributor documentation, README download link, release notes,
+  and tagged release workflow are prepared. Local lint, format, `mh check`, build,
+  typecheck, and tests pass.
+- Remaining: review/scan the complete branch diff, push/open PR and await CI, then prepare
+  a cleaned-history rewrite. Historical versions of local session notes still exist in
+  Git; do not make the repository public until the rewrite is reviewed and approved.
+- A credential-pattern scan found no real credentials; the few credential-shaped matches
+  were synthetic test fixtures. This is not a guarantee against every possible leak.
 
 ## Product status
 - OpenBot is an early desktop preview for managing persistent Claude Code and Codex Bots.
@@ -30,6 +33,8 @@ _Last updated: 2026-09-27 by Codex_
 - UI test suite, UI typecheck, build, formatting, and lint passed after the latest UI fix.
 - The local `/app` route serves the rebuilt bundle. The branch still needs pull-request CI;
   do not merge until required checks pass on the exact PR head.
+- After repository polish: 733 tests passed (18 skipped), build and typecheck passed,
+  format and `mh check` passed. Lint has three pre-existing warnings and no errors.
 
 ## Known gaps
 - Real Claude/Codex and Jev credentials, Docker on other operating systems, and

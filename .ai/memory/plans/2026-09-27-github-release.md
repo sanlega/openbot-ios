@@ -27,13 +27,13 @@ Integrate the current OpenBot work into `main` and give users a clear way to dow
 2. The release workflow builds a macOS DMG, Windows installers, Linux AppImage and `.deb`, plus SHA-256 checksums, and attaches them to the matching GitHub Release.
 3. The changelog describes user-visible `v0.1.0` changes and README download links point to actual Releases.
 4. The Mac package is built and smoke-tested locally; cross-platform artifact builds and Linux package smoke pass in GitHub Actions.
-5. Repository visibility, merge, tag, and public Release are performed only after presenting the prepared PR, version, artifacts, checks, and rollback route for final approval.
+5. Repository visibility, history rewrite, merge, tag, and public Release are performed only after presenting the prepared PR, version, artifacts, checks, and rollback route for final approval.
 
 ## Design
 
 - **Components**: `.github/workflows`, `CHANGELOG.md`, `README.md`, desktop package output, `.ai/memory`.
 - **Data/contracts**: no runtime API or database changes.
-- **Flow**: PR CI validates the merged feature set; a version tag starts three native runner builds; each uploads installable assets; a least-privilege Ubuntu job combines assets, generates SHA-256 checksums, and creates the GitHub Release with the changelog.
+- **Flow**: PR CI validates the merged feature set; a version tag starts four native runner builds (macOS arm64 + x64 separately, Windows x64, Linux x64); each uploads installable assets; a least-privilege Ubuntu job combines assets, generates SHA-256 checksums, and creates the GitHub Release with the changelog.
 - **Failure handling**: if any matrix build fails, no Release is created. Before publication, the release tag can be omitted; after publication, use a new version rather than retagging. Merge can be reverted with a follow-up revert commit.
 - **Compatibility**: v0.1.0 matches existing `0.1.0` package versions; no manifest bump is needed.
 - **Alternatives**: attaching transient PR artifacts — rejected because workflow artifacts expire and are not listed in the Releases page; manually creating installers — rejected because it is not reproducible.
@@ -50,8 +50,8 @@ Integrate the current OpenBot work into `main` and give users a clear way to dow
 
 Progress:
 - [x] T1 reconnaissance: branch `claude/product-polish` is at `960771b`; `main` is `40d8a23`; no PRs, tags, or Releases exist; manifests all say `0.1.0`; branch CI has not run yet.
-- [ ] T1 code review and final scope
-- [ ] T2
+- [x] T1 code review and final scope: installers split by native architecture; memory diaries/local deployment notes removed from current tree; history still requires a reviewed rewrite before public visibility.
+- [x] T2: README, contributor/privacy guidance, issue/PR templates, changelog, and tagged release workflow added. Local lint, format, `mh check`, build, typecheck, and tests pass; workflow YAML parses.
 - [ ] T3
 - [ ] T4
 - [ ] T5
@@ -62,7 +62,7 @@ Progress:
 |------|------------|--------|------------|
 | One platform's native Electron packaging fails | medium | high | run platform CI before merge/tag; publish only if the full matrix passes |
 | Unsigned installers trigger OS warnings | high | medium | state unsigned status on the Release and README; signing remains a later task |
-| Public repository exposes all code and history | certain | high | user explicitly chose public visibility; keep until the final approved publication step |
+| Public repository exposes all code and history | certain | high | remove personal/local material from current tree and prepare a cleaned-history rewrite before changing visibility |
 | Release assets differ from CI output patterns | medium | high | validate artifact names and checksum list before `gh release create` |
 
 ## Open questions
