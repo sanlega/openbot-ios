@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+coverage/
+.turbo/
+*.tsbuildinfo
+.DS_Store
+*.log
+
+# app data dir (OPENBOT_HOME default)
+.openbot/
+
+# metaharness: material privado/pesado
+.ai/local/
