@@ -94,7 +94,12 @@ export class DeliveryService {
         type: "action.simulated",
         botId: input.fromBotId,
         chainId: input.chainId,
-        payload: { kind: "tool", action: "send_message", target: input.toBotId, args: { text: input.text } },
+        payload: {
+          kind: "tool",
+          action: "send_message",
+          target: input.toBotId,
+          args: { text: input.text },
+        },
       });
       this.opts.chains.recordBotMessage(input.chainId, nextHop);
       return { outcome: "simulated", reason: "simulated: not executed (dry run)" };
@@ -139,7 +144,11 @@ export class DeliveryService {
         type: "action.simulated",
         botId: input.botId,
         chainId: input.chainId,
-        payload: { kind: "tool", action: "message_user", args: { kind: input.kind, text: input.text } },
+        payload: {
+          kind: "tool",
+          action: "message_user",
+          args: { kind: input.kind, text: input.text },
+        },
       });
       return { outcome: "simulated", reason: "simulated: not executed (dry run)" };
     }

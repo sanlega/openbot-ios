@@ -58,16 +58,25 @@ export function builtinDenyReason(req: BrokerRequest): string | undefined {
 export function builtinAskRules(req: BrokerRequest): Rule[] {
   const now = new Date().toISOString();
   const rules: Rule[] = [];
-  if (req.kind === "computer_action" && req.target && SENSITIVE_COMPUTER_TARGET_RE.test(req.target)) {
+  if (
+    req.kind === "computer_action" &&
+    req.target &&
+    SENSITIVE_COMPUTER_TARGET_RE.test(req.target)
+  ) {
     rules.push(
       builtinRule("ask", `sensitive computer target: "${req.target}"`, { computerOp: "*" }, now),
     );
   }
   if (req.kind === "connector_action" && req.sideEffect) {
     rules.push(
-      builtinRule("ask", `connector action "${req.action}" has a side effect`, {
-        connectorAction: "*",
-      }, now),
+      builtinRule(
+        "ask",
+        `connector action "${req.action}" has a side effect`,
+        {
+          connectorAction: "*",
+        },
+        now,
+      ),
     );
   }
   if (req.kind === "local_computer") {
@@ -101,9 +110,9 @@ function builtinRule(
 export function presetRules(preset: "read_only" | "workspace_write" | "full"): Rule[] {
   const now = new Date().toISOString();
   if (preset === "read_only") {
-    return [builtinRule("deny", "read_only preset denies non-read actions", { tool: "*" }, now)].map(
-      (r) => ({ ...r, source: "preset" as const }),
-    );
+    return [
+      builtinRule("deny", "read_only preset denies non-read actions", { tool: "*" }, now),
+    ].map((r) => ({ ...r, source: "preset" as const }));
   }
   // workspace_write / full: no blanket rule here — file-write scope is enforced
   // by the built-in deny pass (outside-workspace paths); computer/connector
@@ -147,7 +156,10 @@ function matchesGlob(glob: string | undefined, value: string | undefined): boole
   return globToRegExp(glob).test(value);
 }
 
-function matchesArgs(pattern: Record<string, unknown> | undefined, args: Record<string, unknown> | undefined): boolean {
+function matchesArgs(
+  pattern: Record<string, unknown> | undefined,
+  args: Record<string, unknown> | undefined,
+): boolean {
   if (!pattern) return true;
   if (!args) return false;
   return Object.entries(pattern).every(([key, expected]) => args[key] === expected);

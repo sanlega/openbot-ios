@@ -73,14 +73,20 @@ export class SpendCaps {
   }
 
   /** Remaining USD budget for this Bot right now — the minimum of its own daily cap and what's left of the global cap. Callers use this to size a turn's `TurnInput.limits.maxUsd`. */
-  remainingUsd(botId: string, dailyUsdPerBot?: number, dailyUsdGlobal?: number): number | undefined {
+  remainingUsd(
+    botId: string,
+    dailyUsdPerBot?: number,
+    dailyUsdGlobal?: number,
+  ): number | undefined {
     const day = this.dayKey();
     const remaining: number[] = [];
     if (dailyUsdPerBot !== undefined) {
       remaining.push(Math.max(0, dailyUsdPerBot - this.opts.ledger.get("bot", botId, day).usd));
     }
     if (dailyUsdGlobal !== undefined) {
-      remaining.push(Math.max(0, dailyUsdGlobal - this.opts.ledger.get("global", "global", day).usd));
+      remaining.push(
+        Math.max(0, dailyUsdGlobal - this.opts.ledger.get("global", "global", day).usd),
+      );
     }
     return remaining.length > 0 ? Math.min(...remaining) : undefined;
   }
@@ -90,14 +96,22 @@ export class SpendCaps {
     if (input.dailyUsdPerBot !== undefined) {
       const total = this.opts.ledger.get("bot", input.botId, day).usd;
       if (total >= input.dailyUsdPerBot) {
-        await this.trip(input, "bot", `daily spend cap reached ($${input.dailyUsdPerBot.toFixed(2)}/day)`);
+        await this.trip(
+          input,
+          "bot",
+          `daily spend cap reached ($${input.dailyUsdPerBot.toFixed(2)}/day)`,
+        );
         return { allowed: false, reason: "bot daily spend cap reached", scope: "bot" };
       }
     }
     if (input.dailyUsdGlobal !== undefined) {
       const total = this.opts.ledger.get("global", "global", day).usd;
       if (total >= input.dailyUsdGlobal) {
-        await this.trip(input, "global", `global daily spend cap reached ($${input.dailyUsdGlobal.toFixed(2)}/day)`);
+        await this.trip(
+          input,
+          "global",
+          `global daily spend cap reached ($${input.dailyUsdGlobal.toFixed(2)}/day)`,
+        );
         return { allowed: false, reason: "global daily spend cap reached", scope: "global" };
       }
     }
@@ -114,7 +128,10 @@ export class SpendCaps {
     dailyUsdGlobal?: number;
   }): Promise<SpendCheckResult> {
     const day = this.dayKey();
-    const botTotal = this.opts.ledger.add("bot", input.botId, day, { usd: input.usd, tokens: input.tokens });
+    const botTotal = this.opts.ledger.add("bot", input.botId, day, {
+      usd: input.usd,
+      tokens: input.tokens,
+    });
     const globalTotal = this.opts.ledger.add("global", "global", day, {
       usd: input.usd,
       tokens: input.tokens,
@@ -132,11 +149,19 @@ export class SpendCaps {
       },
     });
     if (input.dailyUsdPerBot !== undefined && botTotal.usd >= input.dailyUsdPerBot) {
-      await this.trip(input, "bot", `daily spend cap reached ($${input.dailyUsdPerBot.toFixed(2)}/day)`);
+      await this.trip(
+        input,
+        "bot",
+        `daily spend cap reached ($${input.dailyUsdPerBot.toFixed(2)}/day)`,
+      );
       return { allowed: false, reason: "bot daily spend cap reached", scope: "bot" };
     }
     if (input.dailyUsdGlobal !== undefined && globalTotal.usd >= input.dailyUsdGlobal) {
-      await this.trip(input, "global", `global daily spend cap reached ($${input.dailyUsdGlobal.toFixed(2)}/day)`);
+      await this.trip(
+        input,
+        "global",
+        `global daily spend cap reached ($${input.dailyUsdGlobal.toFixed(2)}/day)`,
+      );
       return { allowed: false, reason: "global daily spend cap reached", scope: "global" };
     }
     return { allowed: true };

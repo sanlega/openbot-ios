@@ -76,7 +76,10 @@ export class LoopGuards {
     timestamps.push(now);
     this.pairTimestampsMs.set(pairKey, timestamps);
     if (timestamps.length > maxPerWindow) {
-      return this.trip(chainId, `bot pair rate limit exceeded (${timestamps.length}/${maxPerWindow} in ${windowMs}ms)`);
+      return this.trip(
+        chainId,
+        `bot pair rate limit exceeded (${timestamps.length}/${maxPerWindow} in ${windowMs}ms)`,
+      );
     }
     return { tripped: false };
   }

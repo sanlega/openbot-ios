@@ -169,3 +169,50 @@ Formato: fecha, contexto, decisión, consecuencias.
 - **Consequences**: `pnpm typecheck` is slightly slower (it now always builds
   first) but correct from a clean checkout every time. Any future package that
   adds a `references` entry to another workspace package is automatically safe.
+
+
+## D-018 · WS2 test infra: fast-check + drizzle-orm devDeps, local capctr_ id prefix
+
+- **Fecha**: 2026-09-27
+
+- **Contexto**: WS2's own test suite needed (a) real property-based tests on
+  the loop guards (plan §5 WS2 "property tests on guards") and (b) a
+  `:memory:` SQLite-backed `CapCounterStore` adapter test (plan §5 WS2's
+  "CapCounter service ... used by WS8 and WS12", tested per WS0's fakes-first
+  philosophy against real SQLite, not just in-memory). Neither `fast-check`
+  nor a direct `drizzle-orm` import was available inside `packages/runtime`
+  (it only had `@openbot/store` as a devDependency, whose own `drizzle-orm`
+  dependency isn't transitively importable). Separately, `@openbot/store`'s
+  persisted `cap_counters` table uses fixed-window bucketing
+  (`windowStart`/`windowSec`/`count`), not the sliding-window timestamp log
+  `InMemoryCapCounterStore` uses — and `@openbot/contracts`'s `newId()` has
+  no `capCounter` entry in its `ID_PREFIXES` map (plan §4.1's prefix list
+  omits `CapCounter`), so a new row can't get an id through the shared helper.
+- **Decisión**: added `fast-check@4.3.0` and `drizzle-orm@0.45.3` as
+  `packages/runtime` devDependencies (package-scoped, not touching
+  `@openbot/contracts`/`@openbot/store`). Wrote `SqliteCapCounterStore`
+  (`cap-counter-sqlite.ts`) as a **fixed-window** `CapCounterStore`
+  implementation over `@openbot/store`'s existing `cap_counters` table (one
+  row per scope+key, reset when the caller's own `windowMs` has elapsed since
+  `windowStart`) — a deliberate, documented precision-for-persistence
+  tradeoff versus the in-memory adapter's exact sliding-window log. For the
+  row id, generated a locally-prefixed ULID (`capctr_...`) via `ulid`'s
+  `monotonicFactory()` directly instead of calling `newId()`, rather than
+  editing `@openbot/contracts`'s `ID_PREFIXES` map unasked.
+- **Alternativas descartadas**: hand-rolling parameterized "property-style"
+  tests instead of a real property-testing library — rejected, the plan asks
+  for actual property tests and `fast-check` is a normal, small, well-known
+  devDependency; building a brand-new sliding-window-log SQLite table instead
+  of reusing `@openbot/store`'s existing `cap_counters` schema — rejected,
+  would mean two persisted representations of the same plan §4.1 `CapCounter`
+  entity; silently reusing another entity's id prefix (e.g. `dec_` for
+  "decision") for the new row — rejected as actively misleading.
+- **Consecuencias**: WS7/WS8/WS12 (or a coordinator-reviewed contracts PR)
+  should add a real `capCounter: "capctr_"` entry to
+  `@openbot/contracts`'s `ID_PREFIXES` map and `newId()` call at that point —
+  called out in the WS2 PR description as a contracts-adjacent gap, not fixed
+  here since `packages/runtime` must stay inside its own package per the
+  builder brief. Any workstream that needs exact (not fixed-window) counting
+  from the persisted store should add a sliding-window variant rather than
+  assuming `SqliteCapCounterStore`'s bucketing is precise at window
+  boundaries.

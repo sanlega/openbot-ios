@@ -153,7 +153,10 @@ export class Mailbox {
 
     const driver = this.opts.drivers[input.engine];
     if (!driver) {
-      resolve({ status: "refused", reason: `no EngineDriver registered for engine "${input.engine}"` });
+      resolve({
+        status: "refused",
+        reason: `no EngineDriver registered for engine "${input.engine}"`,
+      });
       this.pump(botId);
       return;
     }
@@ -222,7 +225,12 @@ export class Mailbox {
     this.opts.turns.update(turnId, { status, sessionId: result.sessionId });
     this.opts.events.emit({
       ts: this.opts.clock.now().toISOString(),
-      type: status === "completed" ? "turn.completed" : status === "interrupted" ? "turn.interrupted" : "turn.failed",
+      type:
+        status === "completed"
+          ? "turn.completed"
+          : status === "interrupted"
+            ? "turn.interrupted"
+            : "turn.failed",
       botId,
       chainId: input.chainId,
       turnId,
@@ -241,7 +249,13 @@ export class Mailbox {
       });
     }
 
-    resolve({ status, turnId, sessionId: result.sessionId, text: replyText, reason: result.errorMessage });
+    resolve({
+      status,
+      turnId,
+      sessionId: result.sessionId,
+      text: replyText,
+      reason: result.errorMessage,
+    });
     this.pump(botId);
   }
 

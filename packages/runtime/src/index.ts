@@ -150,6 +150,7 @@ export function createRuntime(opts: RuntimeOptions): Runtime {
 export * from "./approval-store.js";
 export * from "./broker-types.js";
 export * from "./broker.js";
+export * from "./cap-counter-sqlite.js";
 export * from "./cap-counter.js";
 export * from "./caps.js";
 export * from "./chain.js";

@@ -1,4 +1,10 @@
-import { newId, type Chain, type ChainMode, type ChainOrigin, type Clock } from "@openbot/contracts";
+import {
+  newId,
+  type Chain,
+  type ChainMode,
+  type ChainOrigin,
+  type Clock,
+} from "@openbot/contracts";
 import type { EventSink } from "./event-sink.js";
 
 /** Plan §5 WS2 "Loop protection: Chain limits". */
@@ -161,7 +167,11 @@ export class ChainManager {
     return hit;
   }
 
-  pause(id: string, eventType: "chain.limit_reached" | "guard.tripped", payload: Record<string, unknown>): void {
+  pause(
+    id: string,
+    eventType: "chain.limit_reached" | "guard.tripped",
+    payload: Record<string, unknown>,
+  ): void {
     const chain = this.get(id);
     if (chain.status !== "active") return;
     this.store.save({ ...chain, status: "paused" });
@@ -208,7 +218,8 @@ function firstLimitHit(chain: Chain, hop: number, limits: ChainLimits): ChainLim
   if (chain.botMessages > limits.maxBotMessages) {
     return { limit: "maxBotMessages", value: chain.botMessages, max: limits.maxBotMessages };
   }
-  if (chain.turns > limits.maxTurns) return { limit: "maxTurns", value: chain.turns, max: limits.maxTurns };
+  if (chain.turns > limits.maxTurns)
+    return { limit: "maxTurns", value: chain.turns, max: limits.maxTurns };
   if (chain.computerSteps > limits.maxComputerSteps) {
     return { limit: "maxComputerSteps", value: chain.computerSteps, max: limits.maxComputerSteps };
   }

@@ -53,7 +53,10 @@ export interface PermissionBrokerOptions {
  *   (`ask`).
  */
 export class PermissionBroker {
-  private readonly pending = new Map<string, { resolve: (o: "allow" | "deny") => void; timer: number }>();
+  private readonly pending = new Map<
+    string,
+    { resolve: (o: "allow" | "deny") => void; timer: number }
+  >();
 
   constructor(private readonly opts: PermissionBrokerOptions) {}
 
@@ -85,7 +88,10 @@ export class PermissionBroker {
     return { outcome: "simulate", reason: "simulated: not executed (dry run)" };
   }
 
-  private async evaluateLive(req: BrokerRequest, preset: PermissionPreset): Promise<BrokerDecision> {
+  private async evaluateLive(
+    req: BrokerRequest,
+    preset: PermissionPreset,
+  ): Promise<BrokerDecision> {
     const denyReason = builtinDenyReason(req);
     if (denyReason) return { outcome: "deny", reason: `built-in deny: ${denyReason}` };
 
@@ -135,7 +141,10 @@ export class PermissionBroker {
         reason: `Jev risk gate: band=auto, external_side_effect=${sideEffect.toFixed(2)}`,
       };
     }
-    return this.ask(req, `Jev risk gate: band=${band}, external_side_effect=${sideEffect.toFixed(2)}`);
+    return this.ask(
+      req,
+      `Jev risk gate: band=${band}, external_side_effect=${sideEffect.toFixed(2)}`,
+    );
   }
 
   private ask(req: BrokerRequest, reason: string): BrokerDecision {
