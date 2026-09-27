@@ -367,9 +367,6 @@ importers:
       '@openbot/decisions':
         specifier: workspace:*
         version: link:../decisions
-      '@openbot/routines':
-        specifier: workspace:*
-        version: link:../routines
       '@openbot/testkit':
         specifier: workspace:*
         version: link:../testkit
