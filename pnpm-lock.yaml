@@ -71,6 +71,25 @@ importers:
         specifier: 5.0.2
         version: 5.0.2(@types/node@22.20.4)(vite@8.3.1(@types/node@22.20.4)(esbuild@0.28.2)(tsx@4.23.15))
 
+  packages/decisions:
+    dependencies:
+      '@openbot/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      ulid:
+        specifier: 3.0.2
+        version: 3.0.2
+    devDependencies:
+      '@types/node':
+        specifier: 22.20.4
+        version: 22.20.4
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 5.0.2
+        version: 5.0.2(@types/node@22.20.4)(vite@8.3.1(@types/node@22.20.4)(esbuild@0.28.2)(tsx@4.23.15))
+
   packages/engines/fake:
     dependencies:
       '@openbot/contracts':
