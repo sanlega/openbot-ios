@@ -1,4 +1,11 @@
-import type { Bot, ChainMode, EngineDriver, EngineId, TurnInput } from "@openbot/contracts";
+import {
+  newId,
+  type Bot,
+  type ChainMode,
+  type EngineDriver,
+  type EngineId,
+  type TurnInput,
+} from "@openbot/contracts";
 import type { CoreContext, TurnMailbox } from "@openbot/core";
 import { buildCosSystemPrompt, type AutonomyCaps, type CapCounterService } from "@openbot/cos";
 import { McpComposer, type SessionTokenService } from "@openbot/mcp";
@@ -216,16 +223,7 @@ export function createTurnMailbox(
       const liveChainId = chainId!;
       const mode = ctx.repos.chains.getById(liveChainId)?.mode ?? "live";
 
-      const turn = await buildTurn({
-        bot,
-        text: input.text,
-        chainId: liveChainId,
-        threadId: thread.id,
-        mode,
-        engine: input.engine,
-      });
-      if ("error" in turn) return { ok: false, reason: turn.error };
-
+      // The user's message shows up at once; picking an engine can take a moment.
       const userMessage = deps.runtime.messages.create({
         threadId: thread.id,
         author: { type: "user", id: "user" },
@@ -244,6 +242,27 @@ export function createTurnMailbox(
         chainId: liveChainId,
         payload: { messageId: userMessage.id, text: input.text, author: "user" },
       });
+
+      const turn = await buildTurn({
+        bot,
+        text: input.text,
+        chainId: liveChainId,
+        threadId: thread.id,
+        mode,
+        engine: input.engine,
+      });
+      if ("error" in turn) {
+        // Say why in the chat instead of dropping the message silently.
+        await ctx.eventBus.publish({
+          type: "turn.failed",
+          botId: bot.id,
+          threadId: thread.id,
+          chainId: liveChainId,
+          turnId: newId("turn"),
+          payload: { errorMessage: turn.error },
+        });
+        return { ok: false, reason: turn.error, chainId: liveChainId, messageId: userMessage.id };
+      }
 
       void deps.runtime.mailbox.submit(turn);
       return {

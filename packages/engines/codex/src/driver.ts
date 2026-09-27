@@ -52,7 +52,13 @@ export class CodexDriver implements EngineDriver {
 
   async listModels(): Promise<ModelInfo[]> {
     try {
-      const models = await this.appServer.listModels();
+      // Discovery must never hold up a chat turn or the model picker.
+      const models = await Promise.race([
+        this.appServer.listModels(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("model/list timed out")), 5_000),
+        ),
+      ]);
       const visible = models.flatMap((entry): ModelInfo[] => {
         if (!entry || typeof entry !== "object") return [];
         const model = entry as { id?: unknown; model?: unknown; displayName?: unknown };

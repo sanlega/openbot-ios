@@ -75,7 +75,7 @@ export class CodexAppServer {
       }
     });
 
-    await this.request("initialize", {
+    await this.send("initialize", {
       clientInfo: { name: "openbot", title: "OpenBot", version: "0.1.0" },
       capabilities: { experimentalApi: true },
     });
@@ -231,6 +231,15 @@ export class CodexAppServer {
 
   private async request(method: string, params: Record<string, unknown>): Promise<unknown> {
     await this.ensureStarted();
+    return this.send(method, params);
+  }
+
+  /**
+   * One JSON-RPC call on the running process. `start()` uses this directly for
+   * `initialize`: going through `request()` would wait on `ensureStarted()`,
+   * which is waiting on `start()` — a deadlock that hung every Codex call.
+   */
+  private send(method: string, params: Record<string, unknown>): Promise<unknown> {
     const id = this.nextId++;
     const payload: CodexJsonRpcRequest = { jsonrpc: "2.0", id, method, params };
     return new Promise((resolve, reject) => {

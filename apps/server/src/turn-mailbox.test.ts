@@ -203,9 +203,11 @@ describe("createTurnMailbox (message.send → engine turn)", () => {
       ok: true,
       engine: "claude",
     });
-    expect(await mailbox.enqueue({ botId: bot.id, text: "c", engine: "fake" })).toEqual({
+    // The message is kept and the reason shows up in the chat as a failed turn.
+    expect(await mailbox.enqueue({ botId: bot.id, text: "c", engine: "fake" })).toMatchObject({
       ok: false,
       reason: 'engine "fake" is not available',
+      messageId: expect.stringMatching(/^msg_/),
     });
   });
 
