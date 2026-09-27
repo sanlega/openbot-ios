@@ -29,7 +29,11 @@ export type {
   McpConnectorComposer,
 } from "./services/interfaces.js";
 export { createFakeMcpServices } from "./services/fakes.js";
-export { createMcpServices, createMcpServicesForTests, type McpServiceDeps } from "./services/create-services.js";
+export {
+  createMcpServices,
+  createMcpServicesForTests,
+  type McpServiceDeps,
+} from "./services/create-services.js";
 export { McpRoutineServiceAdapter } from "./services/routine-service.js";
 export { McpRuntimeServiceAdapter } from "./services/runtime-service.js";
 export { McpCosServiceAdapter } from "./services/cos-service.js";

@@ -43,7 +43,14 @@ export function createInitialState(
 export type UiAction =
   | { type: "ws.connected" }
   | { type: "ws.replay.done" }
-  | { type: "hydrate"; bots: Bot[]; threads: ThreadView[]; messages: Message[]; approvals: Approval[]; routes: Record<string, RoutePreview> }
+  | {
+      type: "hydrate";
+      bots: Bot[];
+      threads: ThreadView[];
+      messages: Message[];
+      approvals: Approval[];
+      routes: Record<string, RoutePreview>;
+    }
   | { type: "event"; event: OBEvent };
 
 function upsertMessage(state: UiState, message: Message): void {

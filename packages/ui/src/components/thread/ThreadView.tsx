@@ -66,7 +66,12 @@ export function ThreadViewPanel({ onBack }: ThreadViewProps) {
       </header>
 
       <div className="thread-subnav">
-        <button type="button" className="nav-tab" data-active={panel === "chat"} onClick={() => setPanel("chat")}>
+        <button
+          type="button"
+          className="nav-tab"
+          data-active={panel === "chat"}
+          onClick={() => setPanel("chat")}
+        >
           Chat
         </button>
         {showComputer ? (

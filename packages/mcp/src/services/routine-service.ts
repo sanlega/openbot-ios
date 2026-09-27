@@ -1,9 +1,4 @@
-import {
-  newId,
-  RoutineLimits,
-  RoutineTrigger,
-  type Routine,
-} from "@openbot/contracts";
+import { newId, RoutineLimits, RoutineTrigger, type Routine } from "@openbot/contracts";
 import type { CoreContext } from "@openbot/core";
 import {
   checkRoutineCreationCaps,

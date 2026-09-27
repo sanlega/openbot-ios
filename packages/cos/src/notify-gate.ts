@@ -77,7 +77,14 @@ export class NotifyGate {
       return { allowed: false, reason: capCheck.reason!, suggestion: "wait for digest" };
     }
 
-    if (this.caps.hasRecentDedupe(ctx.message.dedupeKey, ctx.recentDelivered, this.autonomyCaps, ctx.now)) {
+    if (
+      this.caps.hasRecentDedupe(
+        ctx.message.dedupeKey,
+        ctx.recentDelivered,
+        this.autonomyCaps,
+        ctx.now,
+      )
+    ) {
       return {
         allowed: false,
         reason: `duplicate dedupe_key "${ctx.message.dedupeKey}" within ${this.autonomyCaps.dedupeWindowHours}h`,
@@ -134,8 +141,7 @@ export class NotifyGate {
     const { deliver: ruleDeliver, push } = evaluateNotifyRule(result.answers, this.thresholds);
 
     const quiet = this.autonomyCaps.quietHours ?? ctx.quietHours;
-    const deliver =
-      ruleDeliver && !(this.caps.isQuietHours(quiet, ctx.now) && !push);
+    const deliver = ruleDeliver && !(this.caps.isQuietHours(quiet, ctx.now) && !push);
 
     if (!deliver) {
       return {

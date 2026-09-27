@@ -94,9 +94,7 @@ export class CapCounterService {
   }
 
   /** S2: new bots per rolling 24 h. */
-  checkDailySpawnCap(
-    caps: AutonomyCaps,
-  ): { ok: boolean; count: number; reason?: string } {
+  checkDailySpawnCap(caps: AutonomyCaps): { ok: boolean; count: number; reason?: string } {
     const result = this.checkAndIncrement("spawn", "daily", 86_400, caps.newBotsPerDay);
     if (!result.ok) {
       return {
@@ -145,7 +143,10 @@ export class CapCounterService {
       return { ok: false, reason: `per-bot daily message cap (${counts.botDay}/${perBotDay})` };
     }
     if (counts.globalHour >= globalHour) {
-      return { ok: false, reason: `global hourly message cap (${counts.globalHour}/${globalHour})` };
+      return {
+        ok: false,
+        reason: `global hourly message cap (${counts.globalHour}/${globalHour})`,
+      };
     }
     return { ok: true };
   }
@@ -164,11 +165,7 @@ export class CapCounterService {
   }
 
   /** S10: merge window — same bot messaged recently. */
-  inMergeWindow(
-    lastMessageFromBotAt: Date | undefined,
-    caps: AutonomyCaps,
-    now: Date,
-  ): boolean {
+  inMergeWindow(lastMessageFromBotAt: Date | undefined, caps: AutonomyCaps, now: Date): boolean {
     if (!lastMessageFromBotAt) return false;
     const windowMs = caps.mergeWindowMin * 60_000;
     return now.getTime() - lastMessageFromBotAt.getTime() < windowMs;

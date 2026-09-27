@@ -16,7 +16,10 @@ function noul(answers: Record<string, JevAnswer>, id: string): number {
   return 0;
 }
 
-function choiceAnswer(answers: Record<string, JevAnswer>, id: string): { choice: string; confidence: number } {
+function choiceAnswer(
+  answers: Record<string, JevAnswer>,
+  id: string,
+): { choice: string; confidence: number } {
   const a = answers[id];
   if (a?.type === "choice") return { choice: a.choice, confidence: a.confidence };
   return { choice: "", confidence: 0 };
@@ -48,11 +51,7 @@ export function evaluateSpawnRule(
       (recurringOwnership >= thresholds.recurringOwnershipMin ||
         distinctBoundary >= thresholds.distinctBoundaryMin));
 
-  const suggestion = allow
-    ? null
-    : route.choice === "new_bot"
-      ? "cos_itself"
-      : route.choice;
+  const suggestion = allow ? null : route.choice === "new_bot" ? "cos_itself" : route.choice;
 
   return { allow, suggestion };
 }
@@ -91,7 +90,11 @@ export class SpawnGate {
   private checkCaps(ctx: SpawnGateContext): GateRefusal | null {
     const s1 = this.caps.checkRosterCap(ctx.cosCreatedBotCount, this.autonomyCaps);
     if (!s1.ok) {
-      return { allowed: false, reason: s1.reason!, suggestion: "reuse or ask the user to archive a bot" };
+      return {
+        allowed: false,
+        reason: s1.reason!,
+        suggestion: "reuse or ask the user to archive a bot",
+      };
     }
 
     if (ctx.spawnsInLast24h >= this.autonomyCaps.newBotsPerDay) {
@@ -147,7 +150,9 @@ export class SpawnGate {
     if (!allow) {
       const route = choiceAnswer(result.answers, "route");
       const delegateTarget =
-        suggestion && suggestion !== "cos_itself" && suggestion !== "new_bot" ? suggestion : undefined;
+        suggestion && suggestion !== "cos_itself" && suggestion !== "new_bot"
+          ? suggestion
+          : undefined;
       return {
         allowed: false,
         reason: delegateTarget

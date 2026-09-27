@@ -54,7 +54,11 @@ export async function bootstrapHarness(
   const autonomyCaps = loadAutonomyCaps(ctx);
   const caps = new CapCounterService(ctx.clock);
   const spawnGate = new SpawnGate({ decisions: providers.decisionService, caps, autonomyCaps });
-  const cosNotifyGate = new CosNotifyGate({ decisions: providers.decisionService, caps, autonomyCaps });
+  const cosNotifyGate = new CosNotifyGate({
+    decisions: providers.decisionService,
+    caps,
+    autonomyCaps,
+  });
   const runtimeNotify = new CosNotifyGateAdapter(ctx, cosNotifyGate, caps, autonomyCaps);
 
   const events = createCoreEventSink(ctx);
@@ -117,9 +121,11 @@ function loadAutonomyCaps(ctx: CoreContext): AutonomyCaps {
     cosCreatedBotsMax: caps.s1_cosBotsCap ?? DEFAULT_AUTONOMY_CAPS.cosCreatedBotsMax,
     newBotsPerDay: caps.s2_newBotsPer24h ?? DEFAULT_AUTONOMY_CAPS.newBotsPerDay,
     spawnCooldownMin: caps.s3_spawnCooldownMin ?? DEFAULT_AUTONOMY_CAPS.spawnCooldownMin,
-    proactivePerBotHour: caps.s4_proactivePerBotPerHour ?? DEFAULT_AUTONOMY_CAPS.proactivePerBotHour,
+    proactivePerBotHour:
+      caps.s4_proactivePerBotPerHour ?? DEFAULT_AUTONOMY_CAPS.proactivePerBotHour,
     proactivePerBotDay: caps.s4_proactivePerBotPerDay ?? DEFAULT_AUTONOMY_CAPS.proactivePerBotDay,
-    proactiveGlobalHour: caps.s5_proactiveAllBotsPerHour ?? DEFAULT_AUTONOMY_CAPS.proactiveGlobalHour,
+    proactiveGlobalHour:
+      caps.s5_proactiveAllBotsPerHour ?? DEFAULT_AUTONOMY_CAPS.proactiveGlobalHour,
     dedupeWindowHours: caps.s6_dedupeWindowHours ?? DEFAULT_AUTONOMY_CAPS.dedupeWindowHours,
     mergeWindowMin: caps.s10_mergeWindowMin ?? DEFAULT_AUTONOMY_CAPS.mergeWindowMin,
     quietHours: settings.quietHours,
@@ -262,9 +268,24 @@ class CosNotifyGateAdapter implements RuntimeNotifyGate {
     const outcome = result.details?.outcome ?? "delivered";
     const push = result.details?.push ?? false;
     if (outcome === "delivered") {
-      this.caps.checkAndIncrement("notify", `${req.botId}:hour`, 3600, this.autonomyCaps.proactivePerBotHour);
-      this.caps.checkAndIncrement("notify", `${req.botId}:day`, 86_400, this.autonomyCaps.proactivePerBotDay);
-      this.caps.checkAndIncrement("notify", "global:hour", 3600, this.autonomyCaps.proactiveGlobalHour);
+      this.caps.checkAndIncrement(
+        "notify",
+        `${req.botId}:hour`,
+        3600,
+        this.autonomyCaps.proactivePerBotHour,
+      );
+      this.caps.checkAndIncrement(
+        "notify",
+        `${req.botId}:day`,
+        86_400,
+        this.autonomyCaps.proactivePerBotDay,
+      );
+      this.caps.checkAndIncrement(
+        "notify",
+        "global:hour",
+        3600,
+        this.autonomyCaps.proactiveGlobalHour,
+      );
     }
 
     return {

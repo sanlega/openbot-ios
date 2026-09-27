@@ -104,7 +104,11 @@ async function resolveEngineDrivers(detection: ProviderDetection): Promise<{
     availableEngines.push("codex");
   }
 
-  return { drivers, engineStatuses: { claude: claudeStatus, codex: codexStatus }, availableEngines };
+  return {
+    drivers,
+    engineStatuses: { claude: claudeStatus, codex: codexStatus },
+    availableEngines,
+  };
 }
 
 async function resolveComputerProvider(

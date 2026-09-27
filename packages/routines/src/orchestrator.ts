@@ -82,19 +82,31 @@ export class RoutineOrchestrator {
   async queueRun(
     routineId: string,
     cause: RoutineRunCause,
-    opts: { dryRun?: boolean; triggerEventIds?: string[]; triggerPayload?: unknown; test?: boolean } = {},
+    opts: {
+      dryRun?: boolean;
+      triggerEventIds?: string[];
+      triggerPayload?: unknown;
+      test?: boolean;
+    } = {},
   ): Promise<RoutineRun | { skipped: true; reason: string }> {
     const routine = this.ctx.repos.routines.getById(routineId);
     if (!routine) return { skipped: true, reason: "routine not found" };
     if (!routine.enabled) return { skipped: true, reason: "routine disabled" };
 
     const isFirstRun = this.ctx.repos.routineRuns.listByRoutine(routineId).length === 0;
-    const dryRun = opts.dryRun ?? (isFirstRun ? true : cause === "manual" ? false : !routine.liveApproved);
+    const dryRun =
+      opts.dryRun ?? (isFirstRun ? true : cause === "manual" ? false : !routine.liveApproved);
     const effectiveCause = opts.test ? "test" : cause;
 
     const capCheck = checkRunCaps(this.ctx, routine, dryRun);
     if (!capCheck.allowed) {
-      const run = await this.createSkippedRun(routine, effectiveCause, dryRun, capCheck.reason, opts.triggerEventIds);
+      const run = await this.createSkippedRun(
+        routine,
+        effectiveCause,
+        dryRun,
+        capCheck.reason,
+        opts.triggerEventIds,
+      );
       return run;
     }
 
@@ -179,11 +191,7 @@ export class RoutineOrchestrator {
     return run;
   }
 
-  private scheduleExecution(
-    routine: Routine,
-    run: RoutineRun,
-    triggerPayload?: unknown,
-  ): void {
+  private scheduleExecution(routine: Routine, run: RoutineRun, triggerPayload?: unknown): void {
     const existing = this.pendingExecutions.get(routine.id);
     if (existing !== undefined && "clearTimeout" in globalThis) {
       clearTimeout(existing);
@@ -335,8 +343,7 @@ export class RoutineOrchestrator {
       await this.writeDryRunReport(routine.id, run.id, result.plannedActions);
     }
 
-    const eventType =
-      status === "skipped" ? "routine.run_skipped" : "routine.run_completed";
+    const eventType = status === "skipped" ? "routine.run_skipped" : "routine.run_completed";
     await this.ctx.eventBus.publish({
       type: eventType,
       botId: routine.botId,
@@ -360,7 +367,11 @@ export class RoutineOrchestrator {
     await mkdir(dir, { recursive: true });
     await writeFile(
       join(dir, `${runId}.json`),
-      JSON.stringify({ runId, plannedActions, generatedAt: this.ctx.clock.now().toISOString() }, null, 2),
+      JSON.stringify(
+        { runId, plannedActions, generatedAt: this.ctx.clock.now().toISOString() },
+        null,
+        2,
+      ),
     );
   }
 
@@ -447,7 +458,11 @@ export class RoutineOrchestrator {
     return ref;
   }
 
-  async handleWebhook(routineId: string, payload: unknown, secret: string): Promise<{ ok: boolean; reason?: string }> {
+  async handleWebhook(
+    routineId: string,
+    payload: unknown,
+    secret: string,
+  ): Promise<{ ok: boolean; reason?: string }> {
     const routine = this.ctx.repos.routines.getById(routineId);
     if (!routine) return { ok: false, reason: "not_found" };
     if (routine.trigger.type !== "event" || routine.trigger.source !== "webhook") {

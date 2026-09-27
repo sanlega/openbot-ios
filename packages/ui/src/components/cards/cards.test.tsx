@@ -27,7 +27,14 @@ describe("ApprovalCard", () => {
       expiresAt: new Date(Date.now() + 60000).toISOString(),
       createdAt: new Date().toISOString(),
     };
-    render(<ApprovalCard approval={approval} onResolve={(r) => { resolution = r; }} />);
+    render(
+      <ApprovalCard
+        approval={approval}
+        onResolve={(r) => {
+          resolution = r;
+        }}
+      />,
+    );
     await user.click(screen.getByRole("button", { name: "Allow" }));
     expect(resolution).toBe("allow");
   });
@@ -35,9 +42,7 @@ describe("ApprovalCard", () => {
 
 describe("RouteChip", () => {
   it("shows engine model and confidence", () => {
-    render(
-      <RouteChip route={{ engine: "claude", model: "sonnet", confidence: 0.88 }} />,
-    );
+    render(<RouteChip route={{ engine: "claude", model: "sonnet", confidence: 0.88 }} />);
     expect(screen.getByText("claude")).toBeInTheDocument();
     expect(screen.getByText("88%")).toBeInTheDocument();
   });

@@ -14,10 +14,7 @@ export interface CloudflareStartResult {
   accessWarning?: string;
 }
 
-export type SpawnFn = (
-  command: string,
-  args: string[],
-) => ChildProcess;
+export type SpawnFn = (command: string, args: string[]) => ChildProcess;
 
 const defaultSpawn: SpawnFn = (command, args) =>
   spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });

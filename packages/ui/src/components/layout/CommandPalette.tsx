@@ -38,7 +38,12 @@ export function CommandPalette({ onClose, onNavigate }: CommandPaletteProps) {
 
   return (
     <div className="command-palette-overlay" onClick={onClose} role="presentation">
-      <div className="command-palette" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Command palette">
+      <div
+        className="command-palette"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="Command palette"
+      >
         <input
           autoFocus
           placeholder="Search commands…"

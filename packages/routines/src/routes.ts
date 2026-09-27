@@ -27,7 +27,8 @@ export function registerRoutineHookRoutes(
 
     const result = await orchestrator.handleWebhook(routineId, request.body, secret);
     if (!result.ok) {
-      const code = result.reason === "not_found" ? 404 : result.reason === "invalid_secret" ? 401 : 400;
+      const code =
+        result.reason === "not_found" ? 404 : result.reason === "invalid_secret" ? 401 : 400;
       return reply.code(code).send({ error: result.reason });
     }
     return { ok: true };

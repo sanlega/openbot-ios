@@ -18,7 +18,9 @@ describe("MockClientApiServer extended endpoints", () => {
   });
 
   it("serves computer live view and takeover", async () => {
-    const live = await fetch(`${baseUrl}/api/computer/screens/bot_code_01/live`).then((r) => r.json());
+    const live = await fetch(`${baseUrl}/api/computer/screens/bot_code_01/live`).then((r) =>
+      r.json(),
+    );
     expect(live.url).toContain("novnc");
 
     const takeover = await fetch(`${baseUrl}/api/computer/screens/bot_code_01/takeover`, {

@@ -159,7 +159,12 @@ describe("SpawnGate", () => {
       },
       route: async () => ({ engine: "fake", model: "fake", band: "auto", decisionId: "dec_test" }),
       band: () => "auto",
-      budgets: () => ({ gates: { limitRpm: 0, usedRpm: 0, queued: 0 }, interactive: { limitRpm: 0, usedRpm: 0, queued: 0 }, computer: { limitRpm: 0, usedRpm: 0, queued: 0 }, background: { limitRpm: 0, usedRpm: 0, queued: 0 } }),
+      budgets: () => ({
+        gates: { limitRpm: 0, usedRpm: 0, queued: 0 },
+        interactive: { limitRpm: 0, usedRpm: 0, queued: 0 },
+        computer: { limitRpm: 0, usedRpm: 0, queued: 0 },
+        background: { limitRpm: 0, usedRpm: 0, queued: 0 },
+      }),
       validateKey: async () => ({ ok: true }),
     };
 

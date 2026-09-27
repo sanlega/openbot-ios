@@ -27,7 +27,10 @@ export function registerRemoteAndAuditRoutes(app: FastifyInstance, ctx: CoreCont
     if (result.ok) {
       await ctx.eventBus.publish({
         type: "remote.status",
-        payload: { tailscale: { enabled: true, urls: result.urls }, cloudflare: { enabled: false } },
+        payload: {
+          tailscale: { enabled: true, urls: result.urls },
+          cloudflare: { enabled: false },
+        },
       });
     }
     return { result };
@@ -58,7 +61,11 @@ export function registerRemoteAndAuditRoutes(app: FastifyInstance, ctx: CoreCont
         type: "remote.status",
         payload: {
           tailscale: { enabled: false },
-          cloudflare: { enabled: true, hostname: result.hostname, accessWarning: result.accessWarning },
+          cloudflare: {
+            enabled: true,
+            hostname: result.hostname,
+            accessWarning: result.accessWarning,
+          },
         },
       });
     }

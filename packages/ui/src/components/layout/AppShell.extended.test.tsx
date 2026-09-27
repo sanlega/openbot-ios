@@ -86,7 +86,12 @@ describe("WS5 extended screens", () => {
 
     await waitForBots();
     await user.click(screen.getByRole("button", { name: /Research/i }));
-    await waitFor(() => expect(screen.getByRole("button", { name: /Research/i })).toHaveAttribute("data-active", "true"));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Research/i })).toHaveAttribute(
+        "data-active",
+        "true",
+      ),
+    );
     await user.click(screen.getByRole("button", { name: "Profile" }));
     expect(await screen.findByTestId("bot-why-panel")).toBeInTheDocument();
     expect(screen.getByText("Long-form research with citations")).toBeInTheDocument();

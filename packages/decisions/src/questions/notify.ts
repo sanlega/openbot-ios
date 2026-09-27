@@ -22,8 +22,7 @@ export function buildNotifyQuestions(): Record<string, JevQuestion> {
     },
     is_time_sensitive: {
       type: "noul",
-      instructions:
-        "Delay would cause real harm (deadline, expiring session, pending payment).",
+      instructions: "Delay would cause real harm (deadline, expiring session, pending payment).",
     },
   };
 }

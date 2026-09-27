@@ -37,8 +37,7 @@ export interface GateAllow<T extends Record<string, unknown> = Record<string, un
 }
 
 export type GateResult<T extends Record<string, unknown> = Record<string, unknown>> =
-  | GateRefusal
-  | GateAllow<T>;
+  GateRefusal | GateAllow<T>;
 
 export interface NotifyGateDetails extends Record<string, unknown> {
   outcome: NotifyOutcome;

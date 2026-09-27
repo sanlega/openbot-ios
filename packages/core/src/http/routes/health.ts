@@ -16,7 +16,8 @@ export function registerHealthRoutes(app: FastifyInstance, ctx: CoreContext): vo
     const engines = Object.entries(statuses).map(([id, status]) => ({
       id,
       ...status,
-      available: ctx.availableEngines?.includes(id as (typeof ctx.availableEngines)[number]) ?? false,
+      available:
+        ctx.availableEngines?.includes(id as (typeof ctx.availableEngines)[number]) ?? false,
     }));
     return { engines };
   });

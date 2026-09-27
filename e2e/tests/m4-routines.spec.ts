@@ -36,7 +36,9 @@ test.describe("M4 Routines", () => {
         }),
       });
       expect(routineRes.status).toBe(201);
-      const { routine } = (await routineRes.json()) as { routine: { id: string; liveApproved: boolean } };
+      const { routine } = (await routineRes.json()) as {
+        routine: { id: string; liveApproved: boolean };
+      };
       expect(routine.liveApproved).toBe(false);
 
       const runsRes = await fetch(`${harness.baseUrl}/api/routines/${routine.id}/runs`);

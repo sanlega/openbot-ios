@@ -88,7 +88,12 @@ export function SetupWizard({ transport, onComplete }: SetupWizardProps) {
         {isLoginStep && !value ? "Check login status" : "Continue"}
       </button>
       {!current.required ? (
-        <button type="button" className="card-actions" style={{ width: "100%", padding: 12 }} onClick={() => void skipOptional()}>
+        <button
+          type="button"
+          className="card-actions"
+          style={{ width: "100%", padding: 12 }}
+          onClick={() => void skipOptional()}
+        >
           Skip
         </button>
       ) : null}

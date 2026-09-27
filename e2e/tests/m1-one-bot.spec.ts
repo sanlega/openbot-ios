@@ -22,7 +22,10 @@ test.describe("M1 One bot on desktop", () => {
         }),
       });
       expect(createRes.status).toBe(201);
-      const { bot, thread } = (await createRes.json()) as { bot: { id: string }; thread: { id: string } };
+      const { bot, thread } = (await createRes.json()) as {
+        bot: { id: string };
+        thread: { id: string };
+      };
       expect(bot.id).toMatch(/^bot_/);
       expect(thread.id).toMatch(/^thr_/);
 

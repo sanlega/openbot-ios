@@ -29,7 +29,9 @@ export interface RemoteServices {
   hostKeys: X25519KeyPair;
 }
 
-export async function createRemoteServices(options: RemoteServicesOptions): Promise<RemoteServices> {
+export async function createRemoteServices(
+  options: RemoteServicesOptions,
+): Promise<RemoteServices> {
   const hostKeys = options.hostKeys ?? (await loadOrCreateHostKeys(options.vault));
   return {
     pairing: new PairingService(options.clock, hostKeys),
@@ -58,7 +60,10 @@ async function loadOrCreateHostKeys(vault?: SecretVault): Promise<X25519KeyPair>
     };
   }
   const keys = generateX25519KeyPair();
-  await vault.set(VAULT_HOST_KEY, keys.privateKey.export({ type: "pkcs8", format: "der" }).toString("base64"));
+  await vault.set(
+    VAULT_HOST_KEY,
+    keys.privateKey.export({ type: "pkcs8", format: "der" }).toString("base64"),
+  );
   return keys;
 }
 

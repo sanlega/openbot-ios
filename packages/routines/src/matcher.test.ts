@@ -8,11 +8,9 @@ describe("matcher", () => {
 
   it("matchesDeterministicFilter applies path regex", () => {
     const payload = { action: "opened", repo: "OpenBot" };
-    expect(
-      matchesDeterministicFilter(payload, [{ path: "action", regex: "^opened$" }]),
-    ).toBe(true);
-    expect(
-      matchesDeterministicFilter(payload, [{ path: "action", regex: "^closed$" }]),
-    ).toBe(false);
+    expect(matchesDeterministicFilter(payload, [{ path: "action", regex: "^opened$" }])).toBe(true);
+    expect(matchesDeterministicFilter(payload, [{ path: "action", regex: "^closed$" }])).toBe(
+      false,
+    );
   });
 });

@@ -22,11 +22,11 @@ describe("CapCounterService property: no sequence exceeds S1–S6", () => {
     let allowed = 0;
 
     for (let count = 0; count < 10; count++) {
-      const result = caps.checkNotifyCaps(
-        "bot_a",
-        DEFAULT_AUTONOMY_CAPS,
-        { botHour: count, botDay: count, globalHour: count },
-      );
+      const result = caps.checkNotifyCaps("bot_a", DEFAULT_AUTONOMY_CAPS, {
+        botHour: count,
+        botDay: count,
+        globalHour: count,
+      });
       if (result.ok) allowed += 1;
     }
     expect(allowed).toBe(limit);
@@ -38,11 +38,11 @@ describe("CapCounterService property: no sequence exceeds S1–S6", () => {
     let allowed = 0;
 
     for (let count = 0; count < 10; count++) {
-      const result = caps.checkNotifyCaps(
-        "bot_a",
-        DEFAULT_AUTONOMY_CAPS,
-        { botHour: 0, botDay: 0, globalHour: count },
-      );
+      const result = caps.checkNotifyCaps("bot_a", DEFAULT_AUTONOMY_CAPS, {
+        botHour: 0,
+        botDay: 0,
+        globalHour: count,
+      });
       if (result.ok) allowed += 1;
     }
     expect(allowed).toBe(limit);
@@ -51,9 +51,7 @@ describe("CapCounterService property: no sequence exceeds S1–S6", () => {
   it("detects duplicate dedupe_key within S6 window", () => {
     const now = new Date("2026-09-27T12:00:00Z");
     const caps = new CapCounterService(new FakeClock(now));
-    const recent = [
-      { dedupeKey: "topic-a", at: new Date("2026-09-27T08:00:00Z") },
-    ];
+    const recent = [{ dedupeKey: "topic-a", at: new Date("2026-09-27T08:00:00Z") }];
     expect(caps.hasRecentDedupe("topic-a", recent, DEFAULT_AUTONOMY_CAPS, now)).toBe(true);
     expect(caps.hasRecentDedupe("topic-b", recent, DEFAULT_AUTONOMY_CAPS, now)).toBe(false);
   });

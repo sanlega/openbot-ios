@@ -30,7 +30,11 @@ async function boot(): Promise<{ app: FastifyInstance; test: TestContext }> {
 describe("WS11 remote pairing integration", () => {
   it("completes QR pairing and serves the WS5 UI shell", async () => {
     const { app } = await boot();
-    await app.inject({ method: "POST", url: "/api/devices/pair", payload: { name: "owner", role: "owner" } });
+    await app.inject({
+      method: "POST",
+      url: "/api/devices/pair",
+      payload: { name: "owner", role: "owner" },
+    });
 
     const qr = await app.inject({ method: "POST", url: "/api/devices/pair/qr" });
     expect(qr.statusCode).toBe(200);
@@ -60,7 +64,11 @@ describe("WS11 remote pairing integration", () => {
 
   it("encrypts remote HTTP responses so a proxy capture cannot read them", async () => {
     const { app, test } = await boot();
-    await app.inject({ method: "POST", url: "/api/devices/pair", payload: { name: "owner", role: "owner" } });
+    await app.inject({
+      method: "POST",
+      url: "/api/devices/pair",
+      payload: { name: "owner", role: "owner" },
+    });
     const qr = await app.inject({ method: "POST", url: "/api/devices/pair/qr" });
     const { pairSecret } = qr.json<{ pairSecret: string }>();
     const deviceKeys = generateX25519KeyPair();
@@ -73,7 +81,9 @@ describe("WS11 remote pairing integration", () => {
     const { token, e2e } = complete.json<{ token: string; e2e: { serverHeader: string } }>();
 
     const hostPrivate = test.ctx.remote!.hostKeys.privateKey;
-    const framingKey = deriveFramingKey(computeSharedSecret(hostPrivate, deviceKeys.publicKeyBase64));
+    const framingKey = deriveFramingKey(
+      computeSharedSecret(hostPrivate, deviceKeys.publicKeyBase64),
+    );
     const client = await ClientE2ESession.create(framingKey, e2e.serverHeader);
 
     const proxied = await app.inject({

@@ -93,7 +93,8 @@ export class PairingService {
   complete(input: CompletePairingInput): CompletePairingResult {
     this.pruneExpired();
     const session = this.sessions.get(input.pairSecret);
-    if (!session) throw new PairingError("invalid_pair_secret", "pairing secret not found or expired");
+    if (!session)
+      throw new PairingError("invalid_pair_secret", "pairing secret not found or expired");
     if (session.used) throw new PairingError("pair_secret_reused", "pairing secret already used");
     if (new Date(session.expiresAt) <= this.clock.now()) {
       this.sessions.delete(input.pairSecret);

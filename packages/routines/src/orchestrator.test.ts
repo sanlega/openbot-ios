@@ -10,9 +10,15 @@ import { DEFAULT_ROUTINE_LIMITS } from "./defaults.js";
 import { RoutineOrchestrator } from "./orchestrator.js";
 import { SimulatedRoutineRuntime } from "./simulated-runtime.js";
 
-async function createHarness(
-  runtimeOptions?: { plannedActions?: string[]; hasSideEffects?: boolean },
-): Promise<{ ctx: CoreContext; orchestrator: RoutineOrchestrator; clock: FakeClock; cleanup: () => Promise<void> }> {
+async function createHarness(runtimeOptions?: {
+  plannedActions?: string[];
+  hasSideEffects?: boolean;
+}): Promise<{
+  ctx: CoreContext;
+  orchestrator: RoutineOrchestrator;
+  clock: FakeClock;
+  cleanup: () => Promise<void>;
+}> {
   const openbotHome = await mkdtemp(join(tmpdir(), "openbot-routines-test-"));
   const clock = new FakeClock(new Date("2026-01-01T08:00:00.000Z"));
   const ctx = await createCoreContext({

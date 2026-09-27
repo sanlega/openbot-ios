@@ -7,11 +7,7 @@ const DAY_SEC = 86_400;
 export type CapCheckResult = { allowed: true } | { allowed: false; reason: string };
 
 /** Pre-run budget checks (plan §5 WS12 spend caps O7). */
-export function checkRunCaps(
-  ctx: CoreContext,
-  routine: Routine,
-  dryRun: boolean,
-): CapCheckResult {
+export function checkRunCaps(ctx: CoreContext, routine: Routine, dryRun: boolean): CapCheckResult {
   const currentRuns = ctx.repos.capCounters.get("routine", `${routine.id}:runs`);
   const todayCount = currentRuns?.count ?? 0;
 

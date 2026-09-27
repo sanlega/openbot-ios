@@ -45,10 +45,8 @@ export async function buildServer(
     { parseAs: "buffer" },
     (_request, payload, done) => done(null, payload),
   );
-  app.addContentTypeParser(
-    E2E_CONTENT_TYPE,
-    { parseAs: "string" },
-    (_request, payload, done) => done(null, payload),
+  app.addContentTypeParser(E2E_CONTENT_TYPE, { parseAs: "string" }, (_request, payload, done) =>
+    done(null, payload),
   );
   app.addContentTypeParser("*", { parseAs: "buffer" }, (request, payload, done) => {
     if (request.url === "/api/uploads") {

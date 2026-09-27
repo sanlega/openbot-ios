@@ -61,7 +61,12 @@ export function DevicesRemoteView() {
           </ul>
         ) : null}
         <div className="card-actions">
-          <button type="button" className="primary" disabled={busy} onClick={() => void toggleTailscale()}>
+          <button
+            type="button"
+            className="primary"
+            disabled={busy}
+            onClick={() => void toggleTailscale()}
+          >
             {remote?.enabled ? "Disable Tailscale serve" : "Enable Tailscale serve"}
           </button>
         </div>

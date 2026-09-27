@@ -23,7 +23,10 @@ declare module "fastify" {
 export interface RemoteCoreContext {
   clock: { now(): Date };
   config: { port: number };
-  vault: { get(key: string): Promise<string | undefined>; set(key: string, value: string): Promise<void> };
+  vault: {
+    get(key: string): Promise<string | undefined>;
+    set(key: string, value: string): Promise<void>;
+  };
   deviceAuth: { issueToken(deviceId: string): string };
   repos: {
     devices: {
@@ -44,7 +47,9 @@ export interface RemoteCoreContext {
       patch(p: Record<string, unknown>): void;
     };
   };
-  eventBus: { publish(input: { type: string; payload: Record<string, unknown> }): Promise<unknown> };
+  eventBus: {
+    publish(input: { type: string; payload: Record<string, unknown> }): Promise<unknown>;
+  };
   validators: Record<string, (value?: string) => Promise<{ ok: boolean; reason?: string }>>;
   remote?: RemoteServices;
 }

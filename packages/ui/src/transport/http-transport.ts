@@ -1,10 +1,4 @@
-import type {
-  Transport,
-  TransportMode,
-  TransportOptions,
-  WsCommand,
-  WsInbound,
-} from "./types.js";
+import type { Transport, TransportMode, TransportOptions, WsCommand, WsInbound } from "./types.js";
 
 function joinUrl(base: string, path: string): string {
   const normalized = path.startsWith("/") ? path : `/${path}`;

@@ -25,9 +25,11 @@ export function RoutinesView() {
     if (!selectedId) return;
     const routine = routines.find((r) => r.id === selectedId);
     setEditorPrompt(routine?.prompt ?? "");
-    void transport.get<{ runs: RoutineRunView[] }>(`/api/routines/${selectedId}/runs`).then((res) => {
-      setRuns(res.runs);
-    });
+    void transport
+      .get<{ runs: RoutineRunView[] }>(`/api/routines/${selectedId}/runs`)
+      .then((res) => {
+        setRuns(res.runs);
+      });
   }, [selectedId, routines, transport]);
 
   const selected = routines.find((r) => r.id === selectedId);
@@ -95,7 +97,12 @@ export function RoutinesView() {
                 Test run
               </button>
               {!selected.liveApproved && latestDry?.plannedActions?.length ? (
-                <button type="button" className="primary" disabled={busy} onClick={() => void enableLive()}>
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={busy}
+                  onClick={() => void enableLive()}
+                >
                   Enable live
                 </button>
               ) : null}

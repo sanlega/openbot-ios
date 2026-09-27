@@ -8,12 +8,7 @@ import {
   justificationFromSpawn,
 } from "@openbot/cos";
 import type { Runtime } from "@openbot/runtime";
-import type {
-  CreateBotInput,
-  MessageUserInput,
-  SessionContext,
-  ToolResult,
-} from "../types.js";
+import type { CreateBotInput, MessageUserInput, SessionContext, ToolResult } from "../types.js";
 import { allowed, refused } from "../types.js";
 import type { McpCosService } from "./interfaces.js";
 

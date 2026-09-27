@@ -84,7 +84,9 @@ export class CosInboundPipeline {
     return active.find((b) => {
       const desc = b.description.toLowerCase();
       const name = b.name.toLowerCase();
-      return lower.includes(name) || desc.split(/\s+/).some((w) => w.length > 4 && lower.includes(w));
+      return (
+        lower.includes(name) || desc.split(/\s+/).some((w) => w.length > 4 && lower.includes(w))
+      );
     });
   }
 }

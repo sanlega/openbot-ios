@@ -16,7 +16,10 @@ export function ActivityView() {
   }, [transport, filter]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }} data-testid="activity-view">
+    <div
+      style={{ display: "flex", flexDirection: "column", height: "100%" }}
+      data-testid="activity-view"
+    >
       <div className="nav-tabs">
         <button
           type="button"
@@ -45,8 +48,16 @@ export function ActivityView() {
               <div>{entry.summary}</div>
               {entry.delivery === "held" ? (
                 <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
-                  <PromoteMuteButtons messageId={entry.messageId} transport={transport} action="promote" />
-                  <PromoteMuteButtons messageId={entry.messageId} transport={transport} action="mute" />
+                  <PromoteMuteButtons
+                    messageId={entry.messageId}
+                    transport={transport}
+                    action="promote"
+                  />
+                  <PromoteMuteButtons
+                    messageId={entry.messageId}
+                    transport={transport}
+                    action="mute"
+                  />
                 </div>
               ) : null}
               <EventCard
@@ -97,7 +108,9 @@ export function AuditView() {
   >([]);
 
   useEffect(() => {
-    void transport.get<{ entries: typeof entries }>("/api/audit").then((res) => setEntries(res.entries));
+    void transport
+      .get<{ entries: typeof entries }>("/api/audit")
+      .then((res) => setEntries(res.entries));
   }, [transport]);
 
   return (

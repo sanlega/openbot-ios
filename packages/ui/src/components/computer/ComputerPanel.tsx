@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import type { ComputerStatusResponse, ComputerTasksResponse, LiveViewResponse } from "../../api/types.js";
+import type {
+  ComputerStatusResponse,
+  ComputerTasksResponse,
+  LiveViewResponse,
+} from "../../api/types.js";
 import { useOpenBot } from "../../state/context.js";
 
 interface ComputerPanelProps {
@@ -41,13 +45,13 @@ export function ComputerPanel({ botId }: ComputerPanelProps) {
 
   if (loading) return <div className="empty-state">Loading computer…</div>;
 
-  const liveSrc = live?.url.startsWith("http") ? live.url : `${transport.baseUrl}${live?.url ?? ""}`;
+  const liveSrc = live?.url.startsWith("http")
+    ? live.url
+    : `${transport.baseUrl}${live?.url ?? ""}`;
 
   return (
     <div className="computer-panel" data-testid="computer-panel">
-      <div className="banner banner-warning">
-        {status?.sharedWorkspaceNotice}
-      </div>
+      <div className="banner banner-warning">{status?.sharedWorkspaceNotice}</div>
 
       <div className="computer-grid">
         <section className="card">
@@ -61,7 +65,11 @@ export function ComputerPanel({ botId }: ComputerPanelProps) {
             />
           </div>
           <div className="card-actions">
-            <button type="button" className={takeover ? "danger" : "primary"} onClick={() => void toggleTakeover()}>
+            <button
+              type="button"
+              className={takeover ? "danger" : "primary"}
+              onClick={() => void toggleTakeover()}
+            >
               {takeover ? "End takeover" : "Take over screen"}
             </button>
           </div>

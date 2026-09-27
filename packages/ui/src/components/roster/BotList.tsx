@@ -60,7 +60,11 @@ export function MessageBubble({ message, bot }: { message: Message; bot?: Bot })
         : (bot?.name ?? "Bot");
 
   return (
-    <div className="message-row" data-author={message.author.type} data-testid={`msg-${message.id}`}>
+    <div
+      className="message-row"
+      data-author={message.author.type}
+      data-testid={`msg-${message.id}`}
+    >
       <div className="message-bubble">
         {message.proactive && message.kind ? (
           <span className="badge" style={{ marginBottom: 6, display: "inline-block" }}>
@@ -76,7 +80,12 @@ export function MessageBubble({ message, bot }: { message: Message; bot?: Bot })
         {message.options?.length ? (
           <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
             {message.options.map((opt) => (
-              <button key={opt} type="button" className="icon-button" style={{ width: "auto", padding: "4px 10px" }}>
+              <button
+                key={opt}
+                type="button"
+                className="icon-button"
+                style={{ width: "auto", padding: "4px 10px" }}
+              >
                 {opt}
               </button>
             ))}

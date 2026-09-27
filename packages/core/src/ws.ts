@@ -53,7 +53,11 @@ export function registerWebSocketRoute(app: FastifyInstance, ctx: CoreContext): 
       void (async () => {
         let text = raw.toString();
         const deviceRecord = ctx.repos.devices.getById(device.deviceId);
-        if (shouldUseE2E(request, deviceRecord?.publicKey) && ctx.remote && deviceRecord?.publicKey) {
+        if (
+          shouldUseE2E(request, deviceRecord?.publicKey) &&
+          ctx.remote &&
+          deviceRecord?.publicKey
+        ) {
           const framingKey = ctx.remote.framing.deriveKey(
             ctx.remote.hostKeys.privateKey,
             deviceRecord.publicKey,
@@ -90,7 +94,10 @@ export function registerWebSocketRoute(app: FastifyInstance, ctx: CoreContext): 
           return;
         }
 
-        await sendToClient(socket, ctx, request, device.deviceId, { type: "error", error: "unknown_message_type" });
+        await sendToClient(socket, ctx, request, device.deviceId, {
+          type: "error",
+          error: "unknown_message_type",
+        });
       })();
     });
   });
@@ -105,14 +112,14 @@ async function sendToClient(
 ): Promise<void> {
   const deviceRecord = ctx.repos.devices.getById(deviceId);
   if (shouldUseE2E(request, deviceRecord?.publicKey) && ctx.remote && deviceRecord?.publicKey) {
-      const framingKey = ctx.remote.framing.deriveKey(
-        ctx.remote.hostKeys.privateKey,
-        deviceRecord.publicKey,
-      );
-      const session = await ctx.remote.framing.ensureSession(deviceId, framingKey);
-      const encrypted = await session.encryptWs(JSON.stringify(payload));
-      safeSend(socket, encrypted);
-      return;
+    const framingKey = ctx.remote.framing.deriveKey(
+      ctx.remote.hostKeys.privateKey,
+      deviceRecord.publicKey,
+    );
+    const session = await ctx.remote.framing.ensureSession(deviceId, framingKey);
+    const encrypted = await session.encryptWs(JSON.stringify(payload));
+    safeSend(socket, encrypted);
+    return;
   }
   safeSend(socket, payload);
 }
@@ -176,7 +183,8 @@ async function handleCommand(
     ) {
       return {
         ok: false,
-        reason: "expected { botId: string, threadId: string, chainId: string, text: string, engine?: 'claude'|'codex'|'fake' }",
+        reason:
+          "expected { botId: string, threadId: string, chainId: string, text: string, engine?: 'claude'|'codex'|'fake' }",
       };
     }
     const resolvedEngine =

@@ -71,7 +71,7 @@ export function SettingsView() {
             <strong>{e.id}</strong>
             <span>{e.installed ? `v${e.version}` : "Not installed"}</span>
             <span className={e.login.ok ? "text-success" : "text-danger"}>
-              {e.login.ok ? e.login.account ?? "Logged in" : "Not authenticated"}
+              {e.login.ok ? (e.login.account ?? "Logged in") : "Not authenticated"}
             </span>
           </div>
         ))}
@@ -143,7 +143,12 @@ export function SettingsView() {
         </label>
       </section>
 
-      <button type="button" className="card-actions primary" style={{ width: "100%", padding: 12 }} onClick={() => void save()}>
+      <button
+        type="button"
+        className="card-actions primary"
+        style={{ width: "100%", padding: 12 }}
+        onClick={() => void save()}
+      >
         {saved ? "Saved" : "Save settings"}
       </button>
     </div>

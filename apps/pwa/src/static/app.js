@@ -54,7 +54,10 @@ function parsePairFragment() {
 }
 
 async function generateDeviceKeyPair() {
-  const keyPair = await crypto.subtle.generateKey({ name: "X25519" }, true, ["deriveKey", "deriveBits"]);
+  const keyPair = await crypto.subtle.generateKey({ name: "X25519" }, true, [
+    "deriveKey",
+    "deriveBits",
+  ]);
   const publicKey = await crypto.subtle.exportKey("spki", keyPair.publicKey);
   const privateKey = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
   return {
@@ -79,7 +82,11 @@ async function deriveFramingKey(devicePrivB64, hostPubB64) {
     false,
     [],
   );
-  const shared = await crypto.subtle.deriveBits({ name: "X25519", public: hostKey }, privateKey, 256);
+  const shared = await crypto.subtle.deriveBits(
+    { name: "X25519", public: hostKey },
+    privateKey,
+    256,
+  );
   const prefix = new TextEncoder().encode("openbot-e2e-v1");
   const sharedBuf = new Uint8Array(shared);
   const material = new Uint8Array(prefix.length + sharedBuf.length);
@@ -114,7 +121,11 @@ async function completePairing(payload) {
       devicePub,
       name,
       role: "approver",
-      via: apiBase.includes("trycloudflare") ? "cloudflare" : apiBase.includes(".ts.net") ? "tailscale" : "lan",
+      via: apiBase.includes("trycloudflare")
+        ? "cloudflare"
+        : apiBase.includes(".ts.net")
+          ? "tailscale"
+          : "lan",
     }),
   });
   if (!response.ok) {

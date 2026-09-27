@@ -92,7 +92,12 @@ describe("NotifyGate", () => {
       now,
       message: { kind: "result", body: "Done again.", dedupeKey: "task-1" },
       recentDelivered: [
-        { dedupeKey: "task-1", body: "Done.", botId: "bot_1", at: new Date("2026-09-27T10:00:00Z") },
+        {
+          dedupeKey: "task-1",
+          body: "Done.",
+          botId: "bot_1",
+          at: new Date("2026-09-27T10:00:00Z"),
+        },
       ],
     });
     const result = await gate.evaluate(ctx);

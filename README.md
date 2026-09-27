@@ -8,9 +8,41 @@ engine/model route and every spawn, notify, risk, and loop gate.
 
 You bring your own keys and accounts — OpenBot has no backend and ships no keys.
 
-> **Status**: pre-alpha. This repo currently holds the project skeleton (tooling,
-> contracts, fakes) from workstream WS0 of the [v1 plan](.ai/memory/plans/openbot-v1.md).
-> No app features have landed yet — see [Roadmap](#roadmap) below.
+> **Status**: v1 integration in progress ([PR #15](https://github.com/sanlega/OpenBot/pull/15)).
+> Desktop app, harness, setup wizard, and milestone E2E tests are wired; see
+> [Run OpenBot v1 on your machine](#run-openbot-v1-on-your-machine) below.
+
+## Run OpenBot v1 on your machine
+
+You need Node 22, pnpm, and your own Claude/Codex logins (or API keys) plus a
+TypeSafe (Jev) key. Optional: Docker Desktop for computer use, Tailscale for
+phone access.
+
+```sh
+corepack enable
+pnpm install
+pnpm build
+pnpm --filter @openbot/desktop start
+```
+
+On first launch, the **setup wizard** walks you through TypeSafe, Claude, Codex,
+and optional Composio/Tailscale. Keys are stored in a local vault under
+`~/.openbot`.
+
+**Try the M1 milestone:** create a bot from the sidebar, open its thread, send a
+message, and wait for a reply.
+
+| Step | Action |
+|------|--------|
+| Install | `pnpm install && pnpm build` |
+| Launch | `pnpm --filter @openbot/desktop start` |
+| Setup | Complete the wizard (Jev + Claude + Codex) |
+| First bot | New bot → name it → send a message |
+| Docker (optional) | Install Docker Desktop; set bot computer access to Docker |
+| Phone (optional) | Tailscale + Pair device QR in settings |
+
+Headless / browser UI: `pnpm --filter @openbot/server dev serve` then open
+[http://127.0.0.1:4577/app](http://127.0.0.1:4577/app).
 
 ## Why
 

@@ -11,7 +11,9 @@ export function DigestMessage({ postedAt }: DigestMessageProps) {
   const [digest, setDigest] = useState<DigestContent | null>(null);
 
   useEffect(() => {
-    void transport.get<{ digest: DigestContent | null }>("/api/digest").then((r) => setDigest(r.digest));
+    void transport
+      .get<{ digest: DigestContent | null }>("/api/digest")
+      .then((r) => setDigest(r.digest));
   }, [transport]);
 
   if (!digest) return <div className="message-bubble">Loading digest…</div>;

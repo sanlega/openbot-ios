@@ -41,7 +41,9 @@ export function AppShell({ showSetup = false }: AppShellProps) {
     return (
       <div className="setup-wizard">
         <h1>OpenBot setup</h1>
-        <p style={{ color: "var(--text-muted)" }}>Complete setup in Settings — wizard UI loads when setup is incomplete.</p>
+        <p style={{ color: "var(--text-muted)" }}>
+          Complete setup in Settings — wizard UI loads when setup is incomplete.
+        </p>
       </div>
     );
   }
@@ -80,7 +82,12 @@ export function AppShell({ showSetup = false }: AppShellProps) {
         <aside className="sidebar-panel">
           <header className="panel-header">
             <h1 className="panel-title">OpenBot</h1>
-            <button type="button" className="icon-button" onClick={() => setPaletteOpen(true)} title="Command palette (⌘K)">
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => setPaletteOpen(true)}
+              title="Command palette (⌘K)"
+            >
               ⌘K
             </button>
           </header>

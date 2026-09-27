@@ -48,7 +48,10 @@ function createPublicKeyFromSpki(publicKeyBase64: string): KeyObject {
 }
 
 /** ECDH shared secret between host private key and a device public key (SPKI base64). */
-export function computeSharedSecret(hostPrivateKey: KeyObject, devicePublicKeyBase64: string): Buffer {
+export function computeSharedSecret(
+  hostPrivateKey: KeyObject,
+  devicePublicKeyBase64: string,
+): Buffer {
   return diffieHellman({
     privateKey: hostPrivateKey,
     publicKey: importX25519PublicKey(devicePublicKeyBase64),
@@ -127,7 +130,10 @@ export function packEncryptedFrame(header: Uint8Array, ciphertext: Uint8Array): 
   return packed.toString("base64");
 }
 
-export function unpackEncryptedFrame(encoded: string): { header: Uint8Array; ciphertext: Uint8Array } {
+export function unpackEncryptedFrame(encoded: string): {
+  header: Uint8Array;
+  ciphertext: Uint8Array;
+} {
   const packed = Buffer.from(encoded, "base64");
   if (packed.length < 25) throw new Error("encrypted frame too short");
   return {

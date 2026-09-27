@@ -12,12 +12,7 @@ import {
 import type { Approval, Bot, Message } from "@openbot/contracts";
 import type { RoutePreview, ThreadView } from "../api/types.js";
 import { createTransport, type Transport } from "../transport/index.js";
-import {
-  createInitialState,
-  pendingApprovals,
-  uiReducer,
-  type UiState,
-} from "./reducer.js";
+import { createInitialState, pendingApprovals, uiReducer, type UiState } from "./reducer.js";
 
 export interface OpenBotProviderProps {
   transport: Transport;
@@ -141,15 +136,7 @@ export function OpenBotProvider({ transport, children }: OpenBotProviderProps) {
       routeForBot: (botId) => state.routes.get(botId),
       streamingText: (messageId) => state.streamingDeltas.get(messageId),
     }),
-    [
-      transport,
-      state,
-      messagesForThread,
-      hydrate,
-      selectedThreadId,
-      sendMessage,
-      resolveApproval,
-    ],
+    [transport, state, messagesForThread, hydrate, selectedThreadId, sendMessage, resolveApproval],
   );
 
   return <OpenBotContext.Provider value={value}>{children}</OpenBotContext.Provider>;

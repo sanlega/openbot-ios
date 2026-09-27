@@ -13,11 +13,17 @@ const legacyStatic = join(root, "src", "static");
 async function run(command, args, cwd) {
   await new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd, stdio: "inherit", shell: false });
-    child.on("exit", (code) => (code === 0 ? resolve() : reject(new Error(`${command} exited ${code}`))));
+    child.on("exit", (code) =>
+      code === 0 ? resolve() : reject(new Error(`${command} exited ${code}`)),
+    );
   });
 }
 
-await run(process.execPath, [join(uiRoot, "node_modules", "vite", "bin", "vite.js"), "build"], uiRoot);
+await run(
+  process.execPath,
+  [join(uiRoot, "node_modules", "vite", "bin", "vite.js"), "build"],
+  uiRoot,
+);
 
 await rm(staticDir, { recursive: true, force: true });
 await mkdir(staticDir, { recursive: true });

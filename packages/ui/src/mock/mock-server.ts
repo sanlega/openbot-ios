@@ -146,10 +146,7 @@ export class MockClientApiServer {
     });
   }
 
-  private handleApprovalResolve(frame: {
-    approvalId: string;
-    resolution: "allow" | "deny";
-  }): void {
+  private handleApprovalResolve(frame: { approvalId: string; resolution: "allow" | "deny" }): void {
     const approval = this.approvals.find((a) => a.id === frame.approvalId);
     if (!approval || approval.status !== "pending") return;
     approval.status = "resolved";
@@ -202,7 +199,9 @@ export class MockClientApiServer {
       return sendJson(res, 200, { messages });
     }
     if (method === "GET" && path === "/api/approvals") {
-      return sendJson(res, 200, { approvals: this.approvals.filter((a) => a.status === "pending") });
+      return sendJson(res, 200, {
+        approvals: this.approvals.filter((a) => a.status === "pending"),
+      });
     }
     if (method === "GET" && path === "/api/activity") {
       let entries = [...SEED_ACTIVITY];
@@ -228,9 +227,15 @@ export class MockClientApiServer {
     }
     if (method === "PATCH" && path === "/api/settings") {
       const patch = await readJson<Record<string, unknown>>(req);
-      if (patch.caps) this.settings.caps = { ...this.settings.caps, ...(patch.caps as Record<string, number>) };
-      if (patch.budgets) this.settings.budgets = { ...this.settings.budgets, ...(patch.budgets as Record<string, number>) };
-      if (patch.quietHours) this.settings.quietHours = patch.quietHours as typeof this.settings.quietHours;
+      if (patch.caps)
+        this.settings.caps = { ...this.settings.caps, ...(patch.caps as Record<string, number>) };
+      if (patch.budgets)
+        this.settings.budgets = {
+          ...this.settings.budgets,
+          ...(patch.budgets as Record<string, number>),
+        };
+      if (patch.quietHours)
+        this.settings.quietHours = patch.quietHours as typeof this.settings.quietHours;
       this.settings.updatedAt = new Date().toISOString();
       return sendJson(res, 200, { settings: this.settings });
     }
@@ -271,14 +276,18 @@ export class MockClientApiServer {
     }
     if (method === "GET" && path === "/api/computer/tasks") {
       const botId = url.searchParams.get("botId");
-      const tasks = botId ? SEED_COMPUTER_TASKS.filter((t) => t.botId === botId) : SEED_COMPUTER_TASKS;
+      const tasks = botId
+        ? SEED_COMPUTER_TASKS.filter((t) => t.botId === botId)
+        : SEED_COMPUTER_TASKS;
       return sendJson(res, 200, { tasks });
     }
     if (method === "GET" && path.match(/^\/mock\/novnc\/[^/]+$/)) {
       const botId = path.split("/")[3]!;
       const takeover = this.takeoverByBot.get(botId) ?? false;
       res.writeHead(200, { "Content-Type": "text/html", "Access-Control-Allow-Origin": "*" });
-      res.end(`<!DOCTYPE html><html><body style="margin:0;background:#111;color:#eee;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh"><div style="text-align:center"><div style="font-size:3rem">🖥️</div><p>noVNC live view · ${botId}</p><p style="color:#888">${takeover ? "Takeover active — you control the screen" : "Bot is driving"}</p></div></body></html>`);
+      res.end(
+        `<!DOCTYPE html><html><body style="margin:0;background:#111;color:#eee;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh"><div style="text-align:center"><div style="font-size:3rem">🖥️</div><p>noVNC live view · ${botId}</p><p style="color:#888">${takeover ? "Takeover active — you control the screen" : "Bot is driving"}</p></div></body></html>`,
+      );
       return;
     }
     if (method === "GET" && path.match(/^\/api\/routines\/[^/]+\/runs$/)) {
@@ -304,7 +313,9 @@ export class MockClientApiServer {
         endedAt: new Date().toISOString(),
         usage: { usd: 0.03, tokens: 8000 },
         resultSummary: dryRun ? "Dry run — no side effects executed" : "Live test run completed",
-        plannedActions: dryRun ? ["Would update spreadsheet", "Would send Slack message"] : undefined,
+        plannedActions: dryRun
+          ? ["Would update spreadsheet", "Would send Slack message"]
+          : undefined,
       };
       this.routineRuns.unshift(run);
       this.appendEvent({

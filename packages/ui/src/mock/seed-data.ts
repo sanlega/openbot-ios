@@ -8,12 +8,7 @@ import type {
   SetupState,
   Thread,
 } from "@openbot/contracts";
-import type {
-  ActivityEntry,
-  AuditEntry,
-  RoutePreview,
-  ThreadView,
-} from "../api/types.js";
+import type { ActivityEntry, AuditEntry, RoutePreview, ThreadView } from "../api/types.js";
 
 const NOW = "2026-09-27T12:00:00.000Z";
 
@@ -82,7 +77,12 @@ export const SEED_BOTS: Bot[] = [
 
 export const SEED_THREADS: Thread[] = [
   { id: "thr_cos", botId: "bot_cos_01", kind: "dm", createdAt: "2026-09-20T08:00:00.000Z" },
-  { id: "thr_research", botId: "bot_research_01", kind: "dm", createdAt: "2026-09-25T14:00:00.000Z" },
+  {
+    id: "thr_research",
+    botId: "bot_research_01",
+    kind: "dm",
+    createdAt: "2026-09-25T14:00:00.000Z",
+  },
   { id: "thr_code", botId: "bot_code_01", kind: "dm", createdAt: "2026-09-22T09:00:00.000Z" },
 ];
 
@@ -198,9 +198,27 @@ export const SEED_APPROVALS: Approval[] = [
 ];
 
 export const SEED_ROUTES: Record<string, RoutePreview> = {
-  bot_cos_01: { engine: "claude", model: "claude-opus-4", effort: "high", confidence: 0.92, decisionId: "dec_route_01" },
-  bot_research_01: { engine: "claude", model: "claude-sonnet-4", effort: "medium", confidence: 0.88, decisionId: "dec_route_02" },
-  bot_code_01: { engine: "codex", model: "gpt-5-codex", effort: "medium", confidence: 0.91, decisionId: "dec_route_03" },
+  bot_cos_01: {
+    engine: "claude",
+    model: "claude-opus-4",
+    effort: "high",
+    confidence: 0.92,
+    decisionId: "dec_route_01",
+  },
+  bot_research_01: {
+    engine: "claude",
+    model: "claude-sonnet-4",
+    effort: "medium",
+    confidence: 0.88,
+    decisionId: "dec_route_02",
+  },
+  bot_code_01: {
+    engine: "codex",
+    model: "gpt-5-codex",
+    effort: "medium",
+    confidence: 0.91,
+    decisionId: "dec_route_03",
+  },
 };
 
 export const SEED_SETUP: SetupState = {
@@ -228,7 +246,12 @@ export const SEED_ROUTINES: Routine[] = [
     createdBy: "user",
     enabled: true,
     liveApproved: true,
-    trigger: { type: "schedule", cron: "0 18 * * *", timezone: "America/Los_Angeles", catchUp: "none" },
+    trigger: {
+      type: "schedule",
+      cron: "0 18 * * *",
+      timezone: "America/Los_Angeles",
+      catchUp: "none",
+    },
     limits: {
       perRun: { usd: 0.5, tokens: 200_000, turns: 10, computerSteps: 50, wallMin: 15 },
       dailyUsd: 2,
@@ -246,7 +269,12 @@ export const SEED_ROUTINES: Routine[] = [
     createdBy: "user",
     enabled: true,
     liveApproved: false,
-    trigger: { type: "schedule", cron: "0 8 * * *", timezone: "America/Los_Angeles", catchUp: "none" },
+    trigger: {
+      type: "schedule",
+      cron: "0 8 * * *",
+      timezone: "America/Los_Angeles",
+      catchUp: "none",
+    },
     limits: {
       perRun: { usd: 0.5, tokens: 200_000, turns: 10, computerSteps: 50, wallMin: 15 },
       dailyUsd: 2,
@@ -330,8 +358,18 @@ export const SEED_REMOTE = {
 };
 
 export const SEED_ENGINES = [
-  { id: "claude", installed: true, version: "2.1.283", login: { ok: true, account: "user@example.com" } },
-  { id: "codex", installed: true, version: "0.157.1", login: { ok: true, account: "user@example.com" } },
+  {
+    id: "claude",
+    installed: true,
+    version: "2.1.283",
+    login: { ok: true, account: "user@example.com" },
+  },
+  {
+    id: "codex",
+    installed: true,
+    version: "0.157.1",
+    login: { ok: true, account: "user@example.com" },
+  },
 ];
 
 export const SEED_COMPUTER_TASKS = [

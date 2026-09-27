@@ -26,7 +26,10 @@ describe("TailscaleManager", () => {
       }
       if (args[0] === "status") {
         return {
-          stdout: JSON.stringify({ BackendState: "Running", Self: { TailscaleIPs: ["100.64.0.2"] } }),
+          stdout: JSON.stringify({
+            BackendState: "Running",
+            Self: { TailscaleIPs: ["100.64.0.2"] },
+          }),
           stderr: "",
         };
       }

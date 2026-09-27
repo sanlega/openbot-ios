@@ -14,14 +14,18 @@ export function matchesDeterministicFilter(
   if (!filter || filter.length === 0) return true;
   for (const { path, regex } of filter) {
     const value = extractJsonPath(payload, path);
-    const text = value === undefined ? "" : typeof value === "string" ? value : JSON.stringify(value);
+    const text =
+      value === undefined ? "" : typeof value === "string" ? value : JSON.stringify(value);
     if (!new RegExp(regex).test(text)) return false;
   }
   return true;
 }
 
 function extractJsonPath(obj: unknown, path: string): unknown {
-  const parts = path.replace(/^\$\.?/, "").split(".").filter(Boolean);
+  const parts = path
+    .replace(/^\$\.?/, "")
+    .split(".")
+    .filter(Boolean);
   let current: unknown = obj;
   for (const part of parts) {
     if (current === null || current === undefined || typeof current !== "object") return undefined;

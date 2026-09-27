@@ -57,8 +57,9 @@ export class SimulatedRoutineRuntime implements RoutineRuntime {
     }
 
     if (input.run.dryRun) {
-      const plannedActions =
-        this.options.plannedActions ?? [`Would execute routine prompt for ${input.routine.name}`];
+      const plannedActions = this.options.plannedActions ?? [
+        `Would execute routine prompt for ${input.routine.name}`,
+      ];
       const hasSideEffects =
         this.options.hasSideEffects ??
         plannedActions.some((a) => /send|write|delete|pay|email|post/i.test(a));

@@ -7,7 +7,11 @@ describe("DigestService", () => {
   it("posts one digest per day at configured hour", () => {
     const clock = new FakeClock(new Date("2026-09-27T17:59:00Z"));
     const onDigest = vi.fn();
-    const digest = new DigestService({ clock, onDigest, config: { hour: 18, minute: 0, timezone: "UTC" } });
+    const digest = new DigestService({
+      clock,
+      onDigest,
+      config: { hour: 18, minute: 0, timezone: "UTC" },
+    });
 
     digest.add({ kind: "held_message", summary: "Progress update held", at: clock.now() });
     digest.tick();

@@ -218,12 +218,6 @@ export interface SettingsPatch {
 }
 
 export type AppScreen =
-  | "bots"
-  | "activity"
-  | "audit"
-  | "routines"
-  | "settings"
-  | "devices"
-  | "computer";
+  "bots" | "activity" | "audit" | "routines" | "settings" | "devices" | "computer";
 
 export type ThreadPanel = "chat" | "computer" | "profile";
