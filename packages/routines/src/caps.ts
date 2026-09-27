@@ -12,8 +12,6 @@ export function checkRunCaps(
   routine: Routine,
   dryRun: boolean,
 ): CapCheckResult {
-  const now = ctx.clock.now();
-
   const currentRuns = ctx.repos.capCounters.get("routine", `${routine.id}:runs`);
   const todayCount = currentRuns?.count ?? 0;
 

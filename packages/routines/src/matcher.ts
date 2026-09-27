@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { bandNoul, type DecisionService, type Routine, type RoutineEventTrigger } from "@openbot/contracts";
+import { type DecisionService, type Routine, type RoutineEventTrigger } from "@openbot/contracts";
 import type { TriggerSourceEvent } from "@openbot/contracts";
 
 export function hashPayload(payload: unknown): string {
@@ -12,7 +12,6 @@ export function matchesDeterministicFilter(
   filter: RoutineEventTrigger["filter"],
 ): boolean {
   if (!filter || filter.length === 0) return true;
-  const json = JSON.stringify(payload);
   for (const { path, regex } of filter) {
     const value = extractJsonPath(payload, path);
     const text = value === undefined ? "" : typeof value === "string" ? value : JSON.stringify(value);
