@@ -9,7 +9,12 @@ import type { CoreContext } from "@openbot/core";
 import { FakeComputerProvider } from "@openbot/computer-fake";
 import { createDockerProvider, isDockerAvailable } from "@openbot/computer-docker";
 import { LocalProvider } from "@openbot/computer-local";
-import { FakeDecisionService, KeyedDecisionService } from "@openbot/decisions";
+import {
+  createDecisionService,
+  FakeDecisionService,
+  JevClient,
+  KeyedDecisionService,
+} from "@openbot/decisions";
 import { ClaudeDriver, detectClaude } from "@openbot/engines-claude";
 import { CodexDriver, detectCodex } from "@openbot/engines-codex";
 import { validateAnthropicKey, validateOpenAiKey } from "@openbot/engines-common";
@@ -74,8 +79,12 @@ export async function bootstrapProviders(
 function resolveDecisionService(ctx: CoreContext): DecisionService {
   if (fakeFlag("OPENBOT_FAKE_JEV")) return new FakeDecisionService();
 
+  // JEV_BASE_URL points at another Jev-compatible endpoint (a proxy, or a fake in E2E).
+  const baseUrl = process.env.JEV_BASE_URL || undefined;
   return new KeyedDecisionService({
     getApiKey: async () => process.env.JEV_API_KEY || (await ctx.vault.get(VAULT_KEYS.typesafe)),
+    create: (apiKey) => createDecisionService({ apiKey, baseUrl }),
+    probeKey: (apiKey) => new JevClient({ apiKey, baseUrl }).validateKey(),
   });
 }
 

@@ -191,6 +191,15 @@ importers:
 
   e2e:
     dependencies:
+      '@openbot/core':
+        specifier: workspace:*
+        version: link:../packages/core
+      '@openbot/decisions':
+        specifier: workspace:*
+        version: link:../packages/decisions
+      '@openbot/mcp':
+        specifier: workspace:*
+        version: link:../packages/mcp
       '@openbot/server':
         specifier: workspace:*
         version: link:../apps/server

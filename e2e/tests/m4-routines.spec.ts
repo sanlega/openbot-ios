@@ -1,50 +1,80 @@
 import { test, expect } from "@playwright/test";
-import { startTestHarness } from "../src/harness.js";
+import {
+  api,
+  callTool,
+  createBot,
+  eventually,
+  sessionTokenFor,
+  startTestHarness,
+} from "../src/harness.js";
 
-const DEFAULT_LIMITS = {
-  perRun: { usd: 0.5, tokens: 200_000, turns: 10, computerSteps: 50, wallMin: 15 },
-  dailyUsd: 2,
-  maxRunsPerDay: 24,
-  cooldownSec: 60,
-};
+interface Run {
+  id: string;
+  dryRun: boolean;
+  status: string;
+  plannedActions?: string[];
+}
 
-test.describe("M4 Routines", () => {
-  test("first routine run is a dry run with planned actions", async () => {
+test.describe("M4 Routines (fake engine and Jev)", () => {
+  test("a Bot's create_routine starts with a dry run; live needs the user", async () => {
     const harness = await startTestHarness();
     try {
-      const botRes = await fetch(`${harness.baseUrl}/api/bots`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          name: "Routine Bot",
-          description: "runs routines",
-          routing: { mode: "pinned", engine: "fake" },
-        }),
+      const { bot } = await createBot(harness, {
+        name: "Digest Bot",
+        description: "writes my morning summary",
+        routing: { mode: "pinned", engine: "fake" },
       });
-      expect(botRes.ok).toBe(true);
-      const { bot } = (await botRes.json()) as { bot: { id: string } };
+      const token = await sessionTokenFor(harness, { botId: bot.id });
 
-      const routineRes = await fetch(`${harness.baseUrl}/api/routines`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          botId: bot.id,
-          name: "Daily summary",
-          prompt: "Summarize workspace activity",
-          trigger: { type: "schedule", cron: "0 8 * * *", timezone: "UTC", catchUp: "none" },
-          limits: DEFAULT_LIMITS,
-        }),
+      const created = await callTool<{
+        allowed: boolean;
+        routineId: string;
+        dryRunQueued: boolean;
+      }>(harness, token, "create_routine", {
+        name: "Daily summary",
+        prompt: "Summarize yesterday's activity and email it to me",
+        trigger: { type: "schedule", cron: "0 8 * * *", timezone: "UTC", catchUp: "none" },
       });
-      expect(routineRes.status).toBe(201);
-      const { routine } = (await routineRes.json()) as {
-        routine: { id: string; liveApproved: boolean };
-      };
-      expect(routine.liveApproved).toBe(false);
+      expect(created).toMatchObject({ allowed: true, dryRunQueued: true });
 
-      const runsRes = await fetch(`${harness.baseUrl}/api/routines/${routine.id}/runs`);
-      expect(runsRes.ok).toBe(true);
+      const tooFrequent = await callTool<{ allowed: boolean; reason?: string }>(
+        harness,
+        token,
+        "create_routine",
+        {
+          name: "Spam",
+          prompt: "check every minute",
+          trigger: { type: "schedule", cron: "* * * * *", timezone: "UTC", catchUp: "none" },
+        },
+      );
+      expect(tooFrequent.allowed).toBe(false);
+      expect(tooFrequent.reason).toContain("15 minute");
+
+      const firstRun = await eventually(async () => {
+        const res = await api<{ runs: Run[] }>(harness, `/api/routines/${created.routineId}/runs`);
+        return res.body.runs.find((r) => r.status === "done");
+      });
+      expect(firstRun.dryRun).toBe(true);
+
+      const routine = await api<{ routine: { liveApproved: boolean } }>(
+        harness,
+        `/api/routines/${created.routineId}`,
+      );
+      expect(routine.body.routine.liveApproved).toBe(false);
+
+      const enabled = await api<{ routine: { liveApproved: boolean } }>(
+        harness,
+        `/api/routines/${created.routineId}/enable-live`,
+        { method: "POST", body: {} },
+      );
+      expect(enabled.status).toBe(200);
+      expect(enabled.body.routine.liveApproved).toBe(true);
     } finally {
       await harness.close();
     }
   });
+
+  // The dry run does not run the Bot yet: RoutineRuntimeAdapter returns one fixed
+  // "Would run routine ..." line instead of the actions the Bot would take.
+  test.fixme("the dry run lists the side effects the Bot planned (e.g. would send email)", () => {});
 });
