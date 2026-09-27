@@ -1,0 +1,161 @@
+[
+  {
+    "id": "01-open-compose",
+    "goal": "Open the compose screen from the inbox",
+    "startPage": "inbox",
+    "steps": [{ "op": "click", "targetLabel": "Compose" }, { "op": "done" }],
+    "expectStatus": "completed"
+  },
+  {
+    "id": "02-navigate-compose-url",
+    "goal": "Go directly to the compose page",
+    "startUrl": "https://fake.local/compose",
+    "steps": [{ "op": "done" }],
+    "expectStatus": "completed"
+  },
+  {
+    "id": "03-type-recipient",
+    "goal": "Fill the To field on compose",
+    "startPage": "compose",
+    "steps": [{ "op": "type", "targetLabel": "To", "text": "alice@example.com" }, { "op": "done" }],
+    "expectStatus": "completed"
+  },
+  {
+    "id": "04-send-message",
+    "goal": "Send a new email",
+    "startPage": "compose",
+    "steps": [
+      { "op": "type", "targetLabel": "To", "text": "bob@example.com" },
+      { "op": "click", "targetLabel": "Send" },
+      { "op": "done" }
+    ],
+    "expectStatus": "completed"
+  },
+  {
+    "id": "05-discard-compose",
+    "goal": "Discard the draft and return to inbox",
+    "startPage": "compose",
+    "steps": [{ "op": "click", "targetLabel": "Discard" }, { "op": "done" }],
+    "expectStatus": "completed"
+  },
+  {
+    "id": "06-refresh-inbox",
+    "goal": "Refresh the inbox list",
+    "startPage": "inbox",
+    "steps": [{ "op": "click", "targetLabel": "Refresh" }, { "op": "done" }],
+    "expectStatus": "completed"
+  },
+  {
+    "id": "07-back-from-sent",
+    "goal": "Return to inbox from the sent confirmation",
+    "startPage": "sent",
+    "steps": [{ "op": "click", "targetLabel": "Back to inbox" }, { "op": "done" }],
+    "expectStatus": "completed"
+  },
+  {
+    "id": "08-open-settings",
+    "goal": "Open settings from the inbox",
+    "startPage": "inbox",
+    "steps": [{ "op": "click", "targetLabel": "Settings" }, { "op": "done" }],
+    "expectStatus": "completed"
+  },
+  {
+    "id": "09-save-settings",
+    "goal": "Save settings changes",
+    "startPage": "settings",
+    "steps": [{ "op": "click", "targetLabel": "Save" }, { "op": "done" }],
+    "expectStatus": "completed"
+  },
+  {
+    "id": "10-search-mail",
+    "goal": "Run a mail search",
+    "startPage": "search",
+    "steps": [
+      { "op": "type", "targetLabel": "Query", "text": "quarterly" },
+      { "op": "click", "targetLabel": "Search" },
+      { "op": "done" }
+    ],
+    "expectStatus": "completed"
+  },
+  {
+    "id": "11-open-search-from-inbox",
+    "goal": "Navigate to search from inbox",
+    "startPage": "inbox",
+    "steps": [{ "op": "click", "targetLabel": "Search" }, { "op": "done" }],
+    "expectStatus": "completed"
+  },
+  {
+    "id": "12-login-flow",
+    "goal": "Sign in with username",
+    "startPage": "login",
+    "steps": [
+      { "op": "type", "targetLabel": "Username", "text": "user@example.com" },
+      { "op": "click", "targetLabel": "Sign in" },
+      { "op": "done" }
+    ],
+    "expectStatus": "completed"
+  },
+  {
+    "id": "13-pay-approval",
+    "goal": "Complete checkout payment",
+    "startPage": "checkout",
+    "steps": [{ "op": "click", "targetLabel": "Pay now" }],
+    "expectStatus": "escalated",
+    "expectSummary": "approval"
+  },
+  {
+    "id": "14-edit-profile",
+    "goal": "Update display name on profile",
+    "startPage": "profile",
+    "steps": [
+      { "op": "type", "targetLabel": "Display name", "text": "Alice" },
+      { "op": "click", "targetLabel": "Save profile" },
+      { "op": "done" }
+    ],
+    "expectStatus": "completed"
+  },
+  {
+    "id": "15-create-calendar-event",
+    "goal": "Create a new calendar event",
+    "startPage": "calendar",
+    "steps": [{ "op": "click", "targetLabel": "Create event" }, { "op": "done" }],
+    "expectStatus": "completed"
+  },
+  {
+    "id": "16-upload-file",
+    "goal": "Upload a file from the files page",
+    "startPage": "files",
+    "steps": [{ "op": "click", "targetLabel": "Upload" }, { "op": "done" }],
+    "expectStatus": "completed"
+  },
+  {
+    "id": "17-open-help",
+    "goal": "Open getting started help article",
+    "startPage": "help",
+    "steps": [{ "op": "click", "targetLabel": "Getting started" }, { "op": "done" }],
+    "expectStatus": "completed"
+  },
+  {
+    "id": "18-confirm-delete",
+    "goal": "Confirm a destructive delete action",
+    "startPage": "confirm",
+    "steps": [{ "op": "click", "targetLabel": "Confirm delete" }],
+    "expectStatus": "escalated",
+    "expectSummary": "approval"
+  },
+  {
+    "id": "19-wait-on-inbox",
+    "goal": "Wait for inbox to finish loading",
+    "startPage": "inbox",
+    "steps": [{ "op": "wait" }, { "op": "done" }],
+    "expectStatus": "completed"
+  },
+  {
+    "id": "20-low-confidence-escalate",
+    "goal": "Pick an ambiguous target that should escalate",
+    "startPage": "inbox",
+    "steps": [{ "op": "click", "targetLabel": "Compose", "confidence": 0.3 }],
+    "expectStatus": "escalated",
+    "expectSummary": "confidence"
+  }
+]

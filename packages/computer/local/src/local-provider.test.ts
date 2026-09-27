@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { runComputerProviderConformance } from "@openbot/testkit";
-import { MemoryLocalDriver } from "./driver.js";
+import { MemoryLocalDriver } from "./driver-types.js";
 import { LocalProvider } from "./local-provider.js";
 
 runComputerProviderConformance(
