@@ -1,0 +1,34 @@
+{
+  "startPage": "inbox",
+  "pages": {
+    "inbox": {
+      "url": "https://fake.local/inbox",
+      "title": "Inbox — 2 unread",
+      "elements": [
+        { "role": "link", "label": "Compose" },
+        { "role": "listitem", "label": "Email from Alice: Q3 numbers" },
+        { "role": "listitem", "label": "Email from Bob: Lunch?" },
+        { "role": "button", "label": "Refresh" }
+      ],
+      "onClick": { "0": "compose" }
+    },
+    "compose": {
+      "url": "https://fake.local/compose",
+      "title": "New message",
+      "elements": [
+        { "role": "textbox", "label": "To" },
+        { "role": "textbox", "label": "Subject" },
+        { "role": "textbox", "label": "Body" },
+        { "role": "button", "label": "Send" },
+        { "role": "button", "label": "Discard" }
+      ],
+      "onClick": { "3": "sent", "4": "inbox" }
+    },
+    "sent": {
+      "url": "https://fake.local/sent",
+      "title": "Message sent",
+      "elements": [{ "role": "link", "label": "Back to inbox" }],
+      "onClick": { "0": "inbox" }
+    }
+  }
+}

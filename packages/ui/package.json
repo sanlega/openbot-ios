@@ -1,0 +1,50 @@
+{
+  "name": "@openbot/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./mock": {
+      "development": "./src/mock/index.ts",
+      "types": "./dist/mock/index.d.ts",
+      "import": "./dist/mock/index.js",
+      "default": "./dist/mock/index.js"
+    },
+    "./styles.css": "./src/styles/global.css"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && vite build",
+    "dev": "vite",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@openbot/contracts": "workspace:*",
+    "@tanstack/react-query": "5.90.2",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "ulid": "3.0.2",
+    "ws": "8.18.3"
+  },
+  "devDependencies": {
+    "@types/ws": "8.18.1",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.0",
+    "@testing-library/user-event": "14.6.1",
+    "@types/react": "19.1.13",
+    "@types/react-dom": "19.1.9",
+    "@vitejs/plugin-react": "5.0.3",
+    "happy-dom": "18.0.1",
+    "typescript": "6.0.3",
+    "vite": "7.1.7",
+    "vitest": "5.0.2"
+  }
+}

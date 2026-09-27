@@ -1,0 +1,37 @@
+{
+  "name": "@openbot/computer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./observation": {
+      "development": "./src/observation/index.ts",
+      "types": "./dist/observation/index.d.ts",
+      "import": "./dist/observation/index.js",
+      "default": "./dist/observation/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@openbot/contracts": "workspace:*",
+    "@openbot/decisions": "workspace:*"
+  },
+  "devDependencies": {
+    "@openbot/computer-fake": "workspace:*",
+    "@openbot/testkit": "workspace:*",
+    "typescript": "6.0.3",
+    "vitest": "5.0.2"
+  }
+}

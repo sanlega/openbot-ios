@@ -1,0 +1,14 @@
+packages:
+  - "packages/*"
+  # Fakes live one level deeper (e.g. `packages/engines/fake`, `packages/computer/fake`)
+  # so their real (WS3/WS9) siblings can land later without moving anything.
+  - "packages/*/*"
+  - "apps/*"
+  - "e2e"
+
+# better-sqlite3 needs its native build script to run; esbuild needs its postinstall
+# binary-download script. Both are widely-used, well-known packages — safe to allow.
+onlyBuiltDependencies:
+  - better-sqlite3
+  - electron
+  - esbuild

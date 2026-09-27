@@ -1,0 +1,11 @@
+{
+  "id": "evt_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "seq": 1,
+  "ts": "2026-09-27T00:00:00.000Z",
+  "type": "decision.made",
+  "payload": {
+    "decisionId": "dec_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "purpose": "route",
+    "band": "auto"
+  }
+}

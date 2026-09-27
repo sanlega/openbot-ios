@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#111827" />
+    <link rel="manifest" href="/app/manifest.webmanifest" />
+    <title>OpenBot</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family:
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          sans-serif;
+        background: #0b1020;
+        color: #f8fafc;
+      }
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 1.5rem;
+      }
+      main {
+        width: min(420px, 100%);
+        display: grid;
+        gap: 1rem;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin: 0;
+      }
+      .card {
+        background: #111827;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 1rem;
+      }
+      button,
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        border-radius: 8px;
+        border: 1px solid #475569;
+        background: #0f172a;
+        color: inherit;
+        padding: 0.75rem;
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+        background: #2563eb;
+        border-color: #2563eb;
+      }
+      .muted {
+        color: #94a3b8;
+        font-size: 0.9rem;
+      }
+      .status-ok {
+        color: #4ade80;
+      }
+      .status-err {
+        color: #f87171;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>OpenBot Phone</h1>
+      <p class="muted">Pair with your desktop harness, then approve cards remotely.</p>
+      <section id="pair-screen" class="card">
+        <h2>Pair device</h2>
+        <label class="muted" for="device-name">Device name</label>
+        <input id="device-name" value="My phone" />
+        <button id="pair-button" type="button">Complete pairing</button>
+        <p id="pair-status" class="muted"></p>
+      </section>
+      <section id="home-screen" class="card" hidden>
+        <h2>Paired</h2>
+        <p id="home-status" class="status-ok"></p>
+        <button id="revoke-button" type="button">Forget this device</button>
+      </section>
+    </main>
+    <script src="/app/app.js" type="module"></script>
+  </body>
+</html>

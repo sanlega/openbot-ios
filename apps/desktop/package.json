@@ -1,0 +1,83 @@
+{
+  "name": "@openbot/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.preload.json && mv dist/preload.js dist/preload.cjs && node ./scripts/build-harness.mjs",
+    "rebuild:native": "node ./scripts/rebuild-native.mjs",
+    "smoke:packaged": "node ./scripts/smoke-packaged.mjs",
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@openbot/contracts": "workspace:*",
+    "@openbot/pwa": "workspace:*",
+    "@openbot/server": "workspace:*",
+    "ws": "8.18.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.51.0",
+    "@types/node": "22.20.4",
+    "@types/ws": "8.18.1",
+    "@electron/rebuild": "3.7.1",
+    "electron": "34.2.0",
+    "electron-builder": "25.1.8",
+    "esbuild": "0.25.12",
+    "typescript": "6.0.3",
+    "vitest": "5.0.2"
+  },
+  "build": {
+    "appId": "com.openbot.desktop",
+    "productName": "OpenBot",
+    "executableName": "openbot",
+    "npmRebuild": false,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "renderer/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility"
+    }
+  }
+}

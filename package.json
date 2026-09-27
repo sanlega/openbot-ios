@@ -1,0 +1,36 @@
+{
+  "name": "openbot",
+  "private": true,
+  "version": "0.1.0",
+  "description": "OpenBot: a self-hosted, messenger-style desktop app for managing a roster of AI Bots on Claude Code / Codex, led by a Chief of Staff and Jev.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.12.0",
+    "pnpm": ">=10.0.0"
+  },
+  "packageManager": "pnpm@10.33.3",
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r --if-present run build",
+    "dev": "pnpm -r --if-present --parallel run dev",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm --filter @openbot/contracts run build && pnpm -r --if-present run typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "mh:check": "bash .ai/bin/mh check"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "22.20.4",
+    "eslint": "10.11.0",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.12.0",
+    "prettier": "3.9.9",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.1",
+    "vitest": "5.0.2"
+  }
+}

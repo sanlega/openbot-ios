@@ -1,0 +1,194 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-2022, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          npm_config_msvs_version: "2022"
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format check
+        run: pnpm format:check
+
+      # Build before typecheck: composite TS project references need upstream
+      # dist/*.d.ts on a fresh checkout (TS6305). Root typecheck also runs build.
+      - name: Build
+        run: pnpm build
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: mh check
+        shell: bash
+        run: bash .ai/bin/mh check
+
+  desktop-e2e:
+    name: desktop e2e (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-2022, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          npm_config_msvs_version: "2022"
+
+      - name: Build workspace
+        run: pnpm build
+
+      - name: Rebuild native modules for Electron
+        run: pnpm --filter @openbot/desktop run rebuild:native
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @openbot/desktop exec playwright install --with-deps chromium
+
+      - name: Desktop Playwright smoke (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run pnpm --filter @openbot/desktop test:e2e
+        env:
+          OPENBOT_FAKE_JEV: "1"
+          OPENBOT_FAKE_ENGINES: "1"
+          OPENBOT_FAKE_COMPUTER: "1"
+          OPENBOT_FAKE_COMPOSIO: "1"
+
+      - name: Desktop Playwright smoke
+        if: runner.os != 'Linux'
+        run: pnpm --filter @openbot/desktop test:e2e
+        env:
+          OPENBOT_FAKE_JEV: "1"
+          OPENBOT_FAKE_ENGINES: "1"
+          OPENBOT_FAKE_COMPUTER: "1"
+          OPENBOT_FAKE_COMPOSIO: "1"
+
+  integration-e2e:
+    name: integration e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          npm_config_msvs_version: "2022"
+
+      - name: Build workspace
+        run: pnpm build
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @openbot/e2e exec playwright install
+
+      - name: Integration milestone E2E (fakes)
+        run: pnpm --filter @openbot/e2e test:e2e
+
+  desktop-package:
+    name: desktop package (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-2022, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          npm_config_msvs_version: "2022"
+
+      - name: Build workspace
+        run: pnpm build
+
+      - name: Rebuild native modules for Electron
+        run: pnpm --filter @openbot/desktop run rebuild:native
+
+      - name: Package desktop (unsigned)
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          npm_config_build_from_source: "false"
+        run: pnpm --filter @openbot/desktop run pack
+
+      - name: Smoke test packaged app (Linux)
+        if: runner.os == 'Linux'
+        run: pnpm --filter @openbot/desktop run smoke:packaged
+        env:
+          OPENBOT_FAKE_JEV: "1"
+          OPENBOT_FAKE_ENGINES: "1"
+          OPENBOT_FAKE_COMPUTER: "1"
+          OPENBOT_FAKE_COMPOSIO: "1"
+
+      - name: Upload desktop artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openbot-desktop-${{ matrix.os }}
+          path: |
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.deb
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.exe
+            apps/desktop/release/*-unpacked/**
+          if-no-files-found: ignore

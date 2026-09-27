@@ -1,0 +1,10 @@
+{
+  "model": "jev-latest",
+  "state": "This request is intentionally malformed to observe the error shape.",
+  "questions": {
+    "bad_question": {
+      "type": "choice",
+      "instructions": "This choice question has no criteria, which should be rejected."
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "model": "jev-latest",
+  "state": {
+    "message": "What's the status of the daily digest routine? Did it run this morning?"
+  },
+  "questions": {
+    "needs_engine": {
+      "type": "noul",
+      "instructions": "Does answering `message` require waking a coding engine (Claude Code or Codex), rather than being answerable directly from stored state such as a database?",
+      "criteria": {
+        "true": "Requires reasoning, planning, tool use, or generating new content",
+        "false": "A simple status/lookup answerable from stored data with no engine involved"
+      }
+    }
+  }
+}

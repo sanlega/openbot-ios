@@ -1,0 +1,29 @@
+{
+  "model": "jev-latest",
+  "state": {
+    "roster": [
+      { "id": "research-bot", "description": "Handles web research, summarizes articles, tracks competitor news." },
+      { "id": "inbox-bot", "description": "Triages and drafts replies to the user's email inbox." }
+    ],
+    "recent_user_messages": [
+      "Can someone dig into what our competitors shipped this month and summarize it for me?"
+    ],
+    "request": {
+      "name": "competitor-roundup",
+      "description": "Research recent competitor product launches and summarize findings.",
+      "lifetime": "one_off"
+    }
+  },
+  "questions": {
+    "route": {
+      "type": "choice",
+      "instructions": "Who should own the work described in `request`?",
+      "criteria": {
+        "research-bot": "Handles web research, summarizes articles, tracks competitor news.",
+        "inbox-bot": "Triages and drafts replies to the user's email inbox.",
+        "cos_itself": "The Chief of Staff can do it within its current session",
+        "new_bot": "Needs a new, dedicated bot that no current bot can replace"
+      }
+    }
+  }
+}

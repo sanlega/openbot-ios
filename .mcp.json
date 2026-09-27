@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "metaharness": {
+      "command": "bash",
+      "args": [".ai/bin/mh", "mcp"]
+    }
+  }
+}

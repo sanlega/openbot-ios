@@ -1,0 +1,41 @@
+{
+  "name": "@openbot/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fastify/websocket": "11.3.1",
+    "@openbot/contracts": "workspace:*",
+    "@openbot/pwa": "workspace:*",
+    "@openbot/remote": "workspace:*",
+    "@openbot/store": "workspace:*",
+    "fastify": "5.12.5",
+    "ulid": "3.0.2",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@openbot/decisions": "workspace:*",
+    "@openbot/testkit": "workspace:*",
+    "@types/libsodium-wrappers": "0.7.14",
+    "@types/node": "22.20.4",
+    "@types/ws": "8.18.1",
+    "typescript": "6.0.3",
+    "vitest": "5.0.2",
+    "ws": "8.22.0"
+  }
+}
