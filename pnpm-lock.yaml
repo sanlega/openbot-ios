@@ -85,6 +85,9 @@ importers:
         specifier: 19.1.1
         version: 19.1.1(react@19.1.1)
     devDependencies:
+      '@types/node':
+        specifier: 22.20.4
+        version: 22.20.4
       '@types/react':
         specifier: 19.1.13
         version: 19.1.13
@@ -288,6 +291,12 @@ importers:
       '@openbot/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@openbot/pwa':
+        specifier: workspace:*
+        version: link:../../apps/pwa
+      '@openbot/remote':
+        specifier: workspace:*
+        version: link:../remote
       '@openbot/store':
         specifier: workspace:*
         version: link:../store
@@ -307,6 +316,9 @@ importers:
       '@openbot/testkit':
         specifier: workspace:*
         version: link:../testkit
+      '@types/libsodium-wrappers':
+        specifier: 0.7.14
+        version: 0.7.14
       '@types/node':
         specifier: 22.20.4
         version: 22.20.4
@@ -504,7 +516,31 @@ importers:
       '@openbot/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@openbot/store':
+        specifier: workspace:*
+        version: link:../store
+      libsodium-wrappers:
+        specifier: 0.7.15
+        version: 0.7.15
+      ulid:
+        specifier: 3.0.2
+        version: 3.0.2
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
     devDependencies:
+      '@openbot/testkit':
+        specifier: workspace:*
+        version: link:../testkit
+      '@types/libsodium-wrappers':
+        specifier: 0.7.14
+        version: 0.7.14
+      '@types/node':
+        specifier: 22.20.4
+        version: 22.20.4
+      fastify:
+        specifier: 5.12.5
+        version: 5.12.5
       typescript:
         specifier: 6.0.3
         version: 6.0.3
@@ -1795,6 +1831,9 @@ packages:
 
   '@types/keyv@3.1.4':
     resolution: {integrity: sha512-BQ5aZNSCpj7D6K2ksrRCTmKRLEpnPvWDiLPfoGyhZ++8YtiK9d/3DBKPJgry359X/P1PfruyYwvnvwFjuEiEIg==}
+
+  '@types/libsodium-wrappers@0.7.14':
+    resolution: {integrity: sha512-5Kv68fXuXK0iDuUir1WPGw2R9fOZUlYlSAa0ztMcL0s0BfIDTqg9GXz8K30VJpPP3sxWhbolnQma2x+/TfkzDQ==}
 
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
@@ -3136,6 +3175,12 @@ packages:
   levn@0.4.1:
     resolution: {integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==}
     engines: {node: '>= 0.8.0'}
+
+  libsodium-wrappers@0.7.15:
+    resolution: {integrity: sha512-E4anqJQwcfiC6+Yrl01C1m8p99wEhLmJSs0VQqST66SbQXXBoaJY0pF4BNjRYa/sOQAxx6lXAaAFIlx+15tXJQ==}
+
+  libsodium@0.7.16:
+    resolution: {integrity: sha512-3HrzSPuzm6Yt9aTYCDxYEG8x8/6C0+ag655Y7rhhWZM9PT4NpdnbqlzXhGZlDnkgR6MeSTnOt/VIyHLs9aSf+Q==}
 
   light-my-request@6.6.0:
     resolution: {integrity: sha512-CHYbu8RtboSIoVsHZ6Ye4cj4Aw/yg2oAFimlF7mNvfDV192LR7nDiKtSIfCuLT7KokPSTn/9kfVLm5OGN0A28A==}
@@ -5249,6 +5294,8 @@ snapshots:
     dependencies:
       '@types/node': 22.20.4
 
+  '@types/libsodium-wrappers@0.7.14': {}
+
   '@types/ms@2.1.0': {}
 
   '@types/node@18.19.130':
@@ -6839,6 +6886,12 @@ snapshots:
     dependencies:
       prelude-ls: 1.2.1
       type-check: 0.4.0
+
+  libsodium-wrappers@0.7.15:
+    dependencies:
+      libsodium: 0.7.16
+
+  libsodium@0.7.16: {}
 
   light-my-request@6.6.0:
     dependencies:

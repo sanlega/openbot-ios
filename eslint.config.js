@@ -14,6 +14,7 @@ export default tseslint.config(
       "**/*.d.ts",
       "**/fixtures/**",
       "images/**",
+      "apps/pwa/static/**",
       ".ai/**",
       ".claude/**",
       ".agents/**",
@@ -44,4 +45,13 @@ export default tseslint.config(
     },
   },
   eslintConfigPrettier,
+  {
+    files: ["apps/pwa/src/static/**/*.js"],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        self: "readonly",
+      },
+    },
+  },
 );
