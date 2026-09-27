@@ -10,8 +10,10 @@ Shared Linux desktop container for OpenBot computer use:
 
 ## Build
 
+From the repository root:
+
 ```bash
-docker build -t openbot/desktop:latest images/desktop
+docker build -t openbot/desktop:latest -f images/desktop/Dockerfile .
 ```
 
 ## Run (manual smoke)
