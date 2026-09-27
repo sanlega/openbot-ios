@@ -1,7 +1,28 @@
 /**
- * `@openbot/mcp` (plan §5 WS4: the OpenBot MCP stdio shim, tool handlers per
- * §4.9, and the per-bot MCP config composer). Not yet implemented — tracked
- * in `.ai/memory/plans/openbot-v1.md` §5 WS4. This placeholder exists so
- * `pnpm -r` discovers the package ahead of WS4 landing.
+ * `@openbot/mcp` (plan §5 WS4): OpenBot MCP stdio shim, §4.9 tool handlers,
+ * session tokens, and per-turn MCP config composer.
  */
-export const PACKAGE_NAME = "@openbot/mcp";
+export { SessionTokenService, generateSessionSecret } from "./session-token.js";
+export { McpComposer } from "./composer.js";
+export { integrateMcp, type IntegrateMcpOptions } from "./integrate.js";
+export { registerInternalToolRoutes, type InternalToolsOptions } from "./http/register.js";
+export { createToolRouter, ToolRouter } from "./handlers.js";
+export { OPENBOT_TOOL_DEFINITIONS, BASE_TOOLS, COS_ONLY_TOOLS } from "./tool-definitions.js";
+export { TOOL_INPUT_SCHEMAS } from "./tool-schemas.js";
+export type {
+  SessionClaims,
+  SessionContext,
+  ToolRefusal,
+  ToolResult,
+  ToolSuccess,
+} from "./types.js";
+export { allowed, refused } from "./types.js";
+export type {
+  McpToolServices,
+  McpRuntimeService,
+  McpCosService,
+  McpComputerService,
+  McpRoutineService,
+  McpConnectorComposer,
+} from "./services/interfaces.js";
+export { createFakeMcpServices } from "./services/fakes.js";

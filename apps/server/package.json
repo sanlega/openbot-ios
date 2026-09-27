@@ -17,6 +17,7 @@
   "dependencies": {
     "@openbot/contracts": "workspace:*",
     "@openbot/core": "workspace:*",
+    "@openbot/mcp": "workspace:*",
     "fastify": "5.12.5"
   },
   "devDependencies": {

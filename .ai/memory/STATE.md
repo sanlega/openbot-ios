@@ -1,8 +1,21 @@
 # Estado actual
 
-_Última actualización: 2026-09-27 por cursor (continuación WS1)_
+_Última actualización: 2026-09-27 por cursor (WS4 MCP server)_
 
 ## En curso
+- Rama `cursor/ws4-mcp-server-d8cd` (apilada sobre WS1; PR pendiente),
+  **WS4 completo** según el plan §5:
+  - `packages/mcp` (`@openbot/mcp`) ✅: stdio shim (`openbot-mcp`),
+    `POST /internal/tools/:name` con token `X-OpenBot-Session`, handlers
+    §4.9 (`list_bots`, `get_bot_status`, `create_bot` CoS-only,
+    `send_message`, `message_user`, `request_approval`, `computer_task`,
+    `computer_screenshot`, rutinas, `report_done`, `permission_prompt`),
+    `McpComposer.forTurnAsync`, fakes para WS2/WS8/WS9/WS12.
+  - `apps/server`: `integrateMcp()` en `openbot serve`.
+  - 219 tests en el workspace (`pnpm lint typecheck build test`, `mh check`
+    en verde). Sin cambios a `@openbot/contracts`.
+  - Pendiente: cablear servicios reales cuando WS2/WS8/WS9/WS12 aterricen
+    (sustituir `createFakeMcpServices()`); test e2e shim→stdio con motor fake.
 - Rama `cursor/ws1-core-harness-09d8` (apilada sobre WS0; PR
   https://github.com/sanlega/OpenBot/pull/3, lista para review), **WS1
   completo** según el plan §5:
