@@ -1,0 +1,45 @@
+{
+  "model": "jev-latest",
+  "state": {
+    "goal": "Search Google Flights for a one-way flight from SFO to JFK next Friday.",
+    "url": "https://www.google.com/travel/flights",
+    "observed_elements": [
+      { "index": 0, "role": "combobox", "name": "Where from?", "value": "" },
+      { "index": 1, "role": "combobox", "name": "Where to?", "value": "" },
+      { "index": 2, "role": "button", "name": "Search" },
+      { "index": 3, "role": "radio", "name": "Round trip", "checked": true },
+      { "index": 4, "role": "radio", "name": "One way", "checked": false },
+      { "index": 5, "role": "textbox", "name": "Departure date", "value": "" }
+    ]
+  },
+  "questions": {
+    "op": {
+      "type": "choice",
+      "instructions": "Given `goal` and the current `observed_elements` on `url`, what is the single next UI operation to perform?",
+      "criteria": {
+        "click": "Click an element (e.g. a button, radio, or link)",
+        "type": "Type text into a focused textbox/combobox",
+        "select": "Choose from a dropdown/select element",
+        "wait": "Wait for the page to load or update",
+        "done": "The goal is already satisfied; no further action needed"
+      }
+    },
+    "target_index": {
+      "type": "choice",
+      "instructions": "Which `observed_elements` index (by its `index` field, as a string) should the operation act on? Use `none` if the operation needs no target (e.g. wait/done).",
+      "criteria": {
+        "0": "Where from? combobox",
+        "1": "Where to? combobox",
+        "2": "Search button",
+        "3": "Round trip radio",
+        "4": "One way radio",
+        "5": "Departure date textbox",
+        "none": "No target needed"
+      }
+    },
+    "is_destructive": {
+      "type": "noul",
+      "instructions": "Would performing this operation have an external side effect (payment, sending, deleting, submitting an order)?"
+    }
+  }
+}

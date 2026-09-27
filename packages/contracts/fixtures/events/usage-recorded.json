@@ -1,0 +1,13 @@
+{
+  "id": "evt_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "seq": 1,
+  "ts": "2026-09-27T00:00:00.000Z",
+  "type": "usage.recorded",
+  "botId": "bot_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "turnId": "turn_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "payload": {
+    "inputTokens": 100,
+    "outputTokens": 40,
+    "usd": 0.01
+  }
+}

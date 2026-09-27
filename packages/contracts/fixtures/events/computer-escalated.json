@@ -1,0 +1,10 @@
+{
+  "id": "evt_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "seq": 1,
+  "ts": "2026-09-27T00:00:00.000Z",
+  "type": "computer.escalated",
+  "botId": "bot_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "payload": {
+    "reason": "low_confidence"
+  }
+}

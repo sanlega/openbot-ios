@@ -12,6 +12,7 @@ export default tseslint.config(
       "**/node_modules/**",
       "**/.turbo/**",
       "**/*.d.ts",
+      "**/fixtures/**",
       "images/**",
       ".ai/**",
       ".claude/**",

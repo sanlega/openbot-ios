@@ -1,0 +1,18 @@
+{
+  "model": "jev-latest",
+  "state": {
+    "task": "Refactor the payment retry logic across three microservices, add exponential backoff, write tests, and update the runbook."
+  },
+  "questions": {
+    "complexity": {
+      "type": "score",
+      "instructions": "How complex is `task` for a coding engine to execute?",
+      "criteria": [
+        "Trivial: a single small edit in one file",
+        "Simple: a small, well-scoped change in one or two files",
+        "Moderate: multi-file change requiring some design judgment",
+        "Complex: cross-service change requiring planning, tests, and docs"
+      ]
+    }
+  }
+}

@@ -12,3 +12,4 @@ coverage/
 
 # metaharness: material privado/pesado
 .ai/local/
+*.tsbuildinfo

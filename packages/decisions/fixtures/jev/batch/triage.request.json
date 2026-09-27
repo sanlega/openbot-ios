@@ -1,0 +1,41 @@
+{
+  "model": "jev-latest",
+  "state": {
+    "message": "Hey, can you set up a recurring bot that checks our GitHub issues every morning and pings me if anything urgent came in overnight?",
+    "roster": [
+      { "id": "research-bot", "description": "Handles web research, summarizes articles, tracks competitor news." },
+      { "id": "inbox-bot", "description": "Triages and drafts replies to the user's email inbox." }
+    ]
+  },
+  "questions": {
+    "intent": {
+      "type": "choice",
+      "instructions": "Classify `message`.",
+      "criteria": {
+        "chit_chat": "Small talk, no task",
+        "status_query": "Asking about existing state or progress",
+        "new_task": "A new task or standing request",
+        "follow_up": "Follow-up on an existing task",
+        "approval_reply": "Responding to a pending approval",
+        "stop": "Asking to stop or cancel something"
+      }
+    },
+    "urgency": {
+      "type": "score",
+      "instructions": "How urgent is `message`?",
+      "criteria": ["Not urgent", "Somewhat urgent", "Very urgent"]
+    },
+    "needs_engine": {
+      "type": "noul",
+      "instructions": "Does handling `message` require waking a coding engine rather than a direct DB answer?"
+    },
+    "existing_can_do": {
+      "type": "noul",
+      "instructions": "Could an existing bot in `roster` do this, possibly with a small scope change?"
+    },
+    "recurring_ownership": {
+      "type": "noul",
+      "instructions": "Does this need an owner over days or weeks (a recurring duty or ongoing project)?"
+    }
+  }
+}

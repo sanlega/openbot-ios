@@ -7,4 +7,5 @@ CLAUDE.md
 **/dist/**
 **/build/**
 **/coverage/**
+**/fixtures/**
 images/**

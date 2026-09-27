@@ -1,0 +1,1 @@
+{"model":"jev-1.13.0","answers":{"route":{"type":"choice","choice":"research-bot","confidence":1.0,"probabilities":{"inbox-bot":0.0,"cos_itself":0.0,"research-bot":1.0,"new_bot":0.0}}},"usage":{"input_tokens":526,"output_tokens":55}}

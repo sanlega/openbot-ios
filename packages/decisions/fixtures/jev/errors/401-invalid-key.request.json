@@ -1,0 +1,8 @@
+{
+  "_note": "Same request as choice/route.request.json is not needed here; any body triggers 401 first when the Authorization header is invalid. This call used Authorization: Bearer sk-invalid-test-key-000000000000000000000000 (a made-up placeholder, not a real credential) with the body below.",
+  "model": "jev-latest",
+  "state": "test",
+  "questions": {
+    "x": { "type": "noul", "instructions": "test?" }
+  }
+}
