@@ -1,8 +1,47 @@
 # Estado actual
 
-_Last updated: 2026-09-27 by codex (local macOS deployment)_
+_Last updated: 2026-09-27 by codex (Computer Live View and README polish)_
+
+## Completed
+- Repaired and deployed Computer Live View. The original installed app had no
+  provider when Docker Desktop was started after OpenBot, and the noVNC path
+  could select a display whose VNC server had failed to start. The UI also
+  remained on "Loading computer…" after request errors.
+- The server now wires Docker even while the daemon is unavailable, reconnects
+  to existing containers with their saved token, and waits for Docker's control
+  API and per-bot VNC server to become ready. noVNC tokens are short-lived,
+  routed to the correct display, and the host ports bind only to loopback.
+- The UI shows recoverable errors, retries computer startup, explains local Mac
+  mode, and grants fullscreen to the noVNC iframe. Docker logs no longer include
+  its temporary WebSocket tokens.
+- Installed `[local machine path removed]` (arm64) and built
+  `openbot/desktop:latest`; the managed Docker container is healthy. The actual
+  panel iframe connected for both configured bots and two more displays.
+- Plan: `.ai/memory/plans/2026-09-27-computer-live-view.md`.
+- Validation: `pnpm build`, `pnpm typecheck`, `pnpm test` (730 passed, 18
+  skipped), `pnpm lint` (0 errors; 3 unrelated warnings), `pnpm format:check`,
+  `bash .ai/bin/mh check`, desktop E2E (1/1), four local Docker Live View
+  connections, and SQLite `integrity_check` passed.
+- Polished the virtual desktop after the user's screenshot: Fluxbox now uses a
+  native dark gradient, the missing wallpaper-dialog trigger is gone, Xvfb runs
+  at 1600×1000, Chromium starts maximized, and noVNC defaults to scale-to-fit
+  with quality 9. Replaced the running Docker container while retaining its
+  existing `/workspace` volume and keeping the former container stopped for
+  rollback. The new container is healthy and the real Live View route returned
+  the expected noVNC settings.
+- Rewrote the root README with the app logo, current install/development steps,
+  project status, and two Playwright captures rendered against mock demo data:
+  `docs/screenshots/chat-dark.png` and `docs/screenshots/activity-dark.png`.
+- Plan: `.ai/memory/plans/2026-09-27-desktop-visuals-readme.md`.
+- Validation: `pnpm build`, `pnpm typecheck`, `pnpm test` (731 passed, 18
+  skipped), `pnpm lint` (0 errors, 3 unrelated warnings), `pnpm format:check`,
+  `bash .ai/bin/mh check`, Docker image build, health check, preserved volume,
+  Xvfb 1600×1000, no Fluxbox `xmessage`, and live URL scale/quality settings.
 
 ## En curso
+- No open implementation work. The installed Mac app and refreshed Docker
+  computer image are running locally; the previous Docker container remains
+  stopped as a rollback point.
 - PRs #15 (v1 integration, WS0–WS13) and #16 (review fixes) are merged into
   `main` (40d8a23). What works end to end (with fakes; E2E in `e2e/tests/`):
   - **Jev**: never a silent fake in production (`KeyedDecisionService`); key read

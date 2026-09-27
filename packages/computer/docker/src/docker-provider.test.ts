@@ -28,9 +28,9 @@ class MemoryControlDaemon implements ControlDaemonClient {
     return { ok: true };
   }
 
-  async liveView(display: number) {
+  async liveView(botId: string) {
     return {
-      url: `http://127.0.0.1:6080/vnc.html?display=${display}`,
+      url: `http://127.0.0.1:6080/vnc.html?bot=${botId}`,
       token: "test-token",
       expiresAt: new Date(Date.now() + 60_000).toISOString(),
     };
@@ -60,6 +60,7 @@ describe("DockerProvider (mocked engine)", () => {
         listContainers: async () => [],
         getContainer: () => ({
           inspect: async () => ({ State: { Running: true } }),
+          start: async () => {},
         }),
         createContainer: async () => ({
           id: "ctr_test",

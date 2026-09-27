@@ -10,3 +10,4 @@ La skill `self-improve` las consolida en skills, contexto o protocolo y las reti
 - 2026-09-27 [unknown] E2E that create Bots through the API hid a first-run dead end (no CoS, no create-bot UI). Keep one E2E that starts from a fresh setup and drives only the UI.
 - 2026-09-27 [unknown] UI reducers must not assume bus order: create per-turn records lazily from any turn-scoped event (tool.started can precede turn.started).
 - 2026-09-27 [unknown] Before packaging Electron, run a SQLite query under Electron's embedded Node runtime: electron-rebuild can succeed even when the native addon's Node minimum exceeds Electron's bundled Node, leaving the packaged app crashing at startup.
+- 2026-09-27 [unknown] When replacing the Docker computer image, reuse the existing anonymous /workspace volume and keep the old container stopped for rollback; otherwise its workspace becomes invisible to the new container.

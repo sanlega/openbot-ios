@@ -36,7 +36,6 @@ function mockDetection(overrides: Partial<ProviderDetection> = {}): ProviderDete
   return {
     detectClaude: vi.fn(async () => readyClaude),
     detectCodex: vi.fn(async () => readyCodex),
-    dockerPing: vi.fn(async () => true),
     ...overrides,
   };
 }
@@ -149,13 +148,12 @@ describe("bootstrapProviders", () => {
     const detection = mockDetection({
       detectClaude: vi.fn(async () => missingEngine),
       detectCodex: vi.fn(async () => missingEngine),
-      dockerPing: vi.fn(async () => false),
     });
     const result = await bootstrapProviders(ctx, detection);
 
     expect(result.drivers).toEqual({});
     expect(result.availableEngines).toEqual([]);
-    expect(result.computerProvider).toBeUndefined();
+    expect(result.computerProvider?.id).toBe("docker");
 
     ctx.closeDb();
     process.env = prev;

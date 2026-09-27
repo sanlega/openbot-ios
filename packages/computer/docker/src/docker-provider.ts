@@ -12,7 +12,10 @@ import { ScreenManager } from "./screen-manager.js";
 
 export interface DockerEngine {
   ping(): Promise<void>;
-  getContainer(id: string): { inspect(): Promise<{ State: { Running: boolean } }> };
+  getContainer(id: string): {
+    inspect(): Promise<{ State: { Running: boolean }; Config?: { Env?: string[] } }>;
+    start(): Promise<void>;
+  };
   createContainer(options: unknown): Promise<{ start(): Promise<void>; id: string }>;
   listContainers(options?: unknown): Promise<Array<{ Id: string; Names: string[] }>>;
 }
@@ -40,7 +43,7 @@ export class DockerProvider implements ComputerProvider {
   private started = false;
   private containerId: string | undefined;
   private readonly screens = new ScreenManager(4);
-  private readonly controlToken: string;
+  private controlToken: string;
   private idleTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(private readonly options: DockerProviderOptions = {}) {
@@ -60,8 +63,11 @@ export class DockerProvider implements ComputerProvider {
 
   async ensureStarted(): Promise<void> {
     if (this.started) {
-      this.scheduleIdleStop();
-      return;
+      if ((await this.status()).ready) {
+        this.scheduleIdleStop();
+        return;
+      }
+      this.started = false;
     }
 
     const docker = await this.resolveDocker();
@@ -75,9 +81,12 @@ export class DockerProvider implements ComputerProvider {
       this.containerId = match.Id;
       const container = docker.getContainer(match.Id);
       const info = await container.inspect();
-      if (!info.State.Running) {
-        throw new Error(`desktop container ${name} exists but is not running`);
-      }
+      const savedToken = info.Config?.Env?.find((item) =>
+        item.startsWith("OPENBOT_CONTROL_TOKEN="),
+      );
+      if (!savedToken) throw new Error(`desktop container ${name} has no control token`);
+      this.controlToken = savedToken.slice("OPENBOT_CONTROL_TOKEN=".length);
+      if (!info.State.Running) await container.start();
     } else {
       const image = this.options.image ?? DEFAULT_IMAGE;
       const port = this.options.controlPort ?? 8787;
@@ -87,7 +96,10 @@ export class DockerProvider implements ComputerProvider {
         Env: [`OPENBOT_CONTROL_TOKEN=${this.controlToken}`, "OPENBOT_MAX_SCREENS=4"],
         HostConfig: {
           Binds: this.options.workspaceMount ? [`${this.options.workspaceMount}:/workspace`] : [],
-          PortBindings: { "8787/tcp": [{ HostPort: String(port) }] },
+          PortBindings: {
+            "8787/tcp": [{ HostIp: "127.0.0.1", HostPort: String(port) }],
+            "6080/tcp": [{ HostIp: "127.0.0.1", HostPort: "6080" }],
+          },
           AutoRemove: false,
         },
         ExposedPorts: { "8787/tcp": {}, "6080/tcp": {} },
@@ -97,6 +109,14 @@ export class DockerProvider implements ComputerProvider {
     }
 
     this.started = true;
+    const deadline = Date.now() + 15_000;
+    while (!(await this.status()).ready) {
+      if (Date.now() >= deadline) {
+        this.started = false;
+        throw new Error("desktop control daemon did not become ready");
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
     this.scheduleIdleStop();
   }
 
@@ -178,11 +198,12 @@ class DockerScreen implements Screen {
   }
 
   async liveView(): Promise<{ url: string; token: string; expiresAt: string }> {
-    const live = await this.control.liveView(this.display);
+    const live = await this.control.liveView(this.botId);
     if (this.liveViewBaseUrl) {
+      const url = new URL(live.url);
       return {
         ...live,
-        url: `${this.liveViewBaseUrl}?display=${this.display}&token=${live.token}`,
+        url: `${this.liveViewBaseUrl}${url.search}`,
       };
     }
     return live;

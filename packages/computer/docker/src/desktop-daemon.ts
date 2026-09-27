@@ -3,24 +3,46 @@
  * HTTP control daemon for OpenBot desktop containers.
  * Observation: CDP DOM → CDP AX → AT-SPI → OCR (plan WS9).
  */
-import { createServer } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomBytes } from "node:crypto";
+import { renameSync, writeFileSync } from "node:fs";
 import { DisplaySessionManager } from "./display-session.js";
+import { createLiveViewUrl } from "./live-view-url.js";
 import { stripMeta } from "@openbot/computer/observation";
+import type { Action } from "@openbot/contracts";
 
 const PORT = Number(process.env.OPENBOT_CONTROL_PORT ?? 8787);
 const MAX_SCREENS = Number(process.env.OPENBOT_MAX_SCREENS ?? 4);
 const TOKEN = process.env.OPENBOT_CONTROL_TOKEN ?? randomBytes(16).toString("hex");
 const NOVNC_PORT = Number(process.env.NOVNC_PORT ?? 6080);
+const TOKEN_FILE = "/tmp/openbot-vnc-tokens";
+const liveTokens = new Map<string, { display: number; port: number; expires: number }>();
 
-const sessions = new DisplaySessionManager({ maxScreens: MAX_SCREENS });
+function persistLiveTokens(): void {
+  writeFileSync(
+    `${TOKEN_FILE}.next`,
+    [...liveTokens].map(([token, entry]) => `${token}: 127.0.0.1:${entry.port}`).join("\n") + "\n",
+    { mode: 0o600 },
+  );
+  renameSync(`${TOKEN_FILE}.next`, TOKEN_FILE);
+}
 
-function unauthorized(res: import("node:http").ServerResponse): void {
+const sessions = new DisplaySessionManager({
+  maxScreens: MAX_SCREENS,
+  onEvict: (display) => {
+    for (const [token, entry] of liveTokens) {
+      if (entry.display === display) liveTokens.delete(token);
+    }
+    persistLiveTokens();
+  },
+});
+
+function unauthorized(res: ServerResponse): void {
   res.writeHead(401, { "content-type": "application/json" });
   res.end(JSON.stringify({ detail: { error_type: "auth", message: "invalid token" } }));
 }
 
-function parseBody(req: import("node:http").IncomingMessage): Promise<Record<string, unknown>> {
+function parseBody(req: IncomingMessage): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     req.on("data", (c) => chunks.push(c as Buffer));
@@ -66,7 +88,7 @@ createServer(async (req, res) => {
     try {
       const body = await parseBody(req);
       const botId = String(body.botId ?? "unknown");
-      const action = body.action as import("@openbot/contracts").Action;
+      const action = body.action as Action;
       const result = await sessions.act(botId, action);
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify(result));
@@ -78,14 +100,31 @@ createServer(async (req, res) => {
   }
 
   if (req.method === "GET" && url.pathname === "/live") {
-    const display = Number(url.searchParams.get("display") ?? "1");
-    const liveToken = randomBytes(8).toString("hex");
+    const botId = url.searchParams.get("botId");
+    if (!botId) {
+      res.writeHead(400);
+      res.end("botId is required");
+      return;
+    }
+    const { display, vncPort } = await sessions.ensureReady(botId);
+    const liveToken = randomBytes(24).toString("hex");
+    const expires = Date.now() + 15 * 60_000;
+    for (const [token, entry] of liveTokens) {
+      if (entry.expires <= Date.now()) liveTokens.delete(token);
+    }
+    liveTokens.set(liveToken, { display, port: vncPort, expires });
+    persistLiveTokens();
+    setTimeout(() => {
+      liveTokens.delete(liveToken);
+      persistLiveTokens();
+    }, 15 * 60_000).unref();
     res.writeHead(200, { "content-type": "application/json" });
     res.end(
       JSON.stringify({
-        url: `http://127.0.0.1:${NOVNC_PORT}/vnc.html?display=${display}`,
+        url: createLiveViewUrl(NOVNC_PORT, liveToken),
         token: liveToken,
-        expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+        expiresAt: new Date(expires).toISOString(),
+        display,
       }),
     );
     return;

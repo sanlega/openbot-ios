@@ -18,29 +18,40 @@ export function ComputerPanel({ botId }: ComputerPanelProps) {
   const [tasks, setTasks] = useState<ComputerTasksResponse["tasks"]>([]);
   const [takeover, setTakeover] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [started, setStarted] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [st, tk] = await Promise.all([
-        transport.get<{ ready: boolean; detail?: string; provider?: string }>(
-          "/api/computer/status",
-        ),
-        transport.get<ComputerTasksResponse>(`/api/computer/tasks?botId=${botId}`),
-      ]);
-      // The live view only exists once the computer is running.
-      const lv = st.ready
-        ? await transport
-            .get<LiveViewResponse>(`/api/computer/screens/${botId}/live`)
-            .catch(() => null)
-        : null;
-      if (cancelled) return;
-      setStatus(computerStatusView(st));
-      setLive(lv);
-      setTasks(tk.tasks);
-      setLoading(false);
+      try {
+        const [st, tk] = await Promise.all([
+          transport.get<{ ready: boolean; detail?: string; provider?: string }>(
+            "/api/computer/status",
+          ),
+          transport.get<ComputerTasksResponse>(`/api/computer/tasks?botId=${botId}`),
+        ]);
+        // The live view only exists once the computer is running.
+        let lv: LiveViewResponse | null = null;
+        let liveError: string | null = null;
+        if (st.ready && st.provider !== "local") {
+          try {
+            lv = await transport.get<LiveViewResponse>(`/api/computer/screens/${botId}/live`);
+          } catch (cause) {
+            liveError = `Live View could not be loaded: ${String(cause)}`;
+          }
+        }
+        if (cancelled) return;
+        setStatus(computerStatusView(st));
+        setLive(lv);
+        setTasks(tk.tasks);
+        setError(liveError);
+      } catch (cause) {
+        if (!cancelled) setError(`Computer status could not be loaded: ${String(cause)}`);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
@@ -49,14 +60,27 @@ export function ComputerPanel({ botId }: ComputerPanelProps) {
 
   const startComputer = async () => {
     setLoading(true);
-    await transport.post("/api/computer/start");
-    setStarted((n) => n + 1);
+    setError(null);
+    try {
+      await transport.post("/api/computer/start");
+      setStarted((n) => n + 1);
+    } catch (cause) {
+      setError(
+        `Computer could not be started. Check Docker Desktop and the desktop image. ${String(cause)}`,
+      );
+      setLoading(false);
+    }
   };
 
   const toggleTakeover = async () => {
     const next = !takeover;
-    await transport.post(`/api/computer/screens/${botId}/takeover`, { on: next });
-    setTakeover(next);
+    try {
+      await transport.post(`/api/computer/screens/${botId}/takeover`, { on: next });
+      setTakeover(next);
+      setError(null);
+    } catch (cause) {
+      setError(`Screen takeover failed: ${String(cause)}`);
+    }
   };
 
   if (loading) return <div className="empty-state">Loading computer…</div>;
@@ -68,17 +92,26 @@ export function ComputerPanel({ botId }: ComputerPanelProps) {
   return (
     <div className="computer-panel" data-testid="computer-panel">
       <div className="banner banner-warning">{status?.sharedWorkspaceNotice}</div>
+      {error && (
+        <div className="banner banner-warning" role="alert">
+          {error}
+        </div>
+      )}
 
       <div className="computer-grid">
         <section className="card">
           <h3 className="card-title">Live view</h3>
-          {live ? (
+          {status?.provider === "local" && status.running ? (
+            <p>Your Mac desktop is the live view for local computer tasks.</p>
+          ) : live ? (
             <>
               <div className="novnc-frame-wrap">
                 <iframe
                   title="Bot screen live view"
                   src={liveSrc}
                   className="novnc-frame"
+                  allow="fullscreen"
+                  allowFullScreen
                   sandbox="allow-scripts allow-same-origin"
                 />
               </div>
@@ -94,9 +127,11 @@ export function ComputerPanel({ botId }: ComputerPanelProps) {
             </>
           ) : (
             <div className="card-actions">
-              <p style={{ color: "var(--text-muted)" }}>The computer is not running.</p>
+              <p style={{ color: "var(--text-muted)" }}>
+                {status?.running ? "The screen is unavailable." : "The computer is not running."}
+              </p>
               <button type="button" className="primary" onClick={() => void startComputer()}>
-                Start computer
+                {status?.running ? "Retry Live View" : "Start computer"}
               </button>
             </div>
           )}

@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { createConnection } from "node:net";
 import {
   runObservationPipeline,
   stripMeta,
@@ -11,6 +12,7 @@ import { createShellExec } from "@openbot/computer/observation";
 export interface DisplaySessionOptions {
   maxScreens?: number;
   workspaceMount?: string;
+  onEvict?: (display: number) => void;
 }
 
 interface SessionState {
@@ -20,20 +22,38 @@ interface SessionState {
   lastUsed: number;
   lastObservation?: ObservationResult;
   processes: ChildProcess[];
+  ready: Promise<void>;
 }
 
 /**
  * Manages per-bot Xvfb displays, Chromium instances (with CDP), and observation state.
  */
 export class DisplaySessionManager {
-  private readonly screens = new ScreenManager(4);
+  private readonly screens: ScreenManager;
   private readonly sessions = new Map<string, SessionState>();
   private readonly shell = createShellExec();
 
-  constructor(private readonly options: DisplaySessionOptions = {}) {}
+  constructor(private readonly options: DisplaySessionOptions = {}) {
+    this.screens = new ScreenManager(options.maxScreens ?? 4);
+  }
 
   assign(botId: string): SessionState {
     const display = this.screens.assign(botId);
+    for (const [id, old] of this.sessions) {
+      if ((id !== botId && old.display === display) || (id === botId && old.display !== display)) {
+        for (const child of old.processes) {
+          if (child.pid) {
+            try {
+              process.kill(-child.pid, "SIGTERM");
+            } catch {
+              // A desktop process may already have exited.
+            }
+          }
+        }
+        this.sessions.delete(id);
+        this.options.onEvict?.(old.display);
+      }
+    }
     let session = this.sessions.get(botId);
     if (!session) {
       const vncPort = 5900 + display;
@@ -44,9 +64,10 @@ export class DisplaySessionManager {
         debugPort,
         lastUsed: Date.now(),
         processes: [],
+        ready: Promise.resolve(),
       };
-      this.ensureDisplayRunning(session);
       this.sessions.set(botId, session);
+      session.ready = this.ensureDisplayRunning(session);
     }
     session.lastUsed = Date.now();
     return session;
@@ -54,7 +75,7 @@ export class DisplaySessionManager {
 
   async observe(botId: string, mode?: "dom" | "ax" | "ocr" | "auto"): Promise<ObservationResult> {
     const session = this.assign(botId);
-    await waitForDisplay(session.display);
+    await session.ready;
     const observation = await runObservationPipeline(
       {
         mode: mode ?? "auto",
@@ -70,6 +91,7 @@ export class DisplaySessionManager {
 
   async act(botId: string, action: Action): Promise<ActResult> {
     const session = this.assign(botId);
+    await session.ready;
     const env = { ...process.env, DISPLAY: `:${session.display}` };
 
     switch (action.op) {
@@ -82,6 +104,7 @@ export class DisplaySessionManager {
             "--no-sandbox",
             "--disable-gpu",
             "--disable-dev-shm-usage",
+            "--start-maximized",
             "--remote-debugging-address=127.0.0.1",
             `--remote-debugging-port=${session.debugPort}`,
             `--user-data-dir=/tmp/openbot-chrome-${session.display}`,
@@ -108,6 +131,13 @@ export class DisplaySessionManager {
       default:
         return { ok: false, reason: `unsupported op: ${String(action.op)}` };
     }
+  }
+
+  async ensureReady(botId: string): Promise<SessionState> {
+    const session = this.assign(botId);
+    await session.ready;
+    await waitForPort(session.vncPort);
+    return session;
   }
 
   publicObservation(botId: string): ReturnType<typeof stripMeta> | undefined {
@@ -137,15 +167,18 @@ export class DisplaySessionManager {
     return { ok: true };
   }
 
-  private ensureDisplayRunning(session: SessionState): void {
+  private async ensureDisplayRunning(session: SessionState): Promise<void> {
     const displayStr = `:${session.display}`;
     const env = { ...process.env, DISPLAY: displayStr };
-    const procs = [
-      spawn("Xvfb", [displayStr, "-screen", "0", "1280x800x24"], {
+    session.processes.push(
+      spawn("Xvfb", [displayStr, "-screen", "0", "1600x1000x24"], {
         detached: true,
         stdio: "ignore",
         env,
       }),
+    );
+    await waitForDisplay(session.display);
+    const procs = [
       spawn("fluxbox", ["-display", displayStr], { detached: true, stdio: "ignore", env }),
       spawn(
         "x11vnc",
@@ -156,6 +189,7 @@ export class DisplaySessionManager {
           "-shared",
           "-rfbport",
           String(session.vncPort),
+          "-localhost",
           "-nopw",
         ],
         { detached: true, stdio: "ignore", env },
@@ -167,6 +201,7 @@ export class DisplaySessionManager {
           "--no-sandbox",
           "--disable-gpu",
           "--disable-dev-shm-usage",
+          "--start-maximized",
           "--remote-debugging-address=127.0.0.1",
           `--remote-debugging-port=${session.debugPort}`,
           `--user-data-dir=/tmp/openbot-chrome-${session.display}`,
@@ -176,6 +211,7 @@ export class DisplaySessionManager {
       ),
     ];
     session.processes.push(...procs);
+    await waitForPort(session.vncPort);
   }
 }
 
@@ -192,6 +228,34 @@ async function waitForDisplay(display: number, timeoutMs = 15_000): Promise<void
       await sleep(200);
     }
   }
+  throw new Error(`Xvfb display :${display} did not become ready`);
+}
+
+async function waitForPort(port: number, timeoutMs = 15_000): Promise<void> {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const socket = createConnection({ host: "127.0.0.1", port });
+        socket.once("connect", () => {
+          socket.destroy();
+          resolve();
+        });
+        socket.once("error", (error) => {
+          socket.destroy();
+          reject(error);
+        });
+        socket.setTimeout(500, () => {
+          socket.destroy();
+          reject(new Error("connection timeout"));
+        });
+      });
+      return;
+    } catch {
+      await sleep(200);
+    }
+  }
+  throw new Error(`VNC server on port ${port} did not become ready`);
 }
 
 function sleep(ms: number): Promise<void> {

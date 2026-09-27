@@ -3,10 +3,7 @@ FROM node:22-bookworm AS build
 WORKDIR /repo
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
-COPY packages/contracts packages/contracts
-COPY packages/decisions packages/decisions
-COPY packages/store packages/store
-COPY packages/computer packages/computer
+COPY packages packages
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @openbot/contracts --filter @openbot/decisions --filter @openbot/computer --filter @openbot/computer-docker run build
 
@@ -33,6 +30,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/openbot
+RUN mkdir -p /root/.fluxbox
+COPY images/desktop/fluxbox-init /root/.fluxbox/init
 COPY --from=build /repo/packages/computer/docker/dist/desktop-daemon.js ./desktop-daemon.js
 COPY images/desktop/entrypoint.sh ./
 RUN chmod +x entrypoint.sh
@@ -43,6 +42,6 @@ VOLUME ["/workspace"]
 EXPOSE 8787 6080
 
 HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
-  CMD curl -fsS http://127.0.0.1:${OPENBOT_CONTROL_PORT}/health || exit 1
+  CMD curl -fsS -H "Authorization: Bearer ${OPENBOT_CONTROL_TOKEN}" http://127.0.0.1:${OPENBOT_CONTROL_PORT}/health || exit 1
 
 ENTRYPOINT ["./entrypoint.sh"]

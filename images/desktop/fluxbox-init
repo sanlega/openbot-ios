@@ -1,0 +1,3 @@
+! OpenBot's virtual desktop uses Fluxbox's native gradient style. This avoids
+! external wallpaper utilities and their startup dialogs in the computer view.
+session.styleFile: /usr/share/fluxbox/styles/zimek_darkblue/theme.cfg

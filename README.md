@@ -1,40 +1,58 @@
-# OpenBot
+<p align="center">
+  <img src="apps/desktop/resources/icon.png" alt="OpenBot logo" width="112" />
+</p>
 
-OpenBot is a self-hosted, messenger-style desktop app (macOS, Windows, Linux) for
-managing a small roster of persistent AI **Bots**. Each Bot runs on Claude Code or
-Codex; a selective **Chief of Staff** Bot creates and delegates to the roster on its
-own; **Jev** (TypeSafe AI System One) is the fast decision layer behind every
-engine/model route and every spawn, notify, risk, and loop gate.
+<h1 align="center">OpenBot</h1>
 
-You bring your own keys and accounts — OpenBot has no backend and ships no keys.
+<p align="center">
+  Your AI team, in one local-first desktop workspace.
+  <br />Bring your own accounts. Keep control of your data, tools, and computer.
+</p>
 
-> **Status**: v1 integration in progress ([PR #15](https://github.com/sanlega/OpenBot/pull/15)).
-> Desktop app, harness, setup wizard, and milestone E2E tests are wired; see
-> [Run OpenBot v1 on your machine](#run-openbot-v1-on-your-machine) below.
+<p align="center">
+  <a href="https://github.com/sanlega/OpenBot/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/sanlega/OpenBot/actions/workflows/ci.yml/badge.svg?branch=main" /></a>
+  <img alt="macOS, Windows, and Linux" src="https://img.shields.io/badge/desktop-macOS%20%7C%20Windows%20%7C%20Linux-6e6bf2" />
+  <img alt="MIT license" src="https://img.shields.io/badge/license-MIT-6e6bf2" />
+</p>
 
-## Run OpenBot v1 on your machine
+<p align="center">
+  <img src="docs/screenshots/chat-dark.png" alt="OpenBot desktop showing the Chief of Staff chat and a small AI team" width="100%" />
+</p>
 
-You need your own Claude/Codex logins (or API keys) plus a TypeSafe (Jev) key.
-Optional: Docker Desktop for computer use, Tailscale for phone access.
+OpenBot is a desktop app for managing persistent AI Bots in a familiar team chat.
+Choose Claude Code or Codex for each Bot, then let a selective **Chief of Staff**
+coordinate work across your roster. **Jev** routes work and applies the safety gates.
 
-### Prebuilt installer (no Node or pnpm)
+Your keys and logins stay on your machine. OpenBot has no hosted backend and ships
+no bundled credentials.
 
-Every CI run on [PR #15](https://github.com/sanlega/OpenBot/pull/15) publishes
-unsigned desktop builds as workflow artifacts:
+## What you can do
 
-1. Open the latest green **CI** run on the PR → **Artifacts**.
-2. Download the artifact for your OS (`openbot-desktop-ubuntu-latest`,
-   `openbot-desktop-macos-latest`, or `openbot-desktop-windows-2022`).
-3. Install or run:
-   - **Linux** — `OpenBot-*.AppImage` (or unpack `linux-unpacked/openbot`)
-   - **macOS** — mount the `.dmg` and drag OpenBot to Applications
-   - **Windows** — run the `.exe` installer from the artifact
+- **Build a small AI team.** Give each Bot its own role, model, permissions, and
+  computer access.
+- **Delegate through the Chief of Staff.** It can bring in a specialist when useful
+  and keep you updated in the same conversation.
+- **Review actions.** Bots request approval for gated actions; Activity collects
+  results and messages waiting for you.
+- **Use a virtual computer.** With Docker Desktop, Bots can use a shared Linux
+  desktop with a live view and screen takeover. Bots share the workspace and
+  computer, so they are not a security boundary.
+- **Stay in control.** Configure permissions, routines, connected tools, and optional
+  phone pairing from the app.
 
-On first launch the setup wizard appears; no build tools required.
+<p align="center">
+  <img src="docs/screenshots/activity-dark.png" alt="OpenBot Activity view with an approval request and Bot updates" width="100%" />
+</p>
 
-### Build from source
+## Get OpenBot
 
-Requires Node 22 and pnpm:
+OpenBot is in active development. To try a desktop build without setting up Node,
+open the [latest successful CI run](https://github.com/sanlega/OpenBot/actions/workflows/ci.yml),
+select the **desktop package** job for your operating system, and download its
+artifact. CI builds unsigned packages for macOS, Windows, and Linux; these are
+development builds, not signed releases.
+
+Or build from source. You need Node.js **22.12 or newer** and pnpm **10**:
 
 ```sh
 corepack enable
@@ -43,110 +61,43 @@ pnpm build
 pnpm --filter @openbot/desktop start
 ```
 
-On first launch, the **setup wizard** walks you through TypeSafe, Claude, Codex,
-and optional Composio/Tailscale. Keys are stored in a local vault under
-`~/.openbot`.
+On first launch, follow the setup wizard. Add a TypeSafe (Jev) key and connect at
+least one engine: Claude Code or Codex. Docker Desktop is optional and enables the
+virtual computer. OpenBot stores credentials in the local system vault.
 
-**Try the M1 milestone:** create a bot from the sidebar, open its thread, send a
-message, and wait for a reply.
+## Run the web UI
 
-| Step              | Action                                                    |
-| ----------------- | --------------------------------------------------------- |
-| Install           | `pnpm install && pnpm build`                              |
-| Launch            | `pnpm --filter @openbot/desktop start`                    |
-| Setup             | Complete the wizard (Jev + Claude + Codex)                |
-| First bot         | New bot → name it → send a message                        |
-| Docker (optional) | Install Docker Desktop; set bot computer access to Docker |
-| Phone (optional)  | Tailscale + Pair device QR in settings                    |
-
-Headless / browser UI: `pnpm --filter @openbot/server dev serve` then open
-[http://127.0.0.1:4577/app](http://127.0.0.1:4577/app).
-
-## Why
-
-Like Grok Bot, but open, local-first, and yours: your keys, your machine (or your own
-Docker Desktop / VM for computer use), your Tailscale or Cloudflare Tunnel for remote
-access. No custom relay, no vendor lock-in on the model or engine.
-
-## Stack
-
-TypeScript throughout, Node 22 + pnpm workspaces:
-
-| Layer         | Choice                                                                        |
-| ------------- | ----------------------------------------------------------------------------- |
-| Desktop shell | Electron + `electron-builder` (macOS dmg, Windows nsis, Linux AppImage/deb)   |
-| UI            | React 19, Vite, TanStack Query — shared by the desktop app and the phone PWA  |
-| Server        | Fastify + `ws` (HTTP + WebSocket Client API)                                  |
-| Storage       | `better-sqlite3` + Drizzle ORM, numbered migrations                           |
-| Validation    | `zod` schemas shared as the single source of truth (`packages/contracts`)     |
-| Connectors    | `@modelcontextprotocol/sdk` (raw MCP + MCP Registry), Composio                |
-| Computer use  | `dockerode` (Docker Desktop provider), Playwright/CDP for browser observation |
-| Tests         | Vitest (unit/contract), Playwright Test incl. `_electron` (E2E)               |
-| CI            | macOS + Windows + Linux matrix                                                |
-
-See [`.ai/context/10-project.md`](.ai/context/10-project.md) for the package layout
-and [`.ai/memory/plans/openbot-v1.md`](.ai/memory/plans/openbot-v1.md) for the full
-plan: decisions, shared contracts, every workstream's scope/acceptance criteria, and
-the milestone list.
-
-## Development
-
-This repo is developed with [metaharness]([private metaharness repository URL removed]), a
-shared AI-agent development harness. If you're a human:
+You can run the harness without the desktop shell and open its local UI in a browser:
 
 ```sh
-corepack enable            # or: npm i -g pnpm@10
+pnpm --filter @openbot/server dev serve
+```
+
+Then visit [http://127.0.0.1:4577/app](http://127.0.0.1:4577/app).
+
+## Develop and test
+
+```sh
 pnpm install
 pnpm build
+pnpm typecheck
 pnpm test
-pnpm lint && pnpm format:check
+pnpm lint
+pnpm format:check
 ```
 
-If you're an AI agent (Claude Code, Codex, Cursor, ...): read `AGENTS.md` (or
-`CLAUDE.md` for Claude Code) first — it points at `.ai/protocol.md` and the rest of
-`.ai/`. Every session should end with `bash .ai/bin/mh handoff` so the next agent (or
-the next session) can resume from `.ai/memory/STATE.md` even if this one runs out of
-credits.
+The monorepo uses TypeScript, Electron, React, Fastify, SQLite, and pnpm workspaces.
+Unit and integration tests use fake engines and services by default, so routine
+development does not require provider credentials. Playwright covers desktop and
+cross-package flows.
 
-```sh
-bash .ai/bin/mh check       # verifies AGENTS.md/CLAUDE.md/.claude/.agents are in sync
-bash .ai/bin/mh brief       # session brief: state, recent decisions, open questions
-```
+## Project status
 
-## Repository layout
-
-```
-openbot/
-  .ai/                metaharness: context, memory, skills, evals, decisions
-  packages/           one directory per workstream (see the plan, §3)
-  apps/               desktop (Electron), server (headless), pwa
-  e2e/                cross-package Playwright scenarios
-  images/desktop/     the Docker Desktop computer-use image (WS9)
-```
-
-## Roadmap
-
-Workstreams and milestones are tracked in
-[`.ai/memory/plans/openbot-v1.md`](.ai/memory/plans/openbot-v1.md). High level:
-
-- **WS0 — Contracts and skeleton** (this PR / the one after bootstrap): shared zod
-  contracts, the SQLite/Drizzle schema, fake engine/computer/Jev implementations so
-  every other workstream can build and test against the same interfaces with zero
-  real credentials, and the package skeletons for WS1–WS13.
-- **WS1–WS12**, in parallel against WS0's contracts and fakes: core harness, runtime
-  safety, engine adapters, the OpenBot MCP server, the chat UI, the desktop shell,
-  the Jev decision service, the Chief of Staff, computer use, the connector catalog,
-  remote access/pairing, and routines.
-- **WS13** integrates continuously and gates milestones **M0–M5** (skeleton → one Bot
-  on desktop → a selective team reachable from the phone → computer use → routines →
-  v1).
-
-## Prior art
-
-OpenBot is built from scratch (no vendored code), informed by studying Grok Bot and
-similar products. See `.ai/memory/plans/openbot-v1.md` §8–9 for explicit out-of-scope
-items and known risks for v1.
+The core desktop, chat, team, approval, routine, and computer workflows are wired
+and exercised in automated tests. OpenBot is still an early preview; real-provider
+and remote-access combinations continue to receive manual testing. See the
+[open issues](https://github.com/sanlega/OpenBot/issues) for current gaps.
 
 ## License
 
-MIT.
+[MIT](LICENSE)

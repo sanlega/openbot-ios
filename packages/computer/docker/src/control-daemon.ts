@@ -4,7 +4,7 @@ import type { Action, ActResult, Observation } from "@openbot/contracts";
 export interface ControlDaemonClient {
   observe(botId: string, display: number): Promise<Observation>;
   act(botId: string, display: number, action: Action): Promise<ActResult>;
-  liveView(display: number): Promise<{ url: string; token: string; expiresAt: string }>;
+  liveView(botId: string): Promise<{ url: string; token: string; expiresAt: string }>;
   health(): Promise<{ ok: boolean }>;
 }
 
@@ -46,9 +46,9 @@ export class HttpControlDaemonClient implements ControlDaemonClient {
     return (await res.json()) as ActResult;
   }
 
-  async liveView(display: number): Promise<{ url: string; token: string; expiresAt: string }> {
+  async liveView(botId: string): Promise<{ url: string; token: string; expiresAt: string }> {
     const url = new URL(`${this.options.baseUrl}/live`);
-    url.searchParams.set("display", String(display));
+    url.searchParams.set("botId", botId);
     const res = await fetch(url, { headers: this.headers() });
     if (!res.ok) throw new Error(`control daemon live failed: ${res.status}`);
     return (await res.json()) as { url: string; token: string; expiresAt: string };

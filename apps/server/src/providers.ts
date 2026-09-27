@@ -7,7 +7,7 @@ import type {
 } from "@openbot/contracts";
 import type { CoreContext } from "@openbot/core";
 import { FakeComputerProvider } from "@openbot/computer-fake";
-import { createDockerProvider, isDockerAvailable } from "@openbot/computer-docker";
+import { createDockerProvider } from "@openbot/computer-docker";
 import { LocalProvider } from "@openbot/computer-local";
 import {
   createDecisionService,
@@ -29,7 +29,6 @@ export const VAULT_KEYS = {
 export interface ProviderDetection {
   detectClaude: typeof detectClaude;
   detectCodex: typeof detectCodex;
-  dockerPing: () => Promise<boolean>;
 }
 
 export interface BootstrapProvidersResult {
@@ -43,7 +42,6 @@ export interface BootstrapProvidersResult {
 const defaultDetection: ProviderDetection = {
   detectClaude,
   detectCodex,
-  dockerPing: isDockerAvailable,
 };
 
 function fakeFlag(name: string): boolean {
@@ -61,7 +59,7 @@ export async function bootstrapProviders(
 ): Promise<BootstrapProvidersResult> {
   const decisionService = resolveDecisionService(ctx);
   const { drivers, engineStatuses, availableEngines } = await resolveEngineDrivers(detection);
-  const computerProvider = await resolveComputerProvider(detection);
+  const computerProvider = resolveComputerProvider();
 
   registerSetupValidators(ctx, decisionService, detection);
 
@@ -123,17 +121,14 @@ async function resolveEngineDrivers(detection: ProviderDetection): Promise<{
   };
 }
 
-async function resolveComputerProvider(
-  detection: ProviderDetection,
-): Promise<ComputerProvider | undefined> {
+function resolveComputerProvider(): ComputerProvider {
   if (fakeFlag("OPENBOT_FAKE_COMPUTER")) return new FakeComputerProvider();
 
   if (fakeFlag("OPENBOT_LOCAL_COMPUTER")) return new LocalProvider();
 
-  const dockerAvailable = await detection.dockerPing();
-  if (dockerAvailable) return createDockerProvider();
-
-  return undefined;
+  // Keep the provider wired even while Docker Desktop is starting. Its start
+  // operation checks the daemon again, so opening Docker needs no app restart.
+  return createDockerProvider();
 }
 
 function registerSetupValidators(
