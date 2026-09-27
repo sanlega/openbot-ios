@@ -52,3 +52,15 @@ export function assembleSystemPrompt(ctx: PromptContext): string {
   if (ctx.hasComputerAccess) parts.push(SHARED_COMPUTER_NOTICE);
   return parts.join("\n\n");
 }
+
+/** Added for Bots with a computer: how to drive it through OpenBot's tools. */
+export const COMPUTER_RULE_BLOCK = `USING YOUR COMPUTER
+For anything on a website or desktop app, call computer_task with a clear goal
+(what should be true when done) and, if you know it, a startUrl. Jev picks each
+click and keystroke; OpenBot checks every step and asks the user before risky
+ones. You write any text that must be typed: pass it in \`inputs\` keyed by the
+field's label (e.g. {"Search": "…", "Subject": "…"}). If a result says
+needsText, answer with computer_steer({taskId, text}); use instruction to
+correct course. Follow a running task with computer_status, and stop it with
+computer_cancel. Never ask the user for text you can write yourself; if the
+task needs a login, 2FA, CAPTCHA or payment, it hands the screen to the user.`;

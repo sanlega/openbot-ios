@@ -52,7 +52,15 @@ Progress:
 - [x] T2/T3: research complete; see `reports/Control Jev y modelos disponibles.md` and `research_notes/Control Jev y modelos/`.
 - [x] T4: safe boundary established: Jev makes bounded typed decisions; OpenBot observes/acts through Computer SPI and permissions broker.
 - [x] T5 (partial): Codex driver now calls the authenticated app-server `model/list`, maps visible IDs and labels, paginates, and retains its bundled catalog on unsupported/error responses. Added driver coverage. Claude API-key catalog and UI error/source status remain to implement.
-- [ ] T5: computer task steer/cancel lifecycle and Jev fast-loop integration; no direct unrestricted Jev computer access.
+- [x] T5 (computer): `ComputerTaskManager` runs tasks in the background;
+  MCP `computer_task` (returns progress after `waitSeconds`), `computer_status`,
+  `computer_steer` (instruction and/or text), `computer_cancel`; engines author
+  text via `inputs` or `needsText`; Jev ops now include scroll, key, blocked;
+  risky steps create a real approval card (`PermissionBroker.requireApproval`)
+  and wait; Jev failure never auto-acts; UI timeline with Stop and text entry;
+  prompt block for bots with a computer. Remaining: live run with a real Jev key
+  and Docker desktop to tune questions and measure latency; Claude API-key model
+  list still to wire into `/api/models`.
 - [ ] T6: handoff remains to commit; local toolchain verification limited to Codex test/typecheck/format because remote current-head CI fails and shell default Node/pnpm are too old.
 
 ## Risks

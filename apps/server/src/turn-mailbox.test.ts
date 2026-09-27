@@ -171,6 +171,22 @@ describe("createTurnMailbox (message.send → engine turn)", () => {
     expect(input.systemPrompt).toContain("Chief of Staff");
   });
 
+  it("tells bots with a computer how to drive it, and only them", async () => {
+    const claude = new RecordingDriver("claude", ["claude-sonnet"]);
+    const { mailbox, addBot, settle } = await setup({ claude });
+    const { bot: withComputer } = addBot({ computer: "docker" });
+    const { bot: without } = addBot({ computer: "none" });
+
+    await mailbox.enqueue({ botId: withComputer.id, text: "a" });
+    await mailbox.enqueue({ botId: without.id, text: "b" });
+    await settle();
+
+    const [first, second] = claude.inputs;
+    expect(first!.systemPrompt).toContain("USING YOUR COMPUTER");
+    expect(first!.systemPrompt).toContain("computer_steer");
+    expect(second!.systemPrompt).not.toContain("USING YOUR COMPUTER");
+  });
+
   it("honors a pinned engine and an explicit override, and refuses unavailable engines", async () => {
     const claude = new RecordingDriver("claude", ["claude-sonnet"]);
     const codex = new RecordingDriver("codex", ["gpt-codex"]);

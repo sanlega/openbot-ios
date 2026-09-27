@@ -3,6 +3,7 @@ import type { CoreContext, TurnMailbox } from "@openbot/core";
 import { buildCosSystemPrompt, type AutonomyCaps, type CapCounterService } from "@openbot/cos";
 import { McpComposer, type SessionTokenService } from "@openbot/mcp";
 import {
+  COMPUTER_RULE_BLOCK,
   NON_COS_RULE_BLOCK,
   type EnqueueTurnInput,
   type Runtime,
@@ -127,7 +128,8 @@ export function createTurnBuilder(ctx: CoreContext, deps: TurnMailboxDeps): Turn
   }
 
   function systemPromptFor(bot: Bot): string {
-    if (!bot.isChiefOfStaff) return `${bot.description}\n\n${NON_COS_RULE_BLOCK}`;
+    const computer = bot.computer !== "none" ? `\n\n${COMPUTER_RULE_BLOCK}` : "";
+    if (!bot.isChiefOfStaff) return `${bot.description}\n\n${NON_COS_RULE_BLOCK}${computer}`;
     const roster = ctx.repos.bots.list();
     return `${bot.description}\n\n${buildCosSystemPrompt({
       userName: "the user",
@@ -135,7 +137,7 @@ export function createTurnBuilder(ctx: CoreContext, deps: TurnMailboxDeps): Turn
       caps: deps.autonomyCaps,
       cosCreatedBotCount: roster.filter((b) => b.createdBy !== "user" && !b.archivedAt).length,
       spawnsLeftToday: Math.max(0, deps.autonomyCaps.newBotsPerDay - deps.caps.spawnsInLast24h()),
-    })}`;
+    })}${computer}`;
   }
 
   return async ({ bot, text, chainId, threadId, mode, engine }) => {

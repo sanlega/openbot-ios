@@ -53,6 +53,17 @@ _Last updated: 2026-09-28 by Claude_
   the connectors backend work lands (same packages).
 - Local commits on `claude/product-polish` are not pushed yet.
 
+## Jev computer control (owner priority, 2026-09-28)
+- Implemented and pushed: background computer tasks the engine can follow,
+  steer, supply text to, and cancel (MCP `computer_task/status/steer/cancel`);
+  Jev picks click/type/select/scroll/key/wait/done/blocked from DOM/AX/OCR
+  observations; OpenBot validates targets, runs broker checks, and risky steps
+  wait on a real approval card; Jev unavailable → stop with a clear reason.
+  UI: bot profile → Computer shows a live step timeline, pending text, Stop.
+- Next: live test with a real Jev key + Docker desktop (tune question wording,
+  measure latency, check Spanish pages), then consider streaming step events
+  into the chat's turn steps.
+
 ## Product status
 - OpenBot is an early desktop preview for managing persistent Claude Code and Codex Bots.
 - The app includes chat, team delegation, approvals, routines, local computer use, a PWA,
