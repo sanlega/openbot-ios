@@ -1,8 +1,14 @@
 # Estado actual
 
-_Última actualización: 2026-09-27 por cursor (WS7)_
+_Última actualización: 2026-09-27 por cursor (WS8)_
 
 ## En curso
+- Rama `cursor/ws8-chief-of-staff-2448` (WS8): `@openbot/cos` implementado —
+  prompt CoS §11.1 (escalera answer/do/delegate/spawn), `SpawnGate` (S1–S3 +
+  Jev §11.2), `NotifyGate` (S4–S7/S10 + Jev §11.3), `CapCounterService`,
+  `CosInboundPipeline`, `DigestService`, panel "Why does this bot exist?",
+  eval sets (40 spawn + 60 notify), tests live opt-in con `JEV_API_KEY`.
+  PR apilada sobre `cursor/ws7-decision-service-43da`. 292 tests en verde.
 - Rama `cursor/ws7-decision-service-43da` (WS7): implementación de
   `DecisionService` + `JevClient` + router de modelos, presupuestos O4,
   reintentos 429/529, fallbacks conservadores, builders de question sets,
