@@ -135,34 +135,11 @@ Formato: fecha, contexto, decisión, consecuencias.
 - **Alternativas descartadas**: adding the real `electron` devDependency now, which would make `pnpm install`/CI depend on a large binary download (repeated across the 3-OS CI matrix) for a skeleton WS6 will rewrite anyway, with no way to verify the display output in this environment either way.
 - **Consecuencias**: WS6 adds the real `electron` dependency and deletes `electron-shim.d.ts` when it lands; until then, `apps/desktop`'s build/typecheck/test are fast and 100% reliable in CI, but the GUI itself is unverified end-to-end.
 
-## D-017 · Root typecheck script must build before per-package tsc --noEmit (composite project refs)
+## D-017 · WS3 engine packages as siblings under packages/engines/*
 
 - **Fecha**: 2026-09-27
 
-- **Context**: found while starting WS2. On a fresh checkout, `pnpm typecheck` fails with `TS6305` when composite project references need upstream `dist/*.d.ts`. WS1 also swapped CI to Build-before-Typecheck.
-- **Decision**: root `package.json`'s `typecheck` script runs `pnpm run build` first. CI keeps Build then Typecheck as separate steps.
-- **Consequences**: `pnpm typecheck` alone is self-sufficient from a clean checkout.
-
-## D-018 · Device tokens are stateless signed claims, not a DB-issued session
-
-- **Fecha**: 2026-09-27
-
-- **Contexto**: plan §5 WS1 ("device tokens and roles") and §4.8 (full pairing crypto is WS11's job).
-- **Decisión**: `DeviceAuth` issues `${deviceId}.${HMAC-SHA256(deviceId, serverSecret)}` bearer tokens; revocation checks `DevicesRepo.getById().revokedAt` live.
-- **Consecuencias**: WS11 layers E2E pairing on top without changing the token format.
-
-## D-019 · CoreContext exposes other workstreams' dependencies as optional, pluggable fields
-
-- **Fecha**: 2026-09-27
-
-- **Contexto**: WS1 Client API references entities owned by not-yet-built workstreams.
-- **Decisión**: `CoreContext` declares `decisionService?`, `computerProvider?`, `validators` as optional; routes return `501` when missing.
-- **Consecuencias**: WS7/WS9/WS10/WS11/WS12 wire themselves in via `createCoreContext()` without changing HTTP route files.
-
-## D-020 · CapCounter ID prefix `capctr_` (plan D-018)
-
-- **Fecha**: 2026-09-27
-
-- **Contexto**: `@openbot/contracts`'s `newId()` had no `capCounter` entry; WS2 used local `capctr_` ULIDs.
-- **Decisión**: WS13 integration adds `capCounter: "capctr_"` to `ID_PREFIXES` and routes all CapCounter id generation through `newId('capCounter')`.
-- **Consecuencias**: `SqliteCapCounterStore` and in-memory adapters share the canonical prefix.
+- **Contexto**: plan §3/§5 WS3; D-015 estableció `packages/engines/fake` como paquete hermano.
+- **Decisión**: WS3 añade `@openbot/engines-common`, `@openbot/engines-claude`, `@openbot/engines-codex`, y `@openbot/engines-conformance` como paquetes hermanos. Decisiones de implementación en `packages/engines/DECISIONS.md` (E-WS3-001..003).
+- **Alternativas descartadas**: un solo paquete `@openbot/engines` con subcarpetas `claude/`/`codex/`.
+- **Consecuencias**: WS2 importa drivers desde `@openbot/engines-claude`/`@openbot/engines-codex`; CI usa fixture replay sin credenciales; conformidad CLI real es opt-in (`OPENBOT_E2E_REAL=1`).
