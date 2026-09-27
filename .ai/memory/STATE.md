@@ -1,6 +1,6 @@
 # Estado actual
 
-_Last updated: 2026-09-27 by codex (continued Claude's product-polish branch)_
+_Last updated: 2026-09-27 by codex (local macOS deployment)_
 
 ## En curso
 - PRs #15 (v1 integration, WS0–WS13) and #16 (review fixes) are merged into
@@ -83,12 +83,23 @@ _Last updated: 2026-09-27 by codex (continued Claude's product-polish branch)_
 - Fixed flakes: UI turn tracking tolerates out-of-order bus events (the "Turn
   steps" flake); E2E harness uses OS-assigned free ports (EADDRINUSE flake).
 - Digest timezone bug is fixed in `da0f0ca`; the suite passes outside UTC.
-- The UI product polish is pushed to `origin/claude/product-polish` at `2ff0e0b`; plan:
+- The UI product-polish code was pushed to `origin/claude/product-polish` in `2ff0e0b`; plan:
   `.ai/memory/plans/2026-09-27-ui-product-polish.md`. Setup, Activity, Routines,
   Settings, and Devices/Remote were redesigned. The UI reconnects after a lost
   WebSocket; a failed Settings load now offers retry. The mock serves harness
   status. Verified on macOS: build, typecheck, lint (0 errors, 6 existing warnings),
   format, 726 unit tests, 15 integration E2E, `mh check`.
+- Local macOS deployment: `~/Applications/OpenBot.app` now runs the product-polish
+  build with the user's existing `~/.openbot` data. The installed app served
+  `/api/harness/status` and `/app`, setup remained complete, and the database
+  passed `integrity_check`. Backup:
+  `~/.openbot-backups/2026-09-27-pre-product-polish` (SQLite backup verified).
+  Electron was updated from 34.2.0 to 38.8.0 because `better-sqlite3@13.0.3`
+  requires Node 22 and Electron 34 embeds Node 20; the old packaged utility
+  process crashed on macOS. The native rebuild now probes an actual SQLite query
+  under Electron. Plan: `.ai/memory/plans/2026-09-27-local-mac-deployment.md`.
+  Verified: build, typecheck, lint (0 errors), format, 726 unit tests, desktop E2E,
+  isolated packaged smoke, installed app API/UI/setup/database, `mh check`.
 - Local dev needs Node >=22.12 (user's default is 20; installed 22 via nvm) and
   `corepack pnpm`. After `rebuild:native` for Electron, run
   `corepack pnpm rebuild better-sqlite3` before Node unit tests.

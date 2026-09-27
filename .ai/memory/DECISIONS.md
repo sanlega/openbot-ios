@@ -143,3 +143,12 @@ Formato: fecha, contexto, decisión, consecuencias.
 - **Decisión**: `HarnessHost` forks `@openbot/server/dist/main.js` via `utilityProcess.fork` (not a separate worker shim). Preload compiles to `dist/preload.cjs` (CommonJS) via `tsconfig.preload.json`. Main waits on `waitForHarnessReady()` before showing the window.
 - **Alternativas descartadas**: bundling the whole harness into the main process (violates E3); keeping preload as ESM (broke IPC bridge in Playwright `_electron` smoke tests).
 - **Consecuencias**: `apps/server/package.json` exports must include `require`/`default` conditions so `createRequire` can resolve the entry at runtime; desktop `build` runs two `tsc` passes.
+
+## D-018 · Desktop runtime must bundle Node 22 for better-sqlite3 13
+
+- **Fecha**: 2026-09-27
+
+- **Context**: `better-sqlite3@13.0.3` declares Node `>=22`, while Electron 34.2.0 embeds Node 20.18.2. On macOS arm64, `rebuild:native` succeeded but loading SQLite under Electron crashed the packaged harness with SIGSEGV. The packaged app never opened its Client API.
+- **Decision**: Pin `apps/desktop` to Electron 38.8.0, which embeds Node 22.22.0. After rebuilding the native module, run a real SQLite query with `ELECTRON_RUN_AS_NODE=1` before packaging.
+- **Alternatives discarded**: keep Electron 34 and downgrade SQLite; this would widen the package's dependency divergence and leave the embedded runtime behind the monorepo's Node 22 baseline.
+- **Consequences**: desktop packaging requires an Electron runtime compatible with the store's native SQLite package. `rebuild:native` now fails if that runtime cannot load and query SQLite.
