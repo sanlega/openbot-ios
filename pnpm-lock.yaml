@@ -278,6 +278,9 @@ importers:
       drizzle-orm:
         specifier: 0.45.3
         version: 0.45.3(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)
+      ulid:
+        specifier: 3.0.2
+        version: 3.0.2
     devDependencies:
       '@types/better-sqlite3':
         specifier: 9.6.0
