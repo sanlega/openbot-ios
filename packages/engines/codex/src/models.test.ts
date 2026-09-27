@@ -31,7 +31,33 @@ describe("Codex model discovery", () => {
 
     await expect(driver.listModels()).resolves.toEqual([
       { id: "gpt-6-astra", label: "GPT-6 Astra", contextWindow: 256_000 },
-      { id: "o4-mini", label: "o4-mini", contextWindow: 128_000 },
     ]);
+  });
+});
+
+describe("Codex errors end the turn with Codex's reason", () => {
+  it("a non-retryable 400 (model not supported) completes the turn as an error", async () => {
+    const { createCodexParseState, handleCodexNotification } = await import("./parse-events.js");
+    const state = createCodexParseState();
+    handleCodexNotification(
+      {
+        jsonrpc: "2.0",
+        method: "error",
+        params: {
+          willRetry: false,
+          error: {
+            message:
+              '{"type":"error","status":400,"error":{"type":"invalid_request_error","message":"The \'o4-mini\' model is not supported when using Codex with a ChatGPT account."}}',
+          },
+        },
+      },
+      state,
+      { emit: () => undefined },
+    );
+    expect(state.turnComplete).toBe(true);
+    expect(state.isError).toBe(true);
+    expect(state.errorMessage).toBe(
+      "The 'o4-mini' model is not supported when using Codex with a ChatGPT account.",
+    );
   });
 });

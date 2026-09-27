@@ -169,14 +169,19 @@ export function createTurnBuilder(ctx: CoreContext, deps: TurnMailboxDeps): Turn
       prepareTurn: async (turnId) => {
         const mcp = deps.mcp();
         if (!mcp) throw new Error("OpenBot MCP tools are not ready yet");
-        const { servers } = await McpComposer.forTurnAsync(mcp.tokens, {
-          bot,
-          turnId,
-          chainId,
-          mode,
-          harnessUrl: `http://127.0.0.1:${ctx.config.port}`,
-          connectors: mcp.connectors,
-        });
+        // Composing tools must never hold the Bot's queue: give up after 30 s.
+        const { servers } = await withTimeout(
+          McpComposer.forTurnAsync(mcp.tokens, {
+            bot,
+            turnId,
+            chainId,
+            mode,
+            harnessUrl: `http://127.0.0.1:${ctx.config.port}`,
+            connectors: mcp.connectors,
+          }),
+          30_000,
+          "preparing this bot's tools took too long",
+        );
         return { mcpServers: servers };
       },
     };
@@ -338,4 +343,12 @@ export class RepoSessionStore implements SessionStore {
   clear(botId: string, engine: EngineId): void {
     this.ctx.repos.engineSessions.deleteForBotAndEngine(botId, engine);
   }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }

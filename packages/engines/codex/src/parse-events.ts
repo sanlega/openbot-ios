@@ -82,29 +82,58 @@ export function handleCodexNotification(
 
   if (method === "turn/completed") {
     state.turnComplete = true;
-    const turn = params.turn as { status?: string; error?: string | null } | undefined;
+    const turn = params.turn as { status?: string; error?: unknown } | undefined;
     if (turn?.status === "failed" || turn?.error) {
       state.isError = true;
-      state.errorMessage = turn.error ?? "turn failed";
+      state.errorMessage = state.errorMessage ?? errorText(turn.error) ?? "turn failed";
     }
     return;
   }
 
   if (method === "error") {
     const error = params.error as
-      { codexErrorInfo?: { responseStreamDisconnected?: { httpStatusCode?: number } } } | undefined;
+      | {
+          message?: string;
+          codexErrorInfo?: { responseStreamDisconnected?: { httpStatusCode?: number } };
+        }
+      | undefined;
     const status = error?.codexErrorInfo?.responseStreamDisconnected?.httpStatusCode;
     if (status === 401) {
       state.authFailure = true;
       state.isError = true;
       hooks.emit({ type: "error", message: "authentication_failed", authFailure: true });
     }
+    // Codex gives up (e.g. "model not supported with a ChatGPT account"): the
+    // turn is over, with Codex's own reason.
     if (params.willRetry === false) {
       state.turnComplete = true;
       state.isError = true;
-      state.errorMessage = "authentication_failed";
+      state.errorMessage =
+        status === 401
+          ? "authentication_failed"
+          : (errorText(error) ?? "Codex stopped with an error");
     }
   }
+}
+
+/** Codex errors arrive as strings, objects with `message`, or JSON text of an API error. */
+function errorText(error: unknown): string | undefined {
+  if (!error) return undefined;
+  if (typeof error === "string") return unwrapApiError(error);
+  if (typeof error === "object" && typeof (error as { message?: unknown }).message === "string") {
+    return unwrapApiError((error as { message: string }).message);
+  }
+  return undefined;
+}
+
+function unwrapApiError(text: string): string {
+  try {
+    const parsed = JSON.parse(text) as { error?: { message?: string } };
+    if (typeof parsed.error?.message === "string") return parsed.error.message;
+  } catch {
+    // not JSON
+  }
+  return text;
 }
 
 export function toCodexTurnResult(state: CodexParseState): TurnResult {

@@ -128,6 +128,27 @@ describe("Mailbox basic turn lifecycle (against @openbot/engines-fake)", () => {
     expect(secondOutcome.status).toBe("completed");
   });
 
+  it("an engine that throws fails its turn and the next queued turn still runs", async () => {
+    let calls = 0;
+    const runtime = buildRuntime(
+      new ScriptedEngineDriver(async () => {
+        calls += 1;
+        if (calls === 1) throw new Error("codex rpc timeout: turn/start");
+        return turnResult();
+      }),
+    );
+    const input = makeInput(runtime);
+    const first = runtime.mailbox.submit(input);
+    const second = runtime.mailbox.submit(makeInput(runtime, { chainId: input.chainId }));
+    const [firstOutcome, secondOutcome] = await Promise.all([first, second]);
+    expect(firstOutcome.status).toBe("failed");
+    expect(secondOutcome.status).toBe("completed");
+    const failed = runtime.events.byType("turn.failed");
+    expect(failed).toHaveLength(1);
+    expect(JSON.stringify(failed[0]!.payload)).toContain("codex rpc timeout");
+    expect(runtime.mailbox.isBusy(input.bot.id)).toBe(false);
+  });
+
   it("stop() refuses every queued turn for the Bot without running them", async () => {
     const runtime = buildRuntime(new FakeEngineDriver());
     const input = makeInput(runtime);

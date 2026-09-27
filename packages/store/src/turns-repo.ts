@@ -1,5 +1,5 @@
 import type { Turn } from "@openbot/contracts";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import type { Db } from "./db.js";
 import { turns } from "./schema.js";
 
@@ -38,6 +38,16 @@ export class TurnsRepo {
 
   listByBot(botId: string): Turn[] {
     return this.db.select().from(turns).where(eq(turns.botId, botId)).all().map(toTurn);
+  }
+
+  /** Turns still marked open (queued or running), e.g. left over from a crash or quit. */
+  listOpen(): Turn[] {
+    return this.db
+      .select()
+      .from(turns)
+      .where(inArray(turns.status, ["queued", "running"]))
+      .all()
+      .map(toTurn);
   }
 
   setSessionId(id: string, sessionId: string): void {

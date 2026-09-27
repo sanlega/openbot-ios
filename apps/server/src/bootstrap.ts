@@ -79,6 +79,7 @@ export async function bootstrapHarness(
   });
   // Installs that finished setup before the CoS was seeded get one now.
   ensureChiefOfStaff(ctx);
+  await closeOrphanedTurns(ctx);
   const caps = new CapCounterService(ctx.clock);
   // S2/S3 hold across restarts: replay the CoS's past spawns (a spawned Bot's
   // DM thread is created with it).
@@ -417,5 +418,23 @@ class RepoRuleStore implements RuleStore {
     };
     this.ctx.repos.rules.create(full);
     return full;
+  }
+}
+
+/**
+ * Turns still open from a previous run (quit, crash) can't finish now: close
+ * them as interrupted so the UI stops showing them as "working" and their bots
+ * accept new messages.
+ */
+async function closeOrphanedTurns(ctx: CoreContext): Promise<void> {
+  for (const turn of ctx.repos.turns.listOpen()) {
+    ctx.repos.turns.updateStatus(turn.id, "interrupted");
+    await ctx.eventBus.publish({
+      type: "turn.interrupted",
+      botId: turn.botId,
+      chainId: turn.chainId,
+      turnId: turn.id,
+      payload: { errorMessage: "OpenBot restarted before this turn finished." },
+    });
   }
 }

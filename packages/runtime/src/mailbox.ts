@@ -229,12 +229,20 @@ export class Mailbox {
       requestApproval: (r: ToolApprovalRequest) => this.handleApprovalRequest(botId, input, r),
     };
 
-    const active: ActiveTurn = { handle: driver.startTurn(turnInput, hooks), turnId };
-    this.active.set(botId, active);
-
-    let result;
+    let result: Awaited<ReturnType<typeof driver.startTurn>["done"]>;
     try {
+      const active: ActiveTurn = { handle: driver.startTurn(turnInput, hooks), turnId };
+      this.active.set(botId, active);
       result = await active.handle.done;
+    } catch (error) {
+      // An engine that throws (bad model, lost process, RPC error) fails this
+      // turn; it must never leave the Bot's queue stuck behind it.
+      result = {
+        sessionId: turnInput.sessionId ?? "",
+        isError: true,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        usage: { inputTokens: 0, outputTokens: 0 },
+      };
     } finally {
       this.active.delete(botId);
     }
