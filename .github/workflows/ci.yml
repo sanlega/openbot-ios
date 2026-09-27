@@ -91,6 +91,35 @@ jobs:
         if: runner.os != 'Linux'
         run: pnpm --filter @openbot/desktop test:e2e
 
+  integration-e2e:
+    name: integration e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          npm_config_msvs_version: "2022"
+
+      - name: Build workspace
+        run: pnpm build
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @openbot/e2e exec playwright install
+
+      - name: Integration milestone E2E (fakes)
+        run: pnpm --filter @openbot/e2e test:e2e
+
   desktop-package:
     name: desktop package (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

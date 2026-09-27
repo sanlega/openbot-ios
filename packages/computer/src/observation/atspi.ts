@@ -34,7 +34,7 @@ print(json.dumps(items))
     return normalizeElements([]);
   }
 
-  let parsed: Array<{ role: string; label: string }> = [];
+  let parsed: Array<{ role: string; label: string }>;
   try {
     parsed = JSON.parse(result.stdout.trim() || "[]") as Array<{ role: string; label: string }>;
   } catch {

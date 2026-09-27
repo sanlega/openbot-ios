@@ -2,8 +2,8 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "."
   },
-  "include": ["src"],
-  "references": [{ "path": "../packages/contracts" }]
+  "include": ["src/**/*", "tests/**/*"],
+  "references": [{ "path": "../apps/server" }]
 }

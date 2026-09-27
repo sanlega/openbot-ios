@@ -66,7 +66,7 @@ export class HarnessHost extends EventEmitter<HarnessHostEvents> {
   private spawn(): void {
     const entryPath = this.options.serverEntryPath ?? resolveServerEntryPath();
 
-    this.child = this.options.fork.fork(entryPath, [], {
+    this.child = this.options.fork.fork(entryPath, ["serve"], {
       serviceName: "openbot-harness",
       env: {
         ...process.env,

@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { PACKAGE_NAME } from "./index.js";
+import { startTestHarness } from "./harness.js";
 
-describe("@openbot/e2e placeholder", () => {
-  it("exports its package name as a build/import smoke test", () => {
-    expect(PACKAGE_NAME).toBe("@openbot/e2e");
+describe("@openbot/e2e", () => {
+  it("starts a wired harness", async () => {
+    const harness = await startTestHarness();
+    const res = await fetch(`${harness.baseUrl}/api/health`);
+    expect(res.ok).toBe(true);
+    await harness.close();
   });
 });

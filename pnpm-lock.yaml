@@ -164,10 +164,22 @@ importers:
 
   e2e:
     dependencies:
-      '@openbot/contracts':
+      '@openbot/server':
         specifier: workspace:*
-        version: link:../packages/contracts
+        version: link:../apps/server
     devDependencies:
+      '@playwright/test':
+        specifier: 1.51.0
+        version: 1.51.0
+      '@types/node':
+        specifier: 22.20.4
+        version: 22.20.4
+      fastify:
+        specifier: 5.12.5
+        version: 5.12.5
+      tsx:
+        specifier: 4.23.15
+        version: 4.23.15
       typescript:
         specifier: 6.0.3
         version: 6.0.3
