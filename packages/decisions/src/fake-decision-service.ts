@@ -3,13 +3,17 @@ import {
   type Band,
   type Budget,
   type BudgetStatus,
+  type Bot,
   type DecideRequest,
   type DecideResult,
   type DecisionService,
   type Purpose,
+  type RouteContext,
+  type RouteDecision,
   bandConfidence,
 } from "@openbot/contracts";
 import { synthesizeAnswer } from "./answer-synthesis.js";
+import { routeBot } from "./router.js";
 
 const ulid = monotonicFactory();
 const BUDGETS: Budget[] = ["gates", "interactive", "computer", "background"];
@@ -70,5 +74,9 @@ export class FakeDecisionService implements DecisionService {
 
   async validateKey(key: string): Promise<{ ok: boolean; rpmLimit?: number }> {
     return key.trim().length > 0 ? { ok: true, rpmLimit: 120 } : { ok: false };
+  }
+
+  async route(bot: Bot, task: string, ctx: RouteContext): Promise<RouteDecision> {
+    return routeBot(this, bot, task, ctx);
   }
 }

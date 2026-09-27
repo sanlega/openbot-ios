@@ -183,6 +183,9 @@ importers:
         specifier: 3.0.2
         version: 3.0.2
     devDependencies:
+      '@openbot/store':
+        specifier: workspace:*
+        version: link:../store
       '@types/node':
         specifier: 22.20.4
         version: 22.20.4
