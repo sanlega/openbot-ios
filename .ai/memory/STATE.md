@@ -1,20 +1,20 @@
 # Estado actual
 
-_Última actualización: 2026-09-27 por cursor (WS6)_
+_Última actualización: 2026-09-27 por cursor (WS8)_
 
 ## En curso
-- Rama `cursor/ws6-desktop-shell-dffb` (PR apilada sobre WS0; ver Bloqueos):
-  WS6 desktop shell ✅ en esta rama:
-  - `apps/desktop`: Electron real (D-016 cumplido — eliminado `electron-shim.d.ts`).
-    Harness en `utilityProcess` con reinicio automático; preload CJS (`preload.cjs`);
-    bandeja del sistema + arranque al iniciar sesión; notificaciones OS solo para
-    `notify.requested` con `pushed:true`; deep links `openbot://`; vault con
-    `safeStorage`; guía de permisos macOS/Wayland; `electron-builder` (DMG universal,
-    NSIS x64/arm64, AppImage+deb).
-  - CI: jobs `desktop-e2e` (Playwright `_electron`, 3 SO) y `desktop-package`
-    (`electron-builder --dir`, sin firmar).
-  - 160 tests Vitest + 1 smoke Playwright `_electron` en verde localmente (Linux).
-  - Pendiente: verificar CI en GitHub Actions (3 SO) y abrir PR (ver Bloqueos).
+- Rama `cursor/ws8-chief-of-staff-2448` (WS8): `@openbot/cos` implementado —
+  prompt CoS §11.1 (escalera answer/do/delegate/spawn), `SpawnGate` (S1–S3 +
+  Jev §11.2), `NotifyGate` (S4–S7/S10 + Jev §11.3), `CapCounterService`,
+  `CosInboundPipeline`, `DigestService`, panel "Why does this bot exist?",
+  eval sets (40 spawn + 60 notify), tests live opt-in con `JEV_API_KEY`.
+  PR apilada sobre `cursor/ws7-decision-service-43da`. 292 tests en verde.
+- Rama `cursor/ws7-decision-service-43da` (WS7): implementación de
+  `DecisionService` + `JevClient` + router de modelos, presupuestos O4,
+  reintentos 429/529, fallbacks conservadores, builders de question sets,
+  logging de decisiones con `x-typesafe-request-id`, y `DecisionsRepo` en
+  `@openbot/store`. Tests contra `FakeJevServer` + live opt-in con
+  `JEV_API_KEY`. PR apilada sobre `cursor/ws0-contracts-store-fakes-8d1e`.
 - Rama `cursor/metaharness-bootstrap-8d1e` (PR 1 aún sin abrir, ver Bloqueos):
   bootstrap de metaharness (`ADAPTERS="agents claude"`, contexto en inglés) +
   herramientas del monorepo (pnpm 10 + Node 22, TypeScript 6.0.3, ESLint flat

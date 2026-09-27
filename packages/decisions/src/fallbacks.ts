@@ -92,11 +92,19 @@ function conservativeNotifyAnswers(
   const validKind = kind === "result" || kind === "decision" || kind === "blocker";
   const answers: Record<string, JevAnswer> = {};
   for (const [id, question] of Object.entries(questions)) {
-    if (question.type === "noul" && id === "valid_kind") {
-      answers[id] = { type: "noul", noul: validKind ? 0.8 : 0.1 };
+    if (question.type === "noul" && id === "is_final_result") {
+      answers[id] = { type: "noul", noul: kind === "result" ? 0.8 : 0.1 };
       continue;
     }
-    if (question.type === "noul" && id === "chatter") {
+    if (question.type === "noul" && id === "needs_user_decision") {
+      answers[id] = { type: "noul", noul: kind === "decision" ? 0.8 : 0.1 };
+      continue;
+    }
+    if (question.type === "noul" && id === "is_blocker") {
+      answers[id] = { type: "noul", noul: kind === "blocker" ? 0.8 : 0.1 };
+      continue;
+    }
+    if (question.type === "noul" && id === "is_duplicate_or_noise") {
       answers[id] = { type: "noul", noul: validKind ? 0.2 : 0.9 };
       continue;
     }

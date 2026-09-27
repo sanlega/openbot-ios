@@ -1,7 +1,9 @@
-/**
- * `@openbot/cos` (plan §5 WS8: Chief of Staff prompt, spawn gate, notify
- * gate, caps S1-S10, digest). Not yet implemented — tracked in
- * `.ai/memory/plans/openbot-v1.md` §5 WS8. This placeholder exists so
- * `pnpm -r` discovers the package ahead of WS8 landing.
- */
-export const PACKAGE_NAME = "@openbot/cos";
+export * from "./types.js";
+export * from "./caps.js";
+export * from "./thresholds.js";
+export * from "./spawn-gate.js";
+export * from "./notify-gate.js";
+export * from "./prompt.js";
+export * from "./pipeline.js";
+export * from "./digest.js";
+export * from "./justification.js";
