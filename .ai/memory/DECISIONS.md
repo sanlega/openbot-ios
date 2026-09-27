@@ -117,3 +117,20 @@ Formato: fecha, contexto, decisión, consecuencias.
 - **Context**: an earlier bootstrap attempt on this project had no git push credentials and had to write files through the GitHub API one by one, which cannot include a generated `pnpm-lock.yaml` (it would need a real `pnpm install` run first, then a byte-exact upload).
 - **Decision**: this bootstrap has real `git`/`gh` credentials (fine-grained PAT with Contents+PRs+Workflows write), so `pnpm install` runs for real and `pnpm-lock.yaml` is committed like any normal Node project. CI uses `pnpm install --frozen-lockfile`.
 - **Consequences**: every future dependency change must run through `pnpm add`/`pnpm install` locally (or in CI with lockfile checks) so the committed lockfile stays exact; no manual hand-edits to `pnpm-lock.yaml`.
+## D-015 · WS0 fakes for engine/computer live in nested packages/<ws>/fake sub-packages
+
+- **Fecha**: 2026-09-27
+
+- **Contexto**: plan §3 lists `engines/` (WS3) and `computer/` (WS9) as single packages with `(fake/ = WS0)` noted inline, without specifying whether the fake is its own npm package or a subfolder of the same one.
+- **Decisión**: `packages/engines/fake` and `packages/computer/fake` are their own npm packages (`@openbot/engines-fake`, `@openbot/computer-fake`) rather than subfolders inside a single `@openbot/engines`/`@openbot/computer` package. `pnpm-workspace.yaml` gained a `packages/*/*` glob for this.
+- **Alternativas descartadas**: cramming `fake/` as a subfolder of a not-yet-existing `@openbot/engines`/`@openbot/computer` package, which would force WS3/WS9 to either reuse WS0's package.json (coupling their release/dep graph to the fake) or restructure it when they land.
+- **Consecuencias**: WS3/WS9 add sibling packages (`packages/engines/claude`, `packages/engines/codex`, `packages/computer/docker`, `packages/computer/local`, etc.) without touching or moving the fakes; each engine/provider backend can have its own dependencies.
+
+## D-016 · apps/desktop's WS0 skeleton stubs the electron dependency
+
+- **Fecha**: 2026-09-27
+
+- **Contexto**: plan §5 WS0 requires "An Electron shell and a headless shell" with acceptance "the desktop shell shows harness connected", while the full desktop shell (utilityProcess host, tray, notifications, packaging) is explicitly WS6's job. The real `electron` npm package downloads a large (~100 MB+), OS-specific binary via its postinstall script.
+- **Decisión**: `apps/desktop` ships real, structurally-correct main/preload/renderer code (one window, one IPC handler) typechecked against a local ambient `electron-shim.d.ts` instead of depending on the real `electron` package. The actual "is the harness connected" logic is extracted into `harness-client.ts` and unit-tested with Vitest; the Electron window itself cannot be driven headlessly in this sandboxed environment. See `apps/desktop/README.md`.
+- **Alternativas descartadas**: adding the real `electron` devDependency now, which would make `pnpm install`/CI depend on a large binary download (repeated across the 3-OS CI matrix) for a skeleton WS6 will rewrite anyway, with no way to verify the display output in this environment either way.
+- **Consecuencias**: WS6 adds the real `electron` dependency and deletes `electron-shim.d.ts` when it lands; until then, `apps/desktop`'s build/typecheck/test are fast and 100% reliable in CI, but the GUI itself is unverified end-to-end.
