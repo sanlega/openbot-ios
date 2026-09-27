@@ -35,5 +35,13 @@ export default tseslint.config(
       "@typescript-eslint/consistent-type-imports": "warn",
     },
   },
+  {
+    files: ["packages/ui/**/*.{ts,tsx}", "apps/pwa/**/*.{ts,tsx}"],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+      },
+    },
+  },
   eslintConfigPrettier,
 );
