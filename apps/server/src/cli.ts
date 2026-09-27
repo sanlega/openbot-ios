@@ -6,8 +6,7 @@ import {
   resolveBindHost,
   runDoctor,
 } from "@openbot/core";
-import { wireConnectors } from "@openbot/connectors";
-import { integrateMcp } from "@openbot/mcp";
+import { bootstrapHarness } from "./bootstrap.js";
 
 const USAGE = "Usage: openbot <serve|doctor|pair> [options]";
 
@@ -34,9 +33,8 @@ export async function runCli(argv: string[]): Promise<void> {
 
 async function serve(): Promise<void> {
   const ctx = await createCoreContext();
-  wireConnectors(ctx);
-  const app = await buildServer(ctx);
-  await integrateMcp(app, ctx);
+  const app = await buildServer(ctx, { wireRemote: false });
+  await bootstrapHarness(ctx, app);
   const host = resolveBindHost(computeBindHostFlags(ctx));
   const address = await app.listen({ port: ctx.config.port, host });
   console.log(`OpenBot server listening on ${address} (bind host: ${host})`);

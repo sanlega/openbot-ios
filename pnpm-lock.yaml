@@ -109,6 +109,9 @@ importers:
 
   apps/server:
     dependencies:
+      '@openbot/computer-fake':
+        specifier: workspace:*
+        version: link:../../packages/computer/fake
       '@openbot/connectors':
         specifier: workspace:*
         version: link:../../packages/connectors
@@ -118,9 +121,30 @@ importers:
       '@openbot/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@openbot/cos':
+        specifier: workspace:*
+        version: link:../../packages/cos
+      '@openbot/decisions':
+        specifier: workspace:*
+        version: link:../../packages/decisions
+      '@openbot/engines-fake':
+        specifier: workspace:*
+        version: link:../../packages/engines/fake
       '@openbot/mcp':
         specifier: workspace:*
         version: link:../../packages/mcp
+      '@openbot/pwa':
+        specifier: workspace:*
+        version: link:../pwa
+      '@openbot/remote':
+        specifier: workspace:*
+        version: link:../../packages/remote
+      '@openbot/routines':
+        specifier: workspace:*
+        version: link:../../packages/routines
+      '@openbot/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
       fastify:
         specifier: 5.12.5
         version: 5.12.5
@@ -313,6 +337,9 @@ importers:
       '@openbot/decisions':
         specifier: workspace:*
         version: link:../decisions
+      '@openbot/routines':
+        specifier: workspace:*
+        version: link:../routines
       '@openbot/testkit':
         specifier: workspace:*
         version: link:../testkit
@@ -479,12 +506,24 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: 1.12.1
         version: 1.12.1
+      '@openbot/computer':
+        specifier: workspace:*
+        version: link:../computer
       '@openbot/contracts':
         specifier: workspace:*
         version: link:../contracts
       '@openbot/core':
         specifier: workspace:*
         version: link:../core
+      '@openbot/cos':
+        specifier: workspace:*
+        version: link:../cos
+      '@openbot/routines':
+        specifier: workspace:*
+        version: link:../routines
+      '@openbot/runtime':
+        specifier: workspace:*
+        version: link:../runtime
       '@openbot/store':
         specifier: workspace:*
         version: link:../store
@@ -553,10 +592,37 @@ importers:
       '@openbot/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@openbot/core':
+        specifier: workspace:*
+        version: link:../core
+      '@openbot/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      chokidar:
+        specifier: 4.0.3
+        version: 4.0.3
+      croner:
+        specifier: 9.0.0
+        version: 9.0.0
+      ulid:
+        specifier: 3.0.2
+        version: 3.0.2
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
     devDependencies:
+      '@openbot/decisions':
+        specifier: workspace:*
+        version: link:../decisions
       '@openbot/testkit':
         specifier: workspace:*
         version: link:../testkit
+      '@types/node':
+        specifier: 22.20.4
+        version: 22.20.4
+      fastify:
+        specifier: 5.12.5
+        version: 5.12.5
       typescript:
         specifier: 6.0.3
         version: 6.0.3
@@ -2222,6 +2288,10 @@ packages:
     resolution: {integrity: sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==}
     engines: {node: '>=10'}
 
+  chokidar@4.0.3:
+    resolution: {integrity: sha512-Qgzu8kfBvo+cA4962jnP1KkS6Dop5NS6g7R5LFYJr4b8Ub94PPQXUksCw9PvXoeXPRRddRNC5C1JQUR2SMGtnA==}
+    engines: {node: '>= 14.16.0'}
+
   chownr@1.1.4:
     resolution: {integrity: sha512-jJ0bqzaylmJtVnNgzTeSOs8DPavpbYgEr/b0YL8/2GO3xJEhInFmhKMUnEJQjZumK7KXGFhUy89PrsJWlakBVg==}
 
@@ -2351,6 +2421,10 @@ packages:
 
   crc@3.8.0:
     resolution: {integrity: sha512-iX3mfgcTMIq3ZKLIsVFAbv7+Mc10kxabAGQb8HvjA1o3T1PIYprbakQ65d3I+2HGHt6nSKkM9PYjgoJO2KcFBQ==}
+
+  croner@9.0.0:
+    resolution: {integrity: sha512-onMB0OkDjkXunhdW9htFjEhqrD54+M94i6ackoUkjHKbRnXdyEyKRelp4nJ1kAz32+s27jP1FsebpJCVl0BsvA==}
+    engines: {node: '>=18.0'}
 
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
@@ -3733,6 +3807,10 @@ packages:
 
   readdir-glob@1.1.3:
     resolution: {integrity: sha512-v05I2k7xN8zXvPD9N+z/uhXPaj0sUFCe2rcWZIpBsqxfP7xXFQ0tipAd/wjj1YxWyWtUS5IDJpOG82JKt2EAVA==}
+
+  readdirp@4.1.2:
+    resolution: {integrity: sha512-GDhwkLfywWL2s6vEjyhri+eXmfH6j1L7JE27WhqLeYzoh/A3DBaYGEj2H/HFZCn/kMfim73FXxEJTw06WtxQwg==}
+    engines: {node: '>= 14.18.0'}
 
   real-require@0.2.0:
     resolution: {integrity: sha512-57frrGM/OCTLqLOAh0mhVA9VBMHd+9U7Zb2THMGdBUoZVOtGbJzjxsYGDJ3A9AYYCP4hn6y1TVbaOfzWtm5GFg==}
@@ -5836,6 +5914,10 @@ snapshots:
       ansi-styles: 4.3.0
       supports-color: 7.2.0
 
+  chokidar@4.0.3:
+    dependencies:
+      readdirp: 4.1.2
+
   chownr@1.1.4: {}
 
   chownr@2.0.0: {}
@@ -5943,6 +6025,8 @@ snapshots:
     dependencies:
       buffer: 5.7.1
     optional: true
+
+  croner@9.0.0: {}
 
   cross-spawn@7.0.6:
     dependencies:
@@ -7405,6 +7489,8 @@ snapshots:
   readdir-glob@1.1.3:
     dependencies:
       minimatch: 5.1.9
+
+  readdirp@4.1.2: {}
 
   real-require@0.2.0: {}
 

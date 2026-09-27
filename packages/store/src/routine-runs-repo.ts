@@ -54,6 +54,7 @@ export class RoutineRunsRepo {
       usage: RoutineRun["usage"];
       resultSummary: string;
       plannedActions: string[];
+      triggerEventIds: string[];
       startedAt: string;
       endedAt: string;
     }>,

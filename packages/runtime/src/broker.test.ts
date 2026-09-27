@@ -51,6 +51,14 @@ class StubRiskDecisionService implements DecisionService {
   async validateKey() {
     return { ok: true };
   }
+  async route() {
+    return {
+      engine: "fake" as const,
+      model: "fake-default",
+      band: "auto" as const,
+      decisionId: "dec_route",
+    };
+  }
 }
 
 function req(overrides: Partial<BrokerRequest> = {}): BrokerRequest {

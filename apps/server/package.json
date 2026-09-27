@@ -24,10 +24,18 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@openbot/computer-fake": "workspace:*",
     "@openbot/connectors": "workspace:*",
     "@openbot/contracts": "workspace:*",
     "@openbot/core": "workspace:*",
+    "@openbot/cos": "workspace:*",
+    "@openbot/decisions": "workspace:*",
+    "@openbot/engines-fake": "workspace:*",
     "@openbot/mcp": "workspace:*",
+    "@openbot/pwa": "workspace:*",
+    "@openbot/remote": "workspace:*",
+    "@openbot/routines": "workspace:*",
+    "@openbot/runtime": "workspace:*",
     "fastify": "5.12.5"
   },
   "devDependencies": {

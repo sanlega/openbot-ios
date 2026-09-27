@@ -18,8 +18,12 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.12.1",
+    "@openbot/computer": "workspace:*",
     "@openbot/contracts": "workspace:*",
     "@openbot/core": "workspace:*",
+    "@openbot/cos": "workspace:*",
+    "@openbot/routines": "workspace:*",
+    "@openbot/runtime": "workspace:*",
     "@openbot/store": "workspace:*",
     "fastify": "5.12.5",
     "ulid": "3.0.2",

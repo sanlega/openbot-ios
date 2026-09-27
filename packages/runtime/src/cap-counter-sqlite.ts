@@ -1,17 +1,8 @@
-import type { Clock } from "@openbot/contracts";
+import { newId, type Clock } from "@openbot/contracts";
 import type { Db } from "@openbot/store";
 import { schema } from "@openbot/store";
 import { and, eq } from "drizzle-orm";
-import { monotonicFactory } from "ulid";
 import type { CapCounterStore } from "./cap-counter.js";
-
-// `@openbot/contracts`'s `newId()` has no `capCounter` kind (plan §4.1's ID
-// prefix list omits `CapCounter`) — a small contracts gap, not something
-// WS2 should just add unasked; generate a locally-prefixed ULID instead.
-const ulid = monotonicFactory();
-function newCapCounterId(): string {
-  return `capctr_${ulid()}`;
-}
 
 /**
  * `CapCounterStore` backed by `@openbot/store`'s persisted `cap_counters`
@@ -53,7 +44,7 @@ export class SqliteCapCounterStore implements CapCounterStore {
       this.db
         .insert(schema.capCounters)
         .values({
-          id: newCapCounterId(),
+          id: newId("capCounter"),
           scope,
           key,
           windowStart: new Date(nowMs),

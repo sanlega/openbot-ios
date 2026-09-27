@@ -25,6 +25,7 @@
   },
   "devDependencies": {
     "@openbot/decisions": "workspace:*",
+    "@openbot/routines": "workspace:*",
     "@openbot/testkit": "workspace:*",
     "@types/libsodium-wrappers": "0.7.14",
     "@types/node": "22.20.4",

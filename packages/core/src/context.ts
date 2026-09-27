@@ -1,7 +1,13 @@
 import { mkdir } from "node:fs/promises";
-import type { Clock, ComputerProvider, DecisionService } from "@openbot/contracts";
-import type { RemoteServices } from "@openbot/remote";
+import type {
+  Clock,
+  ComputerProvider,
+  DecisionService,
+  RoutineRun,
+  RoutineRunCause,
+} from "@openbot/contracts";
 import { systemClock } from "@openbot/contracts";
+import type { RemoteServices } from "@openbot/remote";
 import {
   ApprovalsRepo,
   BotsRepo,
@@ -67,6 +73,19 @@ export type SetupValidatorKind =
 
 export type SetupValidator = (value?: string) => Promise<{ ok: boolean; reason?: string }>;
 
+/** WS2 turn control surface for Client API WebSocket commands. */
+export interface TurnMailbox {
+  enqueue(input: {
+    botId: string;
+    threadId: string;
+    chainId: string;
+    text: string;
+    engine: "claude" | "codex" | "fake";
+  }): Promise<{ ok: boolean; reason?: string }>;
+  stop(turnId: string): Promise<{ ok: boolean; reason?: string }>;
+  steer(turnId: string, text: string): Promise<{ ok: boolean; reason?: string }>;
+}
+
 /**
  * The service registry every other workstream is meant to depend on instead of
  * reaching into `packages/core`'s or another workstream's internals (plan §3:
@@ -95,6 +114,19 @@ export interface CoreContext {
   validators: Partial<Record<SetupValidatorKind, SetupValidator>>;
   /** Wired in by WS11; pairing, E2E framing, Tailscale/Cloudflare managers. */
   remote?: RemoteServices;
+  /** Wired in by WS12; routine run/webhook/scheduler orchestration. */
+  routineOrchestrator?: RoutineOrchestratorLike;
+  /** Wired in by WS13; turn enqueue/stop/steer for Client API WebSocket. */
+  mailbox?: TurnMailbox;
+}
+
+/** Minimal WS12 surface exposed on CoreContext to avoid a core↔routines import cycle. */
+export interface RoutineOrchestratorLike {
+  queueRun(
+    routineId: string,
+    cause: RoutineRunCause,
+    opts?: { dryRun?: boolean; test?: boolean },
+  ): Promise<RoutineRun | { skipped: true; reason: string }>;
 }
 
 export interface CreateCoreContextOptions {

@@ -7,5 +7,3 @@ const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 export function getPwaStaticRoot(): string {
   return join(packageRoot, "src", "static");
 }
-
-export { DevApp, OpenBotApp, MockClientApiServer } from "@openbot/ui";

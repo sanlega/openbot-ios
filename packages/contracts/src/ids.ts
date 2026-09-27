@@ -22,6 +22,7 @@ export const ID_PREFIXES = {
   routine: "rtn_",
   routineRun: "rrun_",
   triggerEvent: "tev_",
+  capCounter: "capctr_",
 } as const;
 
 export type IdKind = keyof typeof ID_PREFIXES;
