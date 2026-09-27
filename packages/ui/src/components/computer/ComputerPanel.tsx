@@ -1,11 +1,8 @@
 import { useEffect, useState } from "react";
-import type {
-  ComputerStatusResponse,
-  ComputerTasksResponse,
-  LiveViewResponse,
-} from "../../api/types.js";
+import type { ComputerStatusResponse, LiveViewResponse } from "../../api/types.js";
 import { computerStatusView } from "../../api/adapters.js";
 import { useOpenBot } from "../../state/context.js";
+import { ComputerTasks } from "./ComputerTasks.js";
 
 interface ComputerPanelProps {
   botId: string;
@@ -15,7 +12,6 @@ export function ComputerPanel({ botId }: ComputerPanelProps) {
   const { transport } = useOpenBot();
   const [status, setStatus] = useState<ComputerStatusResponse | null>(null);
   const [live, setLive] = useState<LiveViewResponse | null>(null);
-  const [tasks, setTasks] = useState<ComputerTasksResponse["tasks"]>([]);
   const [takeover, setTakeover] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,12 +22,9 @@ export function ComputerPanel({ botId }: ComputerPanelProps) {
     let cancelled = false;
     void (async () => {
       try {
-        const [st, tk] = await Promise.all([
-          transport.get<{ ready: boolean; detail?: string; provider?: string }>(
-            "/api/computer/status",
-          ),
-          transport.get<ComputerTasksResponse>(`/api/computer/tasks?botId=${botId}`),
-        ]);
+        const st = await transport.get<{ ready: boolean; detail?: string; provider?: string }>(
+          "/api/computer/status",
+        );
         // The live view only exists once the computer is running.
         let lv: LiveViewResponse | null = null;
         let liveError: string | null = null;
@@ -45,7 +38,6 @@ export function ComputerPanel({ botId }: ComputerPanelProps) {
         if (cancelled) return;
         setStatus(computerStatusView(st));
         setLive(lv);
-        setTasks(tk.tasks);
         setError(liveError);
       } catch (cause) {
         if (!cancelled) setError(`Computer status could not be loaded: ${String(cause)}`);
@@ -136,33 +128,8 @@ export function ComputerPanel({ botId }: ComputerPanelProps) {
             </div>
           )}
         </section>
-
-        <section className="card">
-          <h3 className="card-title">Step timeline</h3>
-          {tasks.length === 0 ? (
-            <p style={{ color: "var(--text-muted)" }}>No active tasks</p>
-          ) : (
-            tasks.map((task) => (
-              <div key={task.id} style={{ marginBottom: 12 }}>
-                <strong>{task.goal}</strong>
-                <span className="badge" style={{ marginLeft: 8 }}>
-                  {task.status}
-                </span>
-                <ol className="timeline">
-                  {(task.timeline ?? []).map((step, i) => (
-                    <li key={i}>
-                      <time>{new Date(step.ts).toLocaleTimeString()}</time>
-                      <span>
-                        {step.op}: {step.detail}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            ))
-          )}
-        </section>
       </div>
+      <ComputerTasks botId={botId} />
     </div>
   );
 }

@@ -71,6 +71,36 @@ export type SetupValidatorKind =
 
 export type SetupValidator = (value?: string) => Promise<{ ok: boolean; reason?: string }>;
 
+/** A running or finished computer task as the UI sees it (see @openbot/computer). */
+export interface LiveComputerTask {
+  taskId: string;
+  botId: string;
+  goal: string;
+  status: string;
+  steps: Array<{
+    step: number;
+    op?: string;
+    target?: string;
+    outcome: string;
+    reason?: string;
+    at: string;
+  }>;
+  pendingInput?: { field: string };
+  instructions: string[];
+  summary?: string;
+  url?: string;
+  title?: string;
+}
+
+export interface ComputerTasksControl {
+  get(taskId: string): LiveComputerTask | undefined;
+  steer(
+    taskId: string,
+    input: { instruction?: string; text?: string },
+  ): LiveComputerTask | undefined;
+  cancel(taskId: string): LiveComputerTask | undefined;
+}
+
 /** WS2 turn control surface for Client API WebSocket commands. */
 export interface TurnMailbox {
   enqueue(input: {
@@ -137,6 +167,8 @@ export interface CoreContext {
   /** Wired in by WS13 bootstrap; populated for `/api/engines` and routing. */
   availableEngines?: EngineId[];
   engineStatuses?: Partial<Record<EngineId, EngineStatus>>;
+  /** Wired by bootstrap: live computer tasks (progress, steering, cancel) for the UI. */
+  computerTasks?: ComputerTasksControl;
   /** Models of each available engine, for `/api/models` (Bot profile model picker). */
   listModels?: () => Promise<Array<{ engine: EngineId; models: ModelInfo[] }>>;
 }

@@ -23,6 +23,8 @@ export {
   type SetupValidatorKind,
   type RoutineOrchestratorLike,
   type TurnMailbox,
+  type ComputerTasksControl,
+  type LiveComputerTask,
 } from "./context.js";
 export { EventBus, type PublishInput } from "./event-bus.js";
 export { NdjsonWriter, NullNdjsonWriter } from "./ndjson-writer.js";

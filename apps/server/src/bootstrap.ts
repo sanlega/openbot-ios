@@ -143,6 +143,7 @@ export async function bootstrapHarness(
     caps,
     orchestrator,
   });
+  ctx.computerTasks = mcpServices.computer.controller?.();
   const { tokens } = await integrateMcp(app, ctx, { services: mcpServices });
   mcp.current = { tokens, connectors: mcpServices.connectors };
 

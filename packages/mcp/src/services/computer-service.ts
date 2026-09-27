@@ -113,6 +113,22 @@ export class McpComputerServiceAdapter implements McpComputerService {
     return snapshot ? allowed(view(snapshot)) : refused(`no computer task ${input.taskId}`);
   }
 
+  /** The same tasks, for the Client API (UI timeline, steering, cancel). */
+  controller(): {
+    get(taskId: string): ComputerTaskSnapshot | undefined;
+    steer(
+      taskId: string,
+      input: { instruction?: string; text?: string },
+    ): ComputerTaskSnapshot | undefined;
+    cancel(taskId: string): ComputerTaskSnapshot | undefined;
+  } {
+    return {
+      get: (taskId) => this.manager?.get(taskId),
+      steer: (taskId, input) => this.manager?.steer(taskId, input),
+      cancel: (taskId) => this.manager?.cancel(taskId),
+    };
+  }
+
   async computerScreenshot(
     session: SessionContext,
   ): Promise<ToolResult<{ screenshotPath: string }>> {

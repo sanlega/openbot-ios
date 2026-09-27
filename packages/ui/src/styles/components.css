@@ -507,3 +507,110 @@ kbd {
   text-align: center;
   color: var(--text-3);
 }
+
+/* Computer tasks (bot profile → Computer) */
+.ctask-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ctask {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.ctask[data-status="needs_input"],
+.ctask[data-status="takeover"] {
+  border-left: 3px solid var(--warning);
+}
+
+.ctask-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ctask-goal {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ctask-page,
+.ctask-summary {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-2);
+}
+
+.ctask-steps {
+  list-style: none;
+  margin: 0;
+  padding: 2px 0 2px 12px;
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ctask-steps li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-base);
+}
+
+.ctask-steps li[data-outcome="escalated"],
+.ctask-steps li[data-outcome="blocked"],
+.ctask-steps li[data-outcome="takeover"] {
+  color: var(--warning);
+}
+
+.ctask-steps li[data-outcome="denied"] {
+  color: var(--danger);
+}
+
+.ctask-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.ctask-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.ctask-reason {
+  color: var(--text-2);
+}
+
+.ctask-time {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.ctask-input {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.ctask-input .field {
+  flex: 1;
+}

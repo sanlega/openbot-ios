@@ -11,3 +11,4 @@ La skill `self-improve` las consolida en skills, contexto o protocolo y las reti
 - 2026-09-27 [unknown] UI reducers must not assume bus order: create per-turn records lazily from any turn-scoped event (tool.started can precede turn.started).
 - 2026-09-27 [unknown] Before packaging Electron, run a SQLite query under Electron's embedded Node runtime: electron-rebuild can succeed even when the native addon's Node minimum exceeds Electron's bundled Node, leaving the packaged app crashing at startup.
 - 2026-09-27 [unknown] When replacing the Docker computer image, reuse the existing anonymous /workspace volume and keep the old container stopped for rollback; otherwise its workspace becomes invisible to the new container.
+- 2026-09-28 [unknown] With several agents in one working tree, commit with an explicit pathspec (git commit -- <paths>) and check git diff --cached first: another agent's staged deletions (git rm) ride along with any plain git commit.

@@ -582,6 +582,9 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
+      '@openbot/computer-fake':
+        specifier: workspace:*
+        version: link:../computer/fake
       '@openbot/testkit':
         specifier: workspace:*
         version: link:../testkit

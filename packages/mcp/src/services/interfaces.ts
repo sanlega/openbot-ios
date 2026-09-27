@@ -1,3 +1,4 @@
+import type { ComputerTasksControl } from "@openbot/core";
 import type { Bot, McpServerSpec } from "@openbot/contracts";
 import type {
   ComputerStatusInput,
@@ -63,6 +64,8 @@ export interface McpComputerService {
     input: { taskId: string },
   ): Promise<ToolResult<ComputerTaskView>>;
   computerScreenshot(session: SessionContext): Promise<ToolResult<{ screenshotPath: string }>>;
+  /** Live task control for the Client API (UI timeline, steering, cancel). */
+  controller?(): ComputerTasksControl;
 }
 
 export interface McpRoutineService {

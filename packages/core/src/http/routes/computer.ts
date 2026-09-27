@@ -58,8 +58,46 @@ export function registerComputerRoutes(app: FastifyInstance, ctx: CoreContext): 
   app.get("/api/computer/tasks", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
     const { botId } = request.query as { botId?: string };
+    const rows = botId ? ctx.repos.computerTasks.listByBot(botId) : ctx.repos.computerTasks.list();
+    // Live progress (steps, text the task is waiting for) for tasks still in memory.
     return {
-      tasks: botId ? ctx.repos.computerTasks.listByBot(botId) : ctx.repos.computerTasks.list(),
+      tasks: rows.map((row) => {
+        const live = ctx.computerTasks?.get(row.id);
+        return live
+          ? {
+              ...row,
+              status: live.status,
+              steps: live.steps.length,
+              timeline: live.steps,
+              needsText: live.pendingInput?.field,
+              instructions: live.instructions,
+              summary: live.summary,
+              page: { url: live.url, title: live.title },
+            }
+          : row;
+      }),
     };
+  });
+
+  app.post("/api/computer/tasks/:id/steer", async (request, reply) => {
+    if (!requireAuth(request, reply)) return;
+    const { id } = request.params as { id: string };
+    const body = (request.body ?? {}) as { instruction?: unknown; text?: unknown };
+    const instruction = typeof body.instruction === "string" ? body.instruction : undefined;
+    const text = typeof body.text === "string" ? body.text : undefined;
+    if (instruction === undefined && text === undefined) {
+      return reply.code(400).send({ error: "instruction_or_text_required" });
+    }
+    const task = ctx.computerTasks?.steer(id, { instruction, text });
+    if (!task) return reply.code(404).send({ error: "not_found" });
+    return { task };
+  });
+
+  app.post("/api/computer/tasks/:id/cancel", async (request, reply) => {
+    if (!requireAuth(request, reply)) return;
+    const { id } = request.params as { id: string };
+    const task = ctx.computerTasks?.cancel(id);
+    if (!task) return reply.code(404).send({ error: "not_found" });
+    return { task };
   });
 }

@@ -35,6 +35,7 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@openbot/computer-fake": "workspace:*",
     "@openbot/testkit": "workspace:*",
     "@types/node": "22.20.4",
     "typescript": "6.0.3",
