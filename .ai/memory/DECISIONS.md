@@ -152,3 +152,11 @@ Formato: fecha, contexto, decisión, consecuencias.
 - **Decision**: Pin `apps/desktop` to Electron 38.8.0, which embeds Node 22.22.0. After rebuilding the native module, run a real SQLite query with `ELECTRON_RUN_AS_NODE=1` before packaging.
 - **Alternatives discarded**: keep Electron 34 and downgrade SQLite; this would widen the package's dependency divergence and leave the embedded runtime behind the monorepo's Node 22 baseline.
 - **Consequences**: desktop packaging requires an Electron runtime compatible with the store's native SQLite package. `rebuild:native` now fails if that runtime cannot load and query SQLite.
+
+## D-019 · Connectors: open MCP only, no Composio (supersedes D-009)
+
+- **Fecha**: 2026-09-27
+
+- **Context**: D-009 shipped raw MCP + MCP Registry plus Composio. Composio is closed source and hosted; the owner wants open, user-owned integrations. A market survey found vendors now host their own remote MCP servers with OAuth (GitHub, Notion, Linear, Atlassian, Slack, Sentry, Stripe…) and every major client pairs a curated gallery with "paste a URL/command".
+- **Decision**: remove the Composio provider. Connectors are MCP servers only: a curated first-party catalogue (vendor remote servers + local stdio), the MCP Registry as an unverified "Community" tab, and custom connectors. OAuth for remote MCP is implemented inside OpenBot (PKCE, client-ID metadata document or dynamic registration, loopback callback). Connections are per account, assigned per bot; write tools go through the permission broker.
+- **Consequences**: no hosted middleman or third-party key; Google/Slack/GitHub need a guided client setup or a published OpenBot OAuth client id; plan in `.ai/memory/plans/2026-09-28-connectors.md`.
