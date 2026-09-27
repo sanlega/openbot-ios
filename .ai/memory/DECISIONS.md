@@ -134,3 +134,12 @@ Formato: fecha, contexto, decisión, consecuencias.
 - **Decisión**: `apps/desktop` ships real, structurally-correct main/preload/renderer code (one window, one IPC handler) typechecked against a local ambient `electron-shim.d.ts` instead of depending on the real `electron` package. The actual "is the harness connected" logic is extracted into `harness-client.ts` and unit-tested with Vitest; the Electron window itself cannot be driven headlessly in this sandboxed environment. See `apps/desktop/README.md`.
 - **Alternativas descartadas**: adding the real `electron` devDependency now, which would make `pnpm install`/CI depend on a large binary download (repeated across the 3-OS CI matrix) for a skeleton WS6 will rewrite anyway, with no way to verify the display output in this environment either way.
 - **Consecuencias**: WS6 adds the real `electron` dependency and deletes `electron-shim.d.ts` when it lands; until then, `apps/desktop`'s build/typecheck/test are fast and 100% reliable in CI, but the GUI itself is unverified end-to-end.
+
+## D-017 · WS3 engine packages as siblings under packages/engines/*
+
+- **Fecha**: 2026-09-27
+
+- **Contexto**: plan §3/§5 WS3; D-015 estableció `packages/engines/fake` como paquete hermano.
+- **Decisión**: WS3 añade `@openbot/engines-common`, `@openbot/engines-claude`, `@openbot/engines-codex`, y `@openbot/engines-conformance` como paquetes hermanos. Decisiones de implementación en `packages/engines/DECISIONS.md` (E-WS3-001..003).
+- **Alternativas descartadas**: un solo paquete `@openbot/engines` con subcarpetas `claude/`/`codex/`.
+- **Consecuencias**: WS2 importa drivers desde `@openbot/engines-claude`/`@openbot/engines-codex`; CI usa fixture replay sin credenciales; conformidad CLI real es opt-in (`OPENBOT_E2E_REAL=1`).

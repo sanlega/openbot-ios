@@ -1,15 +1,39 @@
 # Estado actual
 
-_Última actualización: 2026-09-27 por cursor_
+_Última actualización: 2026-09-27 por cursor (WS3 builder)_
 
 ## En curso
-- Rama `cursor/metaharness-bootstrap-8d1e` (PR 1 aún sin abrir, ver Bloqueos):
-  bootstrap de metaharness (`ADAPTERS="agents claude"`, contexto en inglés) +
-  herramientas del monorepo (pnpm 10 + Node 22, TypeScript 6.0.3, ESLint flat
-  config, Prettier, Vitest, CI de 3 SO). Plan copiado a
-  `.ai/memory/plans/openbot-v1.md`; decisiones D-001..D-014 registradas.
-- Rama `cursor/ws0-contracts-store-fakes-8d1e` (apilada sobre la anterior; PR 2
-  aún sin abrir, ver Bloqueos), WS0 en curso:
+- Rama `cursor/ws3-engine-adapters-6820` (WS3, apilada sobre
+  `cursor/ws0-contracts-store-fakes-8d1e`): adaptadores de motor + auth.
+  - `@openbot/engines-common` ✅: `auth.ts`, resolución de CLI (incl. shims
+    `.cmd`), cargador de fixtures JSONL.
+  - `@openbot/engines-claude` ✅: `ClaudeDriver` (proceso stream-json de larga
+    duración, `--resume`, MCP + `permission_prompt`, steer/interrupt).
+  - `@openbot/engines-codex` ✅: `CodexDriver` + `CodexAppServer` compartido,
+    MCP por hilo vía `thread/start`, aprobaciones v2 `item/*/requestApproval`,
+    tipos generados + comprobación de deriva de esquema.
+  - `@openbot/engines-conformance` ✅: suite compartida + replays dorados de
+    fixtures; conformidad CLI real opt-in (`OPENBOT_E2E_REAL=1`).
+  - `packages/engines/DECISIONS.md` ✅ (E-WS3-001..003).
+  - 177 tests (169 pasando + 8 omitidos real-CLI); `format:check`/`lint`/
+    `typecheck`/`test`/`mh check` en verde en Linux.
+- Rama `cursor/ws0-contracts-store-fakes-8d1e` (PR #2, base apilada): WS0
+  completo (ver historial abajo).
+
+## Próximos pasos
+1. Abrir PR WS3 → `cursor/ws0-contracts-store-fakes-8d1e` (draft).
+2. Spike de seguimiento WS3 con credenciales reales antes de M1
+   (`OPENBOT_E2E_REAL=1`): aprobaciones, steer/interrupt en vivo, deltas
+   `--include-partial-messages`.
+3. WS2/WS1 pueden importar `ClaudeDriver`/`CodexDriver` cuando integren el
+   runtime y el wizard de setup.
+
+## Bloqueos / preguntas abiertas
+- Aprobaciones Codex/Claude en vivo no verificadas (spike sin credenciales);
+  drivers construidos contra esquemas + fixtures dorados.
+- CI real en matriz 3 SO pendiente de corrida en GitHub Actions.
+
+## Histórico WS0 (rama base)
   - `packages/contracts` ✅: zod para todas las entidades del plan §4.1, el
     contrato de eventos §4.2 (`OBEvent`/`EventType`, 58 tipos con un fixture
     cada uno), las SPI `EngineDriver`/`ComputerProvider`/`ConnectorProvider`/
@@ -77,15 +101,9 @@ _Última actualización: 2026-09-27 por cursor_
 2. Tras la PR 2, abrir WS1-WS12 en paralelo (uno por workstream) contra los
    contratos y los falsos de WS0.
 
-## Bloqueos / preguntas abiertas
+## Bloqueos / preguntas abiertas (histórico)
 - **El PAT (`GH_TOKEN`) puede leer/empujar pero no crear pull requests.**
-  `gh pr create` y `POST /repos/sanlega/OpenBot/pulls` devuelven 403 con
-  cabecera `x-accepted-github-permissions: pull_requests=write`, es decir al
-  token le falta el permiso de **escritura** en "Pull requests" (aunque sí
-  puede leerlos). Acción pendiente del usuario: en la página de permisos del
-  PAT de grano fino, poner **"Pull requests" → "Read and write"** y guardar.
-  No bloquea el trabajo en las ramas (push/pull funcionan); solo bloquea abrir
-  las PRs. Se reintentará `gh pr create` en cuanto se corrija.
+  Acción pendiente del usuario: permiso "Pull requests" → "Read and write".
 - El WS3 (motores) tiene un spike sin credenciales ya hecho
   (`internal/engine-spike.md` en el store del proyecto); falta un spike de
   seguimiento con credenciales reales antes del cierre de M1 (no bloquea
