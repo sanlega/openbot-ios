@@ -8,4 +8,5 @@ CLAUDE.md
 **/build/**
 **/coverage/**
 **/fixtures/**
+**/migrations/**
 images/**
