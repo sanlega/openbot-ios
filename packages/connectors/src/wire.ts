@@ -1,3 +1,4 @@
+import type { ConnectorProvider } from "@openbot/contracts";
 import type { CoreContext } from "@openbot/core";
 import { HttpMcpRegistryClient, type McpRegistryClient } from "./mcp-registry.js";
 import { McpProvider } from "./mcp-provider.js";
@@ -12,20 +13,33 @@ import {
 import { COMPOSIO_API_KEY } from "./vault-keys.js";
 
 export interface WireConnectorsOptions {
-  /** Override Composio client (tests). When omitted, mock is used unless `OPENBOT_COMPOSIO_LIVE=1`. */
-  composioClient?: MockComposioClient;
+  /** Override Composio client (tests). */
+  composioClient?: MockComposioClient | LiveComposioClient;
   composioApiKey?: string;
   registry?: McpRegistryClient;
+}
+
+function fakeFlag(name: string): boolean {
+  return process.env[name] === "1";
+}
+
+async function resolveComposioApiKey(
+  ctx: CoreContext,
+  override?: string,
+): Promise<string | undefined> {
+  if (override) return override;
+  if (process.env.COMPOSIO_API_KEY) return process.env.COMPOSIO_API_KEY;
+  return ctx.vault.get(COMPOSIO_API_KEY);
 }
 
 /**
  * Boots WS10 into a running harness: registers the Composio setup validator and
  * attaches {@link ConnectorService} to `CoreContext`.
  */
-export function wireConnectors(
+export async function wireConnectors(
   ctx: CoreContext,
   options: WireConnectorsOptions = {},
-): ConnectorService {
+): Promise<ConnectorService> {
   const now = () => ctx.clock.now();
 
   const mcp = new McpProvider({
@@ -36,24 +50,48 @@ export function wireConnectors(
     newConnectionId,
   });
 
-  const composioKey = options.composioApiKey ?? "composio_test_key_12345678";
-  const composioClient =
-    options.composioClient ??
-    (process.env.OPENBOT_COMPOSIO_LIVE === "1" && process.env.COMPOSIO_API_KEY
-      ? new LiveComposioClient(process.env.COMPOSIO_API_KEY)
-      : new MockComposioClient(composioKey));
+  const providers: ConnectorProvider[] = [mcp];
+  let composio: ComposioProvider | undefined;
 
-  const composio = new ComposioProvider({
-    vault: ctx.vault,
-    connections: ctx.repos.connections,
-    client: composioClient,
-    now,
-    newConnectionId,
-    oauthCallbackPort: ctx.config.port,
-  });
+  if (options.composioClient) {
+    composio = new ComposioProvider({
+      vault: ctx.vault,
+      connections: ctx.repos.connections,
+      client: options.composioClient,
+      now,
+      newConnectionId,
+      oauthCallbackPort: ctx.config.port,
+    });
+    providers.push(composio);
+  } else if (fakeFlag("OPENBOT_FAKE_COMPOSIO")) {
+    const composioKey = options.composioApiKey ?? "composio_test_key_12345678";
+    composio = new ComposioProvider({
+      vault: ctx.vault,
+      connections: ctx.repos.connections,
+      client: new MockComposioClient(composioKey),
+      now,
+      newConnectionId,
+      oauthCallbackPort: ctx.config.port,
+    });
+    providers.push(composio);
+  } else {
+    const composioKey = await resolveComposioApiKey(ctx, options.composioApiKey);
+    if (composioKey) {
+      composio = new ComposioProvider({
+        vault: ctx.vault,
+        connections: ctx.repos.connections,
+        client: new LiveComposioClient(composioKey),
+        now,
+        newConnectionId,
+        oauthCallbackPort: ctx.config.port,
+      });
+      providers.push(composio);
+    }
+  }
 
   ctx.validators.composio = async (value) => {
     if (!value || value.length < 8) return { ok: false, reason: "Composio API key too short" };
+    if (!composio) return { ok: false, reason: "Composio is not configured on this harness" };
     const result = await composio.validateKey(value);
     if (result.ok) await ctx.vault.set(COMPOSIO_API_KEY, value);
     return result.ok ? { ok: true } : { ok: false, reason: "Invalid Composio API key" };
@@ -63,7 +101,7 @@ export function wireConnectors(
     ctx,
     mcp,
     composio,
-    providers: [mcp, composio],
+    providers,
     eventBus: ctx.eventBus,
   });
 

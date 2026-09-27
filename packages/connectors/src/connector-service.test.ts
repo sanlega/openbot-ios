@@ -120,7 +120,7 @@ describe("ConnectorService (WS10 acceptance)", () => {
     const registry = new MockMcpRegistryClient([
       { id: "mcp:filesystem", name: "Filesystem", description: "Local files" },
     ]);
-    wireConnectors(testCtx.ctx, {
+    await wireConnectors(testCtx.ctx, {
       composioClient: testCtx.composioClient,
       registry,
     });

@@ -43,7 +43,7 @@ export async function createConnectorTestContext(options?: {
 
   const { MockComposioClient } = await import("./composio/mock-client.js");
   const composioClient = options?.composioClient ?? new MockComposioClient(composioKey);
-  const service = wireConnectors(ctx, { composioClient, composioApiKey: composioKey });
+  const service = await wireConnectors(ctx, { composioClient, composioApiKey: composioKey });
 
   return {
     ctx,

@@ -21,7 +21,7 @@ export interface ConnectorService extends CoreConnectorService {
 export interface ConnectorServiceDeps {
   ctx: CoreContext;
   mcp: McpProvider;
-  composio: ComposioProvider;
+  composio?: ComposioProvider;
   providers: ConnectorProvider[];
   eventBus: EventBus;
 }
@@ -114,6 +114,7 @@ export class DefaultConnectorService implements ConnectorService {
   }
 
   async completeOAuth(connectionId: string, params: OAuthFinishParams = {}): Promise<Connection> {
+    if (!this.deps.composio) throw new Error("Composio is not configured on this harness");
     const connection = await this.deps.composio.finishOAuth(connectionId, params);
     await this.deps.eventBus.publish({
       type: "connector.connected",
