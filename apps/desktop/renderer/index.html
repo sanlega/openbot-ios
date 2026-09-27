@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>OpenBot</title>
+  </head>
+  <body>
+    <main>
+      <h1>OpenBot</h1>
+      <p id="harness-status">Checking harness…</p>
+    </main>
+    <script>
+      window.addEventListener("DOMContentLoaded", () => {
+        window.openbot
+          .getHarnessStatus()
+          .then((text) => {
+            document.getElementById("harness-status").textContent = text;
+          })
+          .catch(() => {
+            document.getElementById("harness-status").textContent = "Harness disconnected";
+          });
+      });
+    </script>
+  </body>
+</html>
