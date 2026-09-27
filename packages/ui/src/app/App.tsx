@@ -3,6 +3,7 @@ import { OpenBotProvider, useLocalTransport } from "../state/context.js";
 import type { Transport } from "../transport/index.js";
 import { AppShell } from "../components/layout/AppShell.js";
 import { SetupWizard } from "../components/setup/SetupWizard.js";
+import { DesignGallery } from "../design/DesignGallery.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
 import { markDesktopPlatform } from "../state/desktop.js";
 import { applyStoredTheme } from "../state/theme.js";
@@ -58,10 +59,16 @@ export function OpenBotApp({ transport }: OpenBotAppProps) {
     );
   }
 
+  // Development aid: the design-system gallery (docs/design-system.md).
+  const showDesign =
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).has("design");
+
   return (
     <ErrorBoundary>
       <OpenBotProvider transport={transport}>
-        {setupComplete ? (
+        {showDesign ? (
+          <DesignGallery />
+        ) : setupComplete ? (
           <AppShell />
         ) : (
           <SetupWizard transport={transport} onComplete={() => setSetupComplete(true)} />
