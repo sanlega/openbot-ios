@@ -9,12 +9,13 @@
 - Root test suite: 767 passed, 17 skipped; typecheck, lint (three pre-existing warnings), format, build, `mh check`, and desktop E2E pass. The desktop E2E requires the installed single-instance app to be closed; first attempts while OpenBot was open failed at launch, then passed after closing it. The app was reopened.
 - The Linux-only `smoke:packaged` script cannot find a Linux `*-unpacked` directory when run against a macOS-only pack; the mac package itself built and the native SQLite Electron runtime probe passed.
 - GitHub run 75 for `aa028d1` shows ten failed jobs, but the connector returns no job steps/logs (`BlobNotFound`). Recheck CI after the next push; do not merge before exact-head required checks pass.
+- Follow-up commit `6568bf7` was pushed; run 76 also reports ten failed jobs with no job steps or logs. The currently authenticated Codex catalog does not include `o4-mini`; the Chief is now set to Auto. Pin one of the seven visible catalog IDs if a fixed Codex model is desired.
 
 ## Remaining
 
 1. Ask the user to confirm they can now send a message using the Chief pinned to Codex/o4-mini. Do not send a real prompt on their behalf.
 2. Let the user test an actual Jev task with their configured Jev key and running Docker computer. We verified app wiring and local test coverage but did not start a real computer task.
-3. Check the new CI run after pushing the local Claude model-list integration; investigate the all-jobs failure if it repeats.
+3. Investigate why all ten jobs fail on run 76; obtain GitHub Support/Actions access that exposes logs or reproduce each job locally.
 4. Keep the repository private until GitHub Support purges stale closed PR refs 1–16.
 
 ## Retro

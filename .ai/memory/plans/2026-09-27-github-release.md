@@ -51,10 +51,9 @@ Integrate the current OpenBot work into `main` and give users a clear way to dow
 Progress:
 - [x] T1 reconnaissance and review: product/release state verified; all 18 branch histories scrubbed of private notes, session links, local paths, and personal metadata; PR #17 metadata cleaned. GitHub read-only PR refs 1–16 still retain historical commits and require Support purge before public visibility.
 - [x] T2: README, contributor/privacy guidance, issue/PR templates, changelog, and tagged release workflow added. Local lint, format, `mh check`, build, typecheck, and tests pass; workflow YAML parses.
-- [x] T3: PR #18 is open; rewritten head/base hashes are current. Latest check (run 75
-  on `aa028d1`) reports all ten jobs failed; the connector exposes neither steps nor
-  logs. Local full checks pass. Recheck CI on the next pushed head; do not merge until
-  required CI passes on its exact head.
+- [x] T3: PR #18 is open; current head is `6568bf7`. CI run 76 reports all ten jobs
+  failed; the connector exposes neither job steps nor logs (`BlobNotFound`). Local full
+  checks pass. Diagnose before merge; required CI must pass on the exact head.
 - [ ] T4
 - [ ] T5
 

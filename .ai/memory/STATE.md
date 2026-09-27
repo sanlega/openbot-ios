@@ -13,10 +13,10 @@ _Last updated: 2026-09-28 by Claude_
   session URL, and identifying sample names were scrubbed. PR #17 metadata was edited.
   GitHub's read-only `refs/pull/1..16/head` still point to old commits; contact GitHub
   Support to purge those refs and cached views before changing repository visibility.
-- After the history rewrite, PR #18's rewritten head has CI run 66 cancelled and run 67
-  failed. The fetched branch head is `6ea37d5fd91baea2c645d2edf73636289f3acb46`;
-  inspect CI again after the local follow-up is pushed. `gh` is not installed in this
-  shell; the GitHub connector is available for read-only status checks.
+- PR #18's current pushed head is `6568bf78d8c0fa0ea4ff74a4234387257f2fd52a`. CI run
+  76 reports all ten jobs failed; GitHub exposes neither job steps nor downloadable logs
+  (`BlobNotFound`). Do not merge until required exact-head checks pass and this is
+  understood.
 - A protected local history backup exists outside the repository. Its location and
   recovery notes are in ignored `.ai/local/history-cleanup.md`.
 - Credential-pattern scan found no real credentials. One synthetic credential-shaped
@@ -52,8 +52,7 @@ _Last updated: 2026-09-28 by Claude_
   harness), pairing QR lists private-range LAN IPv4s; non-loopback requests still
   need a paired device token and pairing still needs the QR secret. Starts after
   the connectors backend work lands (same packages).
-- The working tree is clean aside from the current model catalog integration task;
-  local updates are committed and pushed when validated.
+- Current local changes are committed and pushed to `claude/product-polish`.
 
 ## Jev computer control (owner priority, 2026-09-28)
 - Implemented and pushed: background computer tasks the engine can follow,
@@ -78,6 +77,9 @@ _Last updated: 2026-09-28 by Claude_
   `~/openbot-backups/`. The new app's `/api/models` returns in 36 ms with seven Codex
   models. `/api/computer/tasks` responds; the current task list is empty. The user's
   Application Support data was not modified.
+- The Codex account's current catalog does not include `o4-mini`; the Chief is now set to
+  Auto. The earlier UI allowed selecting `o4-mini` from the old bundled list. After the
+  startup fix, pin one of the seven current Codex catalog IDs if a fixed model is wanted.
 - Jev task timeline and steer/stop controls live inside each bot's Computer tab. That tab
   is shown only for Bots with computer access. No real task was launched during diagnosis.
 
@@ -97,8 +99,8 @@ _Last updated: 2026-09-28 by Claude_
   bearer and API-key formats. The PWA static assets are rebuilt and served locally.
 - Research found Jev is a typed decision API, not a computer-using agent: OpenBot must
   execute Jev's bounded decisions through the existing Computer SPI and permission broker.
-  The Codex app-server exposes `model/list` and returned seven visible model options in a
-  local read-only probe; the static OpenBot list currently shows two. Anthropic does not
+  The Codex app-server exposes `model/list`; the current authenticated account catalog
+  returns seven visible models. Anthropic does not
   document subscription-session model enumeration for Claude Code; its Models API is
   available to API-key mode. Full sourced findings: `reports/Control Jev y modelos disponibles.md`.
 - Codex model discovery is partially implemented locally: the authenticated app-server
