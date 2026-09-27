@@ -333,3 +333,157 @@ describe("Mailbox routing/session bookkeeping", () => {
     expect(runtime.turns.get(outcome.turnId!)?.sessionId).toBe(outcome.sessionId);
   });
 });
+
+describe("Mailbox thread persistence, session resume, and per-turn preparation", () => {
+  it("persists the Bot's direct reply to its DM thread in a live chain", async () => {
+    const runtime = buildRuntime(new FakeEngineDriver({ replies: ["saved reply"] }));
+    const outcome = await runtime.mailbox.submit(makeInput(runtime));
+
+    expect(outcome.status).toBe("completed");
+    const [message] = runtime.messages.list("thr_bot_a");
+    expect(message?.text).toBe("saved reply");
+    expect(message?.author).toEqual({ type: "bot", id: "bot_a" });
+    const created = runtime.events.byType("message.created");
+    expect(created.at(-1)?.payload.messageId).toBe(message?.id);
+  });
+
+  it("resumes the Bot's last engine session and forgets it after a failed resume", async () => {
+    const seen: Array<string | undefined> = [];
+    let fail = false;
+    const runtime = buildRuntime(
+      new ScriptedEngineDriver(async (hooks, input) => {
+        seen.push(input.sessionId);
+        hooks.emit({ type: "text_delta", text: "ok" });
+        return fail
+          ? turnResult({ isError: true, errorMessage: "session not found" })
+          : turnResult({ sessionId: "sess_live" });
+      }),
+    );
+
+    await runtime.mailbox.submit(makeInput(runtime));
+    await runtime.mailbox.submit(makeInput(runtime));
+    fail = true;
+    await runtime.mailbox.submit(makeInput(runtime));
+    fail = false;
+    await runtime.mailbox.submit(makeInput(runtime));
+
+    expect(seen).toEqual([undefined, "sess_live", "sess_live", undefined]);
+    expect(runtime.sessions.get("bot_a", "fake")).toBe("sess_live");
+  });
+
+  it("hands prepareTurn's MCP servers, keyed by the new turn id, to the engine", async () => {
+    let received: TurnInput | undefined;
+    const runtime = buildRuntime(
+      new ScriptedEngineDriver(async (_hooks, input) => {
+        received = input;
+        return turnResult();
+      }),
+    );
+
+    const outcome = await runtime.mailbox.submit(
+      makeInput(runtime, {
+        prepareTurn: async (turnId) => ({
+          mcpServers: [{ name: "openbot", command: "node", args: [], env: { TURN: turnId } }],
+        }),
+      }),
+    );
+
+    expect(outcome.status).toBe("completed");
+    expect(received?.mcpServers).toEqual([
+      { name: "openbot", command: "node", args: [], env: { TURN: outcome.turnId } },
+    ]);
+  });
+
+  it("fails the turn without starting the engine when prepareTurn throws", async () => {
+    let started = false;
+    const runtime = buildRuntime(
+      new ScriptedEngineDriver(async () => {
+        started = true;
+        return turnResult();
+      }),
+    );
+
+    const outcome = await runtime.mailbox.submit(
+      makeInput(runtime, {
+        prepareTurn: async () => {
+          throw new Error("token service unavailable");
+        },
+      }),
+    );
+
+    expect(outcome).toMatchObject({ status: "failed", reason: "token service unavailable" });
+    expect(started).toBe(false);
+    expect(runtime.events.byType("turn.failed")).toHaveLength(1);
+  });
+});
+
+describe("Mailbox per-run budget", () => {
+  it("interrupts the turn once the chain's usage exceeds runBudget", async () => {
+    let interrupted = false;
+    const driver: EngineDriver = {
+      id: "fake",
+      detect: async () => ({ installed: true, login: { ok: true }, apiKey: { ok: true } }),
+      validateKey: async () => ({ ok: true }),
+      listModels: async () => [],
+      dispose: async () => {},
+      startTurn(_input: TurnInput, hooks: TurnHooks): TurnHandle {
+        const done = (async (): Promise<TurnResult> => {
+          for (let i = 0; i < 5 && !interrupted; i++) {
+            hooks.emit({ type: "usage", inputTokens: 100, outputTokens: 100, usd: 0.2 });
+            await Promise.resolve();
+          }
+          return turnResult({
+            isError: interrupted,
+            errorMessage: interrupted ? "interrupted" : undefined,
+          });
+        })();
+        return {
+          steer: async () => {},
+          interrupt: async () => {
+            interrupted = true;
+          },
+          done,
+        };
+      },
+    };
+    const runtime = buildRuntime(driver);
+    const input = makeInput(runtime, { runBudget: { usd: 0.5 } });
+
+    const outcome = await runtime.mailbox.submit(input);
+
+    expect(outcome.status).toBe("interrupted");
+    expect(runtime.chains.get(input.chainId).usd).toBeCloseTo(0.6);
+  });
+});
+
+describe("Mailbox in a dry_run chain", () => {
+  it("refuses the engine's side-effecting tools and records them as simulated", async () => {
+    const decisions: Array<"allow" | "deny"> = [];
+    const runtime = buildRuntime(
+      new ScriptedEngineDriver(async (hooks) => {
+        decisions.push(
+          await hooks.requestApproval({
+            toolName: "Write",
+            input: { path: "/workspace/report.md", content: "x" },
+            toolUseId: "t1",
+          }),
+        );
+        decisions.push(
+          await hooks.requestApproval({
+            toolName: "read_file",
+            input: { path: "/workspace/notes.md" },
+            toolUseId: "t2",
+          }),
+        );
+        return turnResult();
+      }),
+    );
+    const chainId = runtime.chains.create({ origin: "routine", mode: "dry_run" }).id;
+
+    await runtime.mailbox.submit(makeInput(runtime, { chainId }));
+
+    expect(decisions).toEqual(["deny", "allow"]);
+    const simulated = runtime.events.byType("action.simulated");
+    expect(simulated.map((e) => e.payload.action)).toEqual(["Write"]);
+  });
+});

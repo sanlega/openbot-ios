@@ -126,6 +126,17 @@ function conservativeRiskAnswers(
       answers[id] = { type: "noul", noul: 0.8 };
       continue;
     }
+    // The permission broker asks `external_side_effect` as an ordered score
+    // (none..major); without Jev, assume the most severe level so it never auto-allows.
+    if (question.type === "score" && id === "external_side_effect") {
+      const top = question.criteria.length - 1;
+      const probabilities: Record<string, number> = {};
+      question.criteria.forEach((_desc, i) => {
+        probabilities[String(i)] = i === top ? 1 : 0;
+      });
+      answers[id] = { type: "score", score: top, confidence: 0.3, legend: {}, probabilities };
+      continue;
+    }
     if (question.type === "score" && id === "severity") {
       answers[id] = {
         type: "score",

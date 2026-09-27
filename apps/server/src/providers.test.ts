@@ -6,7 +6,7 @@ import type { EngineStatus } from "@openbot/contracts";
 import { FakeClock } from "@openbot/testkit";
 import { createCoreContext } from "@openbot/core";
 import { FakeComputerProvider } from "@openbot/computer-fake";
-import { FakeDecisionService } from "@openbot/decisions";
+import { FakeDecisionService, KeyedDecisionService, UNCONFIGURED_MODEL } from "@openbot/decisions";
 import { FakeEngineDriver } from "@openbot/engines-fake";
 import { ClaudeDriver } from "@openbot/engines-claude";
 import { CodexDriver } from "@openbot/engines-codex";
@@ -86,6 +86,34 @@ describe("bootstrapProviders", () => {
     expect(result.drivers.fake).toBeUndefined();
     expect(result.computerProvider?.id).toBe("docker");
     expect(result.availableEngines).toEqual(["claude", "codex"]);
+
+    ctx.closeDb();
+    process.env = prev;
+  });
+
+  it("never falls back to the fake Jev when no TypeSafe key is configured", async () => {
+    const prev = { ...process.env };
+    delete process.env.OPENBOT_FAKE_JEV;
+    delete process.env.JEV_API_KEY;
+
+    const ctx = await testContext();
+    const result = await bootstrapProviders(ctx, mockDetection());
+
+    expect(result.decisionService).not.toBeInstanceOf(FakeDecisionService);
+    expect(result.decisionService).toBeInstanceOf(KeyedDecisionService);
+    const keyed = result.decisionService as KeyedDecisionService;
+    expect(await keyed.configured()).toBe(false);
+    const decision = await keyed.decide({
+      purpose: "trigger",
+      state: { event: "new issue" },
+      questions: { matches_trigger: { type: "noul", instructions: "Does it match?" } },
+    });
+    expect(decision.model).toBe(UNCONFIGURED_MODEL);
+    expect(decision.answers.matches_trigger).toEqual({ type: "noul", noul: 0 });
+
+    // A key saved later (e.g. by the setup wizard) is used without a restart.
+    await ctx.vault.set("typesafe.apiKey", "ts_live_key_1234567890");
+    expect(await keyed.configured()).toBe(true);
 
     ctx.closeDb();
     process.env = prev;

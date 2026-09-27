@@ -164,7 +164,14 @@ export class PermissionBroker {
       type: "approval.requested",
       botId: req.botId,
       chainId: req.chainId,
-      payload: { approvalId: approval.id, kind: approval.kind, summary: approval.summary, reason },
+      payload: {
+        approvalId: approval.id,
+        kind: approval.kind,
+        summary: approval.summary,
+        detail: approval.detail,
+        expiresAt: approval.expiresAt,
+        reason,
+      },
     });
     return { outcome: "ask", reason, approvalId: approval.id };
   }
@@ -205,6 +212,19 @@ export class PermissionBroker {
       this.pending.delete(approvalId);
       pending.resolve(resolution);
     }
+  }
+
+  /**
+   * Wakes whoever awaits {@link waitForApproval} for a card another component
+   * already resolved and recorded (the Client API updates the store and emits
+   * `approval.resolved` itself), without writing or emitting again.
+   */
+  settleResolved(approvalId: string, resolution: "allow" | "deny"): void {
+    const pending = this.pending.get(approvalId);
+    if (!pending) return;
+    this.opts.clock.clearTimeout(pending.timer);
+    this.pending.delete(approvalId);
+    pending.resolve(resolution);
   }
 
   private emitResolved(approvalId: string, resolution: "allow" | "deny" | "expired"): void {

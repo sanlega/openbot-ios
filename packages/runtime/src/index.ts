@@ -125,6 +125,8 @@ export function createRuntime(opts: RuntimeOptions): Runtime {
     turns,
     spendCaps,
     clock,
+    messages,
+    sessions,
   });
 
   return {

@@ -122,7 +122,13 @@ export class DeliveryService {
       botId: input.toBotId,
       threadId: input.toThreadId,
       chainId: input.chainId,
-      payload: { messageId: message.id, fromBotId: input.fromBotId, hop: nextHop },
+      payload: {
+        messageId: message.id,
+        fromBotId: input.fromBotId,
+        hop: nextHop,
+        text: input.text,
+        author: "bot",
+      },
     });
     this.opts.events.emit({
       ts: message.createdAt,
@@ -191,7 +197,14 @@ export class DeliveryService {
       botId: input.botId,
       threadId: input.threadId,
       chainId: input.chainId,
-      payload: { messageId: message.id, kind: input.kind, pushed: result.pushed },
+      payload: {
+        messageId: message.id,
+        kind: input.kind,
+        pushed: result.pushed,
+        text: input.text,
+        proactive: true,
+        delivery: result.delivery,
+      },
     });
 
     return { outcome: "delivered", message };

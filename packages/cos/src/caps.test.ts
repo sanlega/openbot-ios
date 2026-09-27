@@ -84,3 +84,21 @@ describe("CapCounterService property: no sequence exceeds S1–S6", () => {
     expect(conservative.ok).toBe(false);
   });
 });
+
+describe("CapCounterService spawn history (S2/S3 inputs)", () => {
+  it("counts only recorded spawns inside the rolling 24 h window", () => {
+    const clock = new FakeClock(new Date("2026-09-27T00:00:00Z"));
+    const caps = new CapCounterService(clock);
+    expect(caps.spawnsInLast24h()).toBe(0);
+    expect(caps.lastSpawnAt()).toBeUndefined();
+
+    caps.recordSpawn();
+    clock.advance(12 * 60 * 60_000);
+    caps.recordSpawn();
+    expect(caps.spawnsInLast24h()).toBe(2);
+    expect(caps.lastSpawnAt()?.toISOString()).toBe("2026-09-27T12:00:00.000Z");
+
+    clock.advance(12 * 60 * 60_000);
+    expect(caps.spawnsInLast24h()).toBe(1);
+  });
+});

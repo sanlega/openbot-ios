@@ -28,6 +28,7 @@ interface CounterRow {
  */
 export class CapCounterService {
   private readonly counters = new Map<string, CounterRow>();
+  private readonly spawnTimesMs: number[] = [];
   private readonly clock: Clock;
 
   constructor(clock: Clock) {
@@ -40,6 +41,29 @@ export class CapCounterService {
 
   private nowMs(): number {
     return this.clock.now().getTime();
+  }
+
+  /** Current time on this service's clock (gates must not capture it at construction). */
+  now(): Date {
+    return this.clock.now();
+  }
+
+  /** Records a bot the CoS actually created (now, or `at` when replaying history); refused attempts are never recorded. */
+  recordSpawn(at?: Date): void {
+    this.spawnTimesMs.push(at ? at.getTime() : this.nowMs());
+    this.spawnTimesMs.sort((a, b) => a - b);
+  }
+
+  /** S2 input: successful spawns in the rolling 24 h before now. */
+  spawnsInLast24h(): number {
+    const cutoff = this.nowMs() - 86_400_000;
+    return this.spawnTimesMs.filter((ts) => ts > cutoff).length;
+  }
+
+  /** S3 input: when the last successful spawn happened, if any. */
+  lastSpawnAt(): Date | undefined {
+    const last = this.spawnTimesMs[this.spawnTimesMs.length - 1];
+    return last === undefined ? undefined : new Date(last);
   }
 
   /** Read the current count without incrementing. */

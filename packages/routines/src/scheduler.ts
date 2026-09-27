@@ -123,15 +123,23 @@ export class RoutineScheduler {
   }
 
   /** Validates minimum schedule interval (O7: 15 min). */
+  /**
+   * O7: no schedule may fire more often than every 15 minutes. Checks the gaps
+   * between the next firings, so any cron form counts (`* * * * *`, `0-59 ...`,
+   * `0,5 ...`), not only `*\/N`.
+   */
   static validateScheduleInterval(trigger: RoutineScheduleTrigger): boolean {
     if (trigger.at) return true;
     if (!trigger.cron) return false;
-    const parts = trigger.cron.trim().split(/\s+/);
-    if (parts.length >= 1 && parts[0]?.startsWith("*/")) {
-      const interval = parseInt(parts[0].slice(2), 10);
-      if (!Number.isNaN(interval) && interval < O7_GUARDRAILS.minScheduleIntervalMin) {
-        return false;
-      }
+    let runs: Date[];
+    try {
+      runs = new Cron(trigger.cron, { paused: true, timezone: trigger.timezone }).nextRuns(64);
+    } catch {
+      return false;
+    }
+    const minGapMs = O7_GUARDRAILS.minScheduleIntervalMin * 60_000;
+    for (let i = 1; i < runs.length; i++) {
+      if (runs[i]!.getTime() - runs[i - 1]!.getTime() < minGapMs) return false;
     }
     return true;
   }

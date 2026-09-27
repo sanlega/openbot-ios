@@ -232,6 +232,8 @@ describe("approvals + chains (plan §4.7 safety)", () => {
       createdAt: now.toISOString(),
     };
     test.ctx.repos.approvals.create(approval);
+    const settled: Array<[string, string]> = [];
+    test.ctx.onApprovalResolved = (id, resolution) => settled.push([id, resolution]);
 
     const res = await app.inject({
       method: "POST",
@@ -239,6 +241,7 @@ describe("approvals + chains (plan §4.7 safety)", () => {
       payload: { resolution: "allow" },
     });
     expect(res.statusCode).toBe(200);
+    expect(settled).toEqual([[approval.id, "allow"]]);
 
     const events = test.ctx.eventBus.replaySince(0);
     expect(events.some((e) => e.type === "approval.resolved")).toBe(true);
@@ -289,5 +292,63 @@ describe("deferred capabilities return 501 with a clear reason instead of preten
       payload: {},
     });
     expect(res.statusCode).toBe(501);
+  });
+});
+
+describe("routes the UI depends on", () => {
+  it("GET /api/threads lists one DM thread per visible bot, with title and preview", async () => {
+    const { app } = await boot();
+    const created = (
+      await app.inject({
+        method: "POST",
+        url: "/api/bots",
+        payload: { name: "Helper", description: "helps" },
+      })
+    ).json<{ bot: { id: string }; thread: { id: string } }>();
+
+    const res = await app.inject({ method: "GET", url: "/api/threads" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json<{ threads: unknown[] }>().threads).toEqual([
+      expect.objectContaining({
+        id: created.thread.id,
+        botId: created.bot.id,
+        title: "Helper",
+        participantIds: [created.bot.id, "user"],
+      }),
+    ]);
+  });
+
+  it("PATCH /api/settings merges like PUT", async () => {
+    const { app } = await boot();
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/settings",
+      payload: { caps: { s2_newBotsPer24h: 5 } },
+    });
+    expect(res.statusCode).toBe(200);
+    const caps = res.json<{ settings: { caps: Record<string, number> } }>().settings.caps;
+    expect(caps.s2_newBotsPer24h).toBe(5);
+    expect(caps.s1_cosBotsCap).toBe(6);
+  });
+
+  it("POST /api/threads/:id/stop stops the thread's bot through the mailbox", async () => {
+    const { app, test } = await boot();
+    const created = (
+      await app.inject({ method: "POST", url: "/api/bots", payload: { name: "Helper" } })
+    ).json<{ bot: { id: string }; thread: { id: string } }>();
+    const stopped: string[] = [];
+    test.ctx.mailbox = {
+      enqueue: async () => ({ ok: true }),
+      stop: async () => ({ ok: true }),
+      steer: async () => ({ ok: true }),
+      stopBot: async (botId) => {
+        stopped.push(botId);
+        return { ok: true };
+      },
+    };
+
+    const res = await app.inject({ method: "POST", url: `/api/threads/${created.thread.id}/stop` });
+    expect(res.json()).toEqual({ ok: true });
+    expect(stopped).toEqual([created.bot.id]);
   });
 });

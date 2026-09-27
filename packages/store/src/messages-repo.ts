@@ -1,5 +1,5 @@
 import type { Message } from "@openbot/contracts";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte } from "drizzle-orm";
 import type { Db } from "./db.js";
 import { messages } from "./schema.js";
 
@@ -63,6 +63,23 @@ export class MessagesRepo {
       .limit(filter.limit ?? 200)
       .all();
     return rows.map(toMessage);
+  }
+
+  /** Proactive messages actually delivered at or after `since`, newest first (caps S4/S5, dedupe). */
+  listProactiveDeliveredSince(since: Date): Message[] {
+    return this.db
+      .select()
+      .from(messages)
+      .where(
+        and(
+          eq(messages.proactive, true),
+          eq(messages.delivery, "delivered"),
+          gte(messages.createdAt, since),
+        ),
+      )
+      .orderBy(desc(messages.createdAt))
+      .all()
+      .map(toMessage);
   }
 
   findByDedupeKey(dedupeKey: string, withinMs: number, now: Date): Message | undefined {

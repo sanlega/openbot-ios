@@ -47,3 +47,17 @@ describe("RouteChip", () => {
     expect(screen.getByText("88%")).toBeInTheDocument();
   });
 });
+
+describe("parseDigestText", () => {
+  it("reads the harness digest body into sections", async () => {
+    const { parseDigestText } = await import("../digest/DigestMessage.js");
+    const digest = parseDigestText(
+      "Daily digest\n\nHeld messages:\n- Research: still looking\n\nRoutine results:\n- Summary (done): ok",
+      "2026-09-27T18:00:00.000Z",
+    );
+    expect(digest.sections).toEqual([
+      { title: "Held messages", items: ["Research: still looking"] },
+      { title: "Routine results", items: ["Summary (done): ok"] },
+    ]);
+  });
+});

@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { Settings } from "@openbot/contracts";
 import type { CoreContext, SetupValidatorKind } from "../../context.js";
 import { requireAuth, requireOwner } from "../auth.js";
@@ -38,7 +38,8 @@ export function registerSettingsAndSetupRoutes(app: FastifyInstance, ctx: CoreCo
     return { settings: ctx.repos.settings.get() ?? defaultSettings(ctx) };
   });
 
-  app.put("/api/settings", async (request, reply) => {
+  // PUT and PATCH both merge the given fields into the current settings.
+  const updateSettings = async (request: FastifyRequest, reply: FastifyReply) => {
     if (!requireOwner(request, reply)) return;
     const body = parseOrReject(UpdateSettingsBody, request.body, reply);
     if (!body) return;
@@ -54,7 +55,9 @@ export function registerSettingsAndSetupRoutes(app: FastifyInstance, ctx: CoreCo
     ctx.repos.settings.upsert(next);
     await ctx.eventBus.publish({ type: "setup.changed", payload: { settings: next } });
     return { settings: next };
-  });
+  };
+  app.put("/api/settings", updateSettings);
+  app.patch("/api/settings", updateSettings);
 
   app.get("/api/setup", async (request, reply) => {
     if (!requireAuth(request, reply)) return;

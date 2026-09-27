@@ -61,6 +61,7 @@ export interface SpawnGateOptions {
   caps: CapCounterService;
   autonomyCaps: AutonomyCaps;
   thresholds?: SpawnThresholds;
+  /** Fixed evaluation time for tests; otherwise the caps service clock is read per evaluation. */
   now?: Date;
 }
 
@@ -69,14 +70,14 @@ export class SpawnGate {
   private readonly caps: CapCounterService;
   private readonly autonomyCaps: AutonomyCaps;
   private readonly thresholds: SpawnThresholds;
-  private readonly now: Date;
+  private readonly fixedNow?: Date;
 
   constructor(options: SpawnGateOptions) {
     this.decisions = options.decisions;
     this.caps = options.caps;
     this.autonomyCaps = options.autonomyCaps;
     this.thresholds = options.thresholds ?? DEFAULT_SPAWN_THRESHOLDS;
-    this.now = options.now ?? new Date();
+    this.fixedNow = options.now;
   }
 
   private rosterCriteria(roster: SpawnGateContext["roster"]): Record<string, string> {
@@ -105,7 +106,8 @@ export class SpawnGate {
       };
     }
 
-    const s3 = this.caps.checkSpawnCooldown(ctx.lastSpawnAt, this.autonomyCaps, this.now);
+    const now = this.fixedNow ?? this.caps.now();
+    const s3 = this.caps.checkSpawnCooldown(ctx.lastSpawnAt, this.autonomyCaps, now);
     if (!s3.ok) {
       return { allowed: false, reason: s3.reason!, suggestion: "cos_itself" };
     }

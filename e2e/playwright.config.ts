@@ -7,5 +7,10 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   use: {
     trace: "on-first-retry",
+    // Lets a machine with a preinstalled Chromium run the UI scenarios without
+    // `playwright install`.
+    launchOptions: process.env.OPENBOT_E2E_CHROMIUM
+      ? { executablePath: process.env.OPENBOT_E2E_CHROMIUM }
+      : {},
   },
 });

@@ -35,6 +35,17 @@ interface OpenBotContextValue {
   streamingText: (messageId: string) => string | undefined;
 }
 
+/** The route chip before any turn: the Bot's pin, or "auto" (Jev decides per turn). */
+function routePreview(routing: Bot["routing"]): RoutePreview {
+  const pinned = routing.mode === "pinned";
+  return {
+    engine: routing.engine ?? "auto",
+    model: routing.model ?? "auto",
+    effort: routing.effort,
+    confidence: pinned ? 1 : 0,
+  };
+}
+
 const OpenBotContext = createContext<OpenBotContextValue | null>(null);
 
 export function OpenBotProvider({ transport, children }: OpenBotProviderProps) {
@@ -55,10 +66,10 @@ export function OpenBotProvider({ transport, children }: OpenBotProviderProps) {
     for (const thread of threadsRes.threads) {
       const [msgRes, route] = await Promise.all([
         transport.get<{ messages: Message[] }>(`/api/threads/${thread.id}/messages`),
-        transport.get<RoutePreview>(`/api/bots/${thread.botId}/route`),
+        transport.get<{ routing: Bot["routing"] }>(`/api/bots/${thread.botId}/route`),
       ]);
       messages.push(...msgRes.messages);
-      routes[thread.botId] = route;
+      routes[thread.botId] = routePreview(route.routing);
     }
 
     dispatch({
@@ -106,13 +117,21 @@ export function OpenBotProvider({ transport, children }: OpenBotProviderProps) {
   const sendMessage = useCallback(
     async (text: string) => {
       if (!selectedThreadId) return;
-      wsRef.current?.send({ type: "message.send", threadId: selectedThreadId, text });
+      const botId = state.threads.get(selectedThreadId)?.botId;
+      if (!botId) return;
+      wsRef.current?.send({
+        command: "message.send",
+        payload: { botId, threadId: selectedThreadId, text },
+      });
     },
-    [selectedThreadId],
+    [selectedThreadId, state.threads],
   );
 
   const resolveApproval = useCallback((approvalId: string, resolution: "allow" | "deny") => {
-    wsRef.current?.send({ type: "approval.resolve", approvalId, resolution });
+    wsRef.current?.send({
+      command: "approval.resolve",
+      payload: { id: approvalId, resolution },
+    });
   }, []);
 
   const messagesForThread = useCallback(

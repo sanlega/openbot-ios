@@ -1,1 +1,1 @@
-export { startTestHarness, type TestHarness } from "./harness.js";
+export * from "./harness.js";

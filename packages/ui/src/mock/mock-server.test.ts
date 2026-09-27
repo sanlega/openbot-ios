@@ -27,12 +27,13 @@ describe("MockClientApiServer", () => {
 
   it("filters held activity", async () => {
     const res = await fetch(`${baseUrl}/api/activity?delivery=held`).then((r) => r.json());
-    expect(res.events.every((e: { delivery?: string }) => e.delivery === "held")).toBe(true);
+    expect(res.messages.length).toBeGreaterThan(0);
+    expect(res.messages.every((m: { delivery?: string }) => m.delivery === "held")).toBe(true);
   });
 
   it("returns audit entries", async () => {
     const res = await fetch(`${baseUrl}/api/audit`).then((r) => r.json());
-    expect(res.entries.length).toBeGreaterThan(0);
+    expect(res.approvals.length).toBeGreaterThan(0);
   });
 
   it("validates setup keys", async () => {
@@ -41,13 +42,13 @@ describe("MockClientApiServer", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kind: "typesafe", value: "short" }),
     }).then((r) => r.json());
-    expect(bad.ok).toBe(false);
+    expect(bad.result.ok).toBe(false);
 
     const ok = await fetch(`${baseUrl}/api/setup/validate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kind: "typesafe", value: "long-enough-key" }),
     }).then((r) => r.json());
-    expect(ok.ok).toBe(true);
+    expect(ok.result.ok).toBe(true);
   });
 });

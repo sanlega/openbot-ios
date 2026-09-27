@@ -104,6 +104,54 @@ describe("ThreadsRepo", () => {
 });
 
 describe("MessagesRepo", () => {
+  it("lists proactive delivered messages since a time", () => {
+    const db = useDb();
+    const bot = createBot(db);
+    const thread = { id: newId("thread"), botId: bot.id, kind: "dm" as const, createdAt: now() };
+    new ThreadsRepo(db).create(thread);
+    const repo = new MessagesRepo(db);
+    const base = {
+      threadId: thread.id,
+      author: { type: "bot" as const, id: bot.id },
+      attachments: [],
+      hop: 0,
+      proactive: true,
+      pushed: false,
+    };
+    repo.create({
+      ...base,
+      id: newId("message"),
+      text: "old",
+      createdAt: "2026-09-26T08:00:00.000Z",
+      delivery: "delivered",
+    });
+    repo.create({
+      ...base,
+      id: newId("message"),
+      text: "new",
+      createdAt: "2026-09-27T08:00:00.000Z",
+      delivery: "delivered",
+    });
+    repo.create({
+      ...base,
+      id: newId("message"),
+      text: "held",
+      createdAt: "2026-09-27T08:05:00.000Z",
+      delivery: "held",
+    });
+    repo.create({
+      ...base,
+      id: newId("message"),
+      text: "reply",
+      createdAt: "2026-09-27T08:06:00.000Z",
+      delivery: "delivered",
+      proactive: false,
+    });
+
+    const since = new Date("2026-09-27T00:00:00.000Z");
+    expect(repo.listProactiveDeliveredSince(since).map((m) => m.text)).toEqual(["new"]);
+  });
+
   it("round-trips a message and filters by delivery", () => {
     const db = useDb();
     const bot = createBot(db);
@@ -219,6 +267,9 @@ describe("TurnsRepo", () => {
     expect(fetched?.usage.inputTokens).toBe(10);
     expect(repo.listByChain(chainId)).toHaveLength(1);
     expect(repo.listByBot(bot.id)).toHaveLength(1);
+
+    repo.setSessionId(turn.id, "sess-42");
+    expect(repo.getById(turn.id)?.sessionId).toBe("sess-42");
   });
 });
 
@@ -450,6 +501,36 @@ describe("EngineSessionsRepo", () => {
     const touchedAt = new Date();
     repo.touch(session.id, touchedAt);
     expect(repo.getForBotAndEngine(bot.id, "claude")?.lastUsedAt).toBe(touchedAt.toISOString());
+  });
+
+  it("upserts one row per bot and engine, and deletes it", () => {
+    const db = useDb();
+    const bot = createBot(db);
+    const repo = new EngineSessionsRepo(db);
+    const first = new Date("2026-09-27T10:00:00.000Z");
+    const second = new Date("2026-09-27T11:00:00.000Z");
+
+    repo.upsert({
+      id: `${bot.id}:codex`,
+      botId: bot.id,
+      engine: "codex",
+      sessionId: "a",
+      at: first,
+    });
+    repo.upsert({
+      id: `${bot.id}:codex`,
+      botId: bot.id,
+      engine: "codex",
+      sessionId: "b",
+      at: second,
+    });
+
+    const stored = repo.getForBotAndEngine(bot.id, "codex");
+    expect(stored).toMatchObject({ sessionId: "b", createdAt: first.toISOString() });
+    expect(stored?.lastUsedAt).toBe(second.toISOString());
+
+    repo.deleteForBotAndEngine(bot.id, "codex");
+    expect(repo.getForBotAndEngine(bot.id, "codex")).toBeUndefined();
   });
 });
 

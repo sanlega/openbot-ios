@@ -123,6 +123,22 @@ describe("SpawnGate", () => {
     }
   });
 
+  it("measures the cooldown against the clock at evaluation time, not construction", async () => {
+    const clock = new FakeClock(new Date("2026-09-27T12:00:00Z"));
+    const gate = new SpawnGate({
+      decisions: new FakeDecisionService(),
+      caps: new CapCounterService(clock),
+      autonomyCaps: DEFAULT_AUTONOMY_CAPS,
+    });
+
+    clock.advance(2 * 60 * 60_000);
+    const result = await gate.evaluate(
+      baseContext({ lastSpawnAt: new Date("2026-09-27T13:50:00Z") }),
+    );
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) expect(result.reason).toContain("wait 20 min");
+  });
+
   it("refuses at roster cap S1", async () => {
     const gate = new SpawnGate({
       decisions: new FakeDecisionService(),

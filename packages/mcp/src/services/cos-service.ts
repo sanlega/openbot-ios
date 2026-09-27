@@ -1,12 +1,6 @@
 import { newId, type Bot } from "@openbot/contracts";
 import type { CoreContext } from "@openbot/core";
-import {
-  CapCounterService,
-  DEFAULT_AUTONOMY_CAPS,
-  NotifyGate,
-  SpawnGate,
-  justificationFromSpawn,
-} from "@openbot/cos";
+import { CapCounterService, NotifyGate, SpawnGate, justificationFromSpawn } from "@openbot/cos";
 import type { Runtime } from "@openbot/runtime";
 import type { CreateBotInput, MessageUserInput, SessionContext, ToolResult } from "../types.js";
 import { allowed, refused } from "../types.js";
@@ -35,7 +29,6 @@ export class McpCosServiceAdapter implements McpCosService {
 
     const roster = this.ctx.repos.bots.list();
     const cosCreated = roster.filter((b) => b.createdBy !== "user" && !b.archivedAt);
-    const daily = this.deps.caps.checkDailySpawnCap(DEFAULT_AUTONOMY_CAPS);
 
     const gateResult = await this.deps.spawnGate.evaluate({
       request: {
@@ -50,7 +43,8 @@ export class McpCosServiceAdapter implements McpCosService {
       roster,
       recentUserMessages: [],
       cosCreatedBotCount: cosCreated.length,
-      spawnsInLast24h: daily.count,
+      spawnsInLast24h: this.deps.caps.spawnsInLast24h(),
+      lastSpawnAt: this.deps.caps.lastSpawnAt(),
     });
 
     if (!gateResult.allowed) {
@@ -84,6 +78,7 @@ export class McpCosServiceAdapter implements McpCosService {
     };
 
     this.ctx.repos.bots.create(bot);
+    this.deps.caps.recordSpawn();
     this.ctx.repos.threads.create({
       id: newId("thread"),
       botId: bot.id,

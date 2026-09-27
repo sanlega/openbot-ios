@@ -106,6 +106,27 @@ describe("/api/ws", () => {
     secondSocket.close();
   });
 
+  it("events published after connecting but before subscribe arrive once, in order", async () => {
+    const { test, url } = await bootListening();
+    const socket = await connect(url);
+    const received = collectEvents(socket, 3);
+
+    const e1 = await test.ctx.eventBus.publish({ type: "bot.created", payload: { n: 1 } });
+    const e2 = await test.ctx.eventBus.publish({ type: "bot.created", payload: { n: 2 } });
+    socket.send(JSON.stringify({ type: "subscribe", since: -1 }));
+    await new Promise((r) => setTimeout(r, 50));
+    const e3 = await test.ctx.eventBus.publish({ type: "bot.updated", payload: { n: 3 } });
+
+    expect((await received).map((m) => m.event?.seq)).toEqual([e1.seq, e2.seq, e3.seq]);
+    // Nothing else (no duplicate) arrives afterwards.
+    const extra = await Promise.race([
+      collectEvents(socket, 1).then(() => "extra"),
+      new Promise((r) => setTimeout(() => r("none"), 200)),
+    ]);
+    expect(extra).toBe("none");
+    socket.close();
+  });
+
   it("rejects a connection from a non-loopback address with no device token (close code 4401)", async () => {
     // Can't spoof remoteAddress over a real TCP socket, so this exercises the
     // same `resolveDeviceIdentity` path the HTTP routes use, directly, to

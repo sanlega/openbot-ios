@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { DevicesResponse, PairQrResponse, RemoteStatusResponse } from "../../api/types.js";
+import { remoteStatusView, type HarnessRemoteStatus } from "../../api/adapters.js";
 import { useOpenBot } from "../../state/context.js";
 
 export function DevicesRemoteView() {
@@ -12,10 +13,10 @@ export function DevicesRemoteView() {
   const refresh = async () => {
     const [dev, rem] = await Promise.all([
       transport.get<DevicesResponse>("/api/devices"),
-      transport.get<RemoteStatusResponse>("/api/remote/status"),
+      transport.get<HarnessRemoteStatus>("/api/remote/status"),
     ]);
     setDevices(dev.devices);
-    setRemote(rem);
+    setRemote(remoteStatusView(rem));
   };
 
   useEffect(() => {
@@ -23,19 +24,15 @@ export function DevicesRemoteView() {
   }, [transport]);
 
   const showPairQr = async () => {
-    const res = await transport.get<PairQrResponse>("/api/devices/pair");
+    const res = await transport.post<PairQrResponse>("/api/devices/pair/qr");
     setPair(res);
   };
 
   const toggleTailscale = async () => {
     setBusy(true);
-    if (remote?.enabled) {
-      const res = await transport.post<RemoteStatusResponse>("/api/remote/tailscale/disable");
-      setRemote(res);
-    } else {
-      const res = await transport.post<RemoteStatusResponse>("/api/remote/tailscale/enable");
-      setRemote(res);
-    }
+    const action = remote?.enabled ? "disable" : "enable";
+    await transport.post(`/api/remote/tailscale/${action}`).catch(() => undefined);
+    await refresh();
     setBusy(false);
   };
 

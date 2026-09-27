@@ -229,3 +229,46 @@ describe("McpComposer", () => {
     expect(servers[0]?.env?.OPENBOT_COS_TOOLS).toBe("1");
   });
 });
+
+describe("dry-run tool calls", () => {
+  it("records side-effect tools as action.simulated and never runs routine tools", async () => {
+    const services = createFakeMcpServices();
+    harness = await createMcpTestHarness({ services });
+    const bot = makeBot({ name: "Planner", slug: "planner" });
+    harness.ctx.repos.bots.create(bot);
+    const token = issueToken(harness, bot, "dry_run");
+
+    const created = await harness.app.inject({
+      method: "POST",
+      url: "/internal/tools/create_routine",
+      headers: { "x-openbot-session": token },
+      payload: {
+        name: "Weekly report",
+        prompt: "email the report",
+        trigger: { type: "schedule", cron: "0 9 * * 1", timezone: "UTC", catchUp: "none" },
+      },
+    });
+    const sent = await harness.app.inject({
+      method: "POST",
+      url: "/internal/tools/message_user",
+      headers: { "x-openbot-session": token },
+      payload: { kind: "result", body: "report sent" },
+    });
+    const listed = await harness.app.inject({
+      method: "POST",
+      url: "/internal/tools/list_bots",
+      headers: { "x-openbot-session": token },
+      payload: {},
+    });
+
+    expect(created.json()).toEqual({ allowed: true, simulated: true });
+    expect(harness.ctx.repos.routines.list()).toEqual([]);
+    expect(sent.json<{ allowed: boolean }>().allowed).toBe(true);
+    expect(listed.json<{ allowed: boolean }>().allowed).toBe(true);
+    const simulated = harness.ctx.eventBus
+      .replaySince(0)
+      .filter((e) => e.type === "action.simulated")
+      .map((e) => e.payload.action);
+    expect(simulated).toEqual(["create_routine", "message_user"]);
+  });
+});

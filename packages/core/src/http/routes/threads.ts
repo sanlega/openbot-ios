@@ -5,6 +5,25 @@ import { ActivityQuery, MessagesQuery } from "../schemas.js";
 
 /** Threads, messages, and the activity log (plan §4.7). */
 export function registerThreadRoutes(app: FastifyInstance, ctx: CoreContext): void {
+  // One DM thread per visible Bot, shaped for the chat list (title, preview).
+  app.get("/api/threads", async (request, reply) => {
+    if (!requireAuth(request, reply)) return;
+    const threads = ctx.repos.bots.list().flatMap((bot) => {
+      const thread = ctx.repos.threads.getByBotId(bot.id);
+      if (!thread) return [];
+      const [last] = ctx.repos.messages.list({ threadId: thread.id, limit: 1 });
+      return [
+        {
+          ...thread,
+          participantIds: [bot.id, "user"],
+          title: bot.name,
+          lastMessagePreview: last?.text.slice(0, 80),
+        },
+      ];
+    });
+    return { threads };
+  });
+
   app.get("/api/threads/:id/messages", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
     const { id } = request.params as { id: string };
@@ -13,16 +32,16 @@ export function registerThreadRoutes(app: FastifyInstance, ctx: CoreContext): vo
     return { messages: ctx.repos.messages.list({ threadId: id, delivery: query.delivery }) };
   });
 
-  // Stopping the active turn/chain on a thread needs the mailbox (WS2). Until
-  // `CoreContext` gets a runtime hook, this just reports the deferral rather
-  // than silently no-op'ing.
+  // Stops the Bot's active turn and drops its queued ones (M1 "stop mid-turn").
   app.post("/api/threads/:id/stop", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
-    return reply.code(501).send({
-      error: "not_implemented",
-      reason:
-        "stopping an active turn needs the runtime mailbox (WS2), not wired into CoreContext yet",
-    });
+    const { id } = request.params as { id: string };
+    const thread = ctx.repos.threads.getById(id);
+    if (!thread) return reply.code(404).send({ error: "not_found" });
+    if (!ctx.mailbox) {
+      return reply.code(501).send({ error: "not_implemented", reason: "turn mailbox not wired" });
+    }
+    return ctx.mailbox.stopBot(thread.botId);
   });
 
   app.get("/api/activity", async (request, reply) => {

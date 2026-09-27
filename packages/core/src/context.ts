@@ -79,12 +79,24 @@ export type SetupValidator = (value?: string) => Promise<{ ok: boolean; reason?:
 export interface TurnMailbox {
   enqueue(input: {
     botId: string;
-    threadId: string;
-    chainId: string;
+    /** The Bot's DM thread; defaults to it, and must match it when given. */
+    threadId?: string;
+    /** Continues this chain when it exists; otherwise a new live chain starts. */
+    chainId?: string;
     text: string;
-    engine: "claude" | "codex" | "fake";
-  }): Promise<{ ok: boolean; reason?: string }>;
+    /** Explicit engine override (the route chip); otherwise the Bot's pin or Jev's route. */
+    engine?: EngineId;
+  }): Promise<{
+    ok: boolean;
+    reason?: string;
+    chainId?: string;
+    messageId?: string;
+    engine?: EngineId;
+    model?: string;
+  }>;
   stop(turnId: string): Promise<{ ok: boolean; reason?: string }>;
+  /** Stops the Bot's active turn, if any, and drops its queued turns. */
+  stopBot(botId: string): Promise<{ ok: boolean; reason?: string }>;
   steer(turnId: string, text: string): Promise<{ ok: boolean; reason?: string }>;
 }
 
@@ -120,6 +132,12 @@ export interface CoreContext {
   routineOrchestrator?: RoutineOrchestratorLike;
   /** Wired in by WS13; turn enqueue/stop/steer for Client API WebSocket. */
   mailbox?: TurnMailbox;
+  /**
+   * Wired in by WS13: told when a user resolves an approval card over HTTP or
+   * WS (after the store and event are updated), so the waiting turn or tool
+   * call continues instead of timing out.
+   */
+  onApprovalResolved?: (approvalId: string, resolution: "allow" | "deny") => void;
   /** Wired in by WS13 bootstrap; populated for `/api/engines` and routing. */
   availableEngines?: EngineId[];
   engineStatuses?: Partial<Record<EngineId, EngineStatus>>;

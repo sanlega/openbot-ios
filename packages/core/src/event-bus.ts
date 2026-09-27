@@ -40,6 +40,11 @@ export class EventBus {
     return this.store.listSince(since);
   }
 
+  /** Cursor for a later {@link replaySince}: events are durable as soon as `publish()` is called. */
+  latestSeq(): number {
+    return this.store.latestSeq();
+  }
+
   get subscriberCount(): number {
     return this.subscribers.size;
   }

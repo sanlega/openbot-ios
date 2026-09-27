@@ -1,19 +1,27 @@
 import type { Approval, Chain, ComputerProvider, Message, Rule, Turn } from "@openbot/contracts";
 import { newId, type Clock } from "@openbot/contracts";
 import { wireConnectors } from "@openbot/connectors";
-import type { CoreContext, TurnMailbox } from "@openbot/core";
+import type { CoreContext } from "@openbot/core";
 import {
   CapCounterService,
   DEFAULT_AUTONOMY_CAPS,
-  DigestService,
   NotifyGate as CosNotifyGate,
   SpawnGate,
   type AutonomyCaps,
 } from "@openbot/cos";
-import { createMcpServices, integrateMcp } from "@openbot/mcp";
+import {
+  createMcpServices,
+  integrateMcp,
+  type McpToolServices,
+  type SessionTokenService,
+} from "@openbot/mcp";
 import { getPwaStaticRoot } from "@openbot/pwa";
 import { attachRemoteServices, registerRemoteIntegration } from "@openbot/remote";
-import { integrateRoutines, RoutineRuntimeAdapter } from "@openbot/routines";
+import {
+  applyRoutineLiveApproval,
+  integrateRoutines,
+  RoutineRuntimeAdapter,
+} from "@openbot/routines";
 import {
   createRuntime,
   type ApprovalStore,
@@ -29,7 +37,9 @@ import {
   type TurnStore,
 } from "@openbot/runtime";
 import type { FastifyInstance } from "fastify";
+import { postDigestIfDue } from "./digest.js";
 import { bootstrapProviders } from "./providers.js";
+import { createTurnBuilder, createTurnMailbox, RepoSessionStore } from "./turn-mailbox.js";
 
 export interface BootstrapOptions {
   computerProvider?: ComputerProvider;
@@ -39,7 +49,7 @@ export interface BootstrapResult {
   runtime: Runtime;
   orchestrator: Awaited<ReturnType<typeof integrateRoutines>>["orchestrator"];
   mcpServices: ReturnType<typeof createMcpServices>;
-  digest: DigestService;
+  digest: { stop: () => void };
   availableEngines: string[];
 }
 
@@ -51,15 +61,23 @@ export async function bootstrapHarness(
   const providers = await bootstrapProviders(ctx);
   ctx.decisionService = providers.decisionService;
 
+  // One shared object: the gates and prompts read it on every call, and it is
+  // refreshed in place when the user changes settings, so no restart is needed.
   const autonomyCaps = loadAutonomyCaps(ctx);
+  ctx.eventBus.subscribe((event) => {
+    if (event.type === "setup.changed") Object.assign(autonomyCaps, loadAutonomyCaps(ctx));
+  });
   const caps = new CapCounterService(ctx.clock);
+  // S2/S3 hold across restarts: replay the CoS's past spawns (a spawned Bot's
+  // DM thread is created with it).
+  for (const at of cosSpawnTimes(ctx)) caps.recordSpawn(at);
   const spawnGate = new SpawnGate({ decisions: providers.decisionService, caps, autonomyCaps });
   const cosNotifyGate = new CosNotifyGate({
     decisions: providers.decisionService,
     caps,
     autonomyCaps,
   });
-  const runtimeNotify = new CosNotifyGateAdapter(ctx, cosNotifyGate, caps, autonomyCaps);
+  const runtimeNotify = new CosNotifyGateAdapter(ctx, cosNotifyGate, autonomyCaps);
 
   const events = createCoreEventSink(ctx);
   const runtime = createRuntime({
@@ -73,24 +91,34 @@ export async function bootstrapHarness(
     approvalStore: new RepoApprovalStore(ctx),
     turnStore: new RepoTurnStore(ctx),
     ruleStore: new RepoRuleStore(ctx),
+    sessionStore: new RepoSessionStore(ctx),
   });
 
-  ctx.mailbox = createTurnMailbox(ctx, runtime);
+  // Filled once `integrateMcp` has run below; turns read it lazily.
+  const mcp: {
+    current?: { tokens: SessionTokenService; connectors: McpToolServices["connectors"] };
+  } = {};
+  const turnDeps = {
+    runtime,
+    drivers: providers.drivers,
+    autonomyCaps,
+    caps,
+    mcp: () => mcp.current,
+  };
+  const buildTurn = createTurnBuilder(ctx, turnDeps);
+  ctx.mailbox = createTurnMailbox(ctx, turnDeps, buildTurn);
+  ctx.onApprovalResolved = (approvalId, resolution) => {
+    runtime.broker.settleResolved(approvalId, resolution);
+    applyRoutineLiveApproval(ctx, approvalId, resolution);
+  };
   ctx.computerProvider = options.computerProvider ?? providers.computerProvider;
 
   await wireConnectors(ctx);
   await attachRemoteServices(ctx);
   await registerRemoteIntegration(app, ctx, getPwaStaticRoot());
 
-  const digest = new DigestService({
-    clock: ctx.clock,
-    onDigest: (body) => {
-      void ctx.eventBus.publish({ type: "digest.posted", payload: { body } });
-    },
-  });
-
   const { orchestrator } = await integrateRoutines(app, ctx, {
-    runtime: new RoutineRuntimeAdapter(runtime, ctx),
+    runtime: new RoutineRuntimeAdapter(runtime, ctx, buildTurn),
   });
 
   const mcpServices = createMcpServices(ctx, {
@@ -100,9 +128,15 @@ export async function bootstrapHarness(
     caps,
     orchestrator,
   });
-  await integrateMcp(app, ctx, { services: mcpServices });
+  const { tokens } = await integrateMcp(app, ctx, { services: mcpServices });
+  mcp.current = { tokens, connectors: mcpServices.connectors };
 
-  digest.start();
+  // Checked every minute; posts at most once a day, at the digest hour.
+  const digestTimer = setInterval(() => {
+    void postDigestIfDue(ctx, autonomyCaps).catch(() => undefined);
+  }, 60_000);
+  digestTimer.unref?.();
+  const digest = { stop: () => clearInterval(digestTimer) };
   return {
     runtime,
     orchestrator,
@@ -110,6 +144,16 @@ export async function bootstrapHarness(
     digest,
     availableEngines: providers.availableEngines,
   };
+}
+
+function cosSpawnTimes(ctx: CoreContext): Date[] {
+  return ctx.repos.bots
+    .list({ includeHidden: true, includeArchived: true })
+    .filter((bot) => bot.createdBy !== "user")
+    .map((bot) => ctx.repos.threads.getByBotId(bot.id)?.createdAt)
+    .filter((at): at is string => Boolean(at))
+    .map((at) => new Date(at))
+    .sort((a, b) => a.getTime() - b.getTime());
 }
 
 function loadAutonomyCaps(ctx: CoreContext): AutonomyCaps {
@@ -163,86 +207,30 @@ function createCoreEventSink(ctx: CoreContext): EventSink {
   };
 }
 
-function createTurnMailbox(ctx: CoreContext, runtime: Runtime): TurnMailbox {
-  return {
-    enqueue: async (input: {
-      botId: string;
-      threadId: string;
-      chainId: string;
-      text: string;
-      engine: "claude" | "codex" | "fake";
-    }) => {
-      const bot = ctx.repos.bots.getById(input.botId);
-      if (!bot) return { ok: false, reason: `unknown bot ${input.botId}` };
-
-      let chainId = input.chainId;
-      if (!ctx.repos.chains.getById(chainId)) {
-        const chain = runtime.chains.create({ origin: "user", mode: "live" });
-        chainId = chain.id;
-        ctx.repos.chains.create(chain);
-      }
-
-      void runtime.mailbox.submit({
-        bot,
-        text: input.text,
-        attachments: [],
-        systemPrompt: bot.description,
-        cwd: ctx.config.workspaceDir,
-        addDirs: [],
-        auth: { mode: "api_key", env: {} },
-        mcpServers: [],
-        permission: bot.permissionPreset,
-        allowTools: [],
-        denyTools: [],
-        model: bot.routing.model ?? "fake-default",
-        limits: { maxSteps: 50 },
-        engine: input.engine,
-        chainId,
-        threadId: input.threadId,
-      });
-      return { ok: true };
-    },
-    stop: async (turnId: string) => {
-      const turn = ctx.repos.turns.getById(turnId);
-      if (!turn) return { ok: false, reason: "turn not found" };
-      await runtime.mailbox.stop(turn.botId);
-      return { ok: true };
-    },
-    steer: async (turnId: string, text: string) => {
-      const turn = ctx.repos.turns.getById(turnId);
-      if (!turn) return { ok: false, reason: "turn not found" };
-      try {
-        await runtime.mailbox.steer(turn.botId, text);
-        return { ok: true };
-      } catch (error) {
-        return { ok: false, reason: String(error) };
-      }
-    },
-  };
-}
-
 class CosNotifyGateAdapter implements RuntimeNotifyGate {
   constructor(
     private readonly ctx: CoreContext,
     private readonly gate: CosNotifyGate,
-    private readonly caps: CapCounterService,
     private readonly autonomyCaps: AutonomyCaps,
   ) {}
 
   async notify(req: NotifyRequest): Promise<NotifyResult> {
     const now = this.ctx.clock.now();
     const settings = this.ctx.repos.settings.get();
+    // S4/S5 and dedupe are counted from what was actually delivered, in rolling
+    // windows, so they hold across restarts.
+    const windowHours = Math.max(24, this.autonomyCaps.dedupeWindowHours);
     const recentDelivered = this.ctx.repos.messages
-      .list({ delivery: "delivered", limit: 50 })
-      .filter((message) => message.proactive)
+      .listProactiveDeliveredSince(new Date(now.getTime() - windowHours * 3_600_000))
       .map((message) => ({
         dedupeKey: message.dedupeKey,
         body: message.text,
         botId: message.author.id ?? req.botId,
         at: new Date(message.createdAt),
       }));
+    const since = (ms: number) => (m: { at: Date }) => now.getTime() - m.at.getTime() < ms;
+    const fromBot = recentDelivered.filter((m) => m.botId === req.botId);
 
-    const lastFromBot = recentDelivered.find((message) => message.botId === req.botId);
     const result = await this.gate.evaluate({
       botId: req.botId,
       message: {
@@ -253,10 +241,10 @@ class CosNotifyGateAdapter implements RuntimeNotifyGate {
         dedupeKey: req.dedupeKey ?? `${req.botId}:${req.kind}:${req.body.slice(0, 32)}`,
       },
       recentDelivered,
-      proactiveCountBotHour: this.caps.peek("notify", `${req.botId}:hour`, 3600),
-      proactiveCountBotDay: this.caps.peek("notify", `${req.botId}:day`, 86_400),
-      proactiveCountGlobalHour: this.caps.peek("notify", "global:hour", 3600),
-      lastMessageFromBotAt: lastFromBot?.at,
+      proactiveCountBotHour: fromBot.filter(since(3_600_000)).length,
+      proactiveCountBotDay: fromBot.filter(since(86_400_000)).length,
+      proactiveCountGlobalHour: recentDelivered.filter(since(3_600_000)).length,
+      lastMessageFromBotAt: fromBot[0]?.at,
       quietHours: settings?.quietHours ?? this.autonomyCaps.quietHours,
       now,
     });
@@ -264,47 +252,34 @@ class CosNotifyGateAdapter implements RuntimeNotifyGate {
     if (!result.allowed) {
       return { delivery: "held", pushed: false };
     }
-
-    const outcome = result.details?.outcome ?? "delivered";
-    const push = result.details?.push ?? false;
-    if (outcome === "delivered") {
-      this.caps.checkAndIncrement(
-        "notify",
-        `${req.botId}:hour`,
-        3600,
-        this.autonomyCaps.proactivePerBotHour,
-      );
-      this.caps.checkAndIncrement(
-        "notify",
-        `${req.botId}:day`,
-        86_400,
-        this.autonomyCaps.proactivePerBotDay,
-      );
-      this.caps.checkAndIncrement(
-        "notify",
-        "global:hour",
-        3600,
-        this.autonomyCaps.proactiveGlobalHour,
-      );
-    }
-
     return {
-      delivery: outcome,
-      pushed: push,
+      delivery: result.details?.outcome ?? "delivered",
+      pushed: result.details?.push ?? false,
       notifyDecisionId: result.decisionId,
     };
   }
 }
 
-class RepoChainStore implements ChainStore {
+export class RepoChainStore implements ChainStore {
   constructor(private readonly ctx: CoreContext) {}
 
   save(chain: Chain): void {
-    if (!this.ctx.repos.chains.getById(chain.id)) {
+    const stored = this.ctx.repos.chains.getById(chain.id);
+    if (!stored) {
       this.ctx.repos.chains.create(chain);
       return;
     }
     this.ctx.repos.chains.setStatus(chain.id, chain.status);
+    // The chain manager saves whole chains; persist its counters too, or the
+    // chain limits (turns, hops, spend) would never see them grow.
+    this.ctx.repos.chains.incrementCounters(chain.id, {
+      botMessages: chain.botMessages - stored.botMessages,
+      turns: chain.turns - stored.turns,
+      usd: chain.usd - stored.usd,
+      tokens: chain.tokens - stored.tokens,
+      computerSteps: chain.computerSteps - stored.computerSteps,
+      wallMin: chain.wallMin - stored.wallMin,
+    });
   }
 
   get(id: string): Chain | undefined {
@@ -316,7 +291,7 @@ class RepoChainStore implements ChainStore {
   }
 }
 
-class RepoMessageStore implements MessageStore {
+export class RepoMessageStore implements MessageStore {
   constructor(private readonly ctx: CoreContext) {}
 
   create(input: Omit<Message, "id" | "createdAt">): Message {
@@ -379,7 +354,7 @@ class RepoApprovalStore implements ApprovalStore {
   }
 }
 
-class RepoTurnStore implements TurnStore {
+export class RepoTurnStore implements TurnStore {
   constructor(private readonly ctx: CoreContext) {}
 
   create(input: Omit<Turn, "id" | "createdAt" | "usage" | "status"> & { id?: string }): Turn {
@@ -398,6 +373,7 @@ class RepoTurnStore implements TurnStore {
     if (patch.status || patch.usage) {
       this.ctx.repos.turns.updateStatus(id, patch.status ?? "running", patch.usage);
     }
+    if (patch.sessionId) this.ctx.repos.turns.setSessionId(id, patch.sessionId);
     const turn = this.ctx.repos.turns.getById(id);
     if (!turn) throw new Error(`TurnStore: unknown turn ${id}`);
     return { ...turn, ...patch };

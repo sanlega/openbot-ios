@@ -4,17 +4,42 @@ import { useOpenBot } from "../../state/context.js";
 
 interface DigestMessageProps {
   postedAt?: string;
+  /** The digest message's text, as the harness posts it; without it, the latest digest is fetched. */
+  text?: string;
 }
 
-export function DigestMessage({ postedAt }: DigestMessageProps) {
+/**
+ * Parses the harness digest body ("Daily digest", then "Title:" lines each
+ * followed by "- item" lines) into sections.
+ */
+export function parseDigestText(text: string, postedAt: string): DigestContent {
+  const sections: DigestContent["sections"] = [];
+  for (const raw of text.split("\n").slice(1)) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (line.startsWith("- ")) {
+      if (sections.length === 0) sections.push({ title: "Summary", items: [] });
+      sections[sections.length - 1]!.items.push(line.slice(2));
+    } else if (line.endsWith(":")) {
+      sections.push({ title: line.slice(0, -1), items: [] });
+    } else {
+      sections.push({ title: "Summary", items: [line] });
+    }
+  }
+  return { id: `digest_${postedAt}`, postedAt, sections };
+}
+
+export function DigestMessage({ postedAt, text }: DigestMessageProps) {
   const { transport } = useOpenBot();
-  const [digest, setDigest] = useState<DigestContent | null>(null);
+  const [fetched, setFetched] = useState<DigestContent | null>(null);
+  const digest = text ? parseDigestText(text, postedAt ?? new Date().toISOString()) : fetched;
 
   useEffect(() => {
+    if (text) return;
     void transport
       .get<{ digest: DigestContent | null }>("/api/digest")
-      .then((r) => setDigest(r.digest));
-  }, [transport]);
+      .then((r) => setFetched(r.digest));
+  }, [transport, text]);
 
   if (!digest) return <div className="message-bubble">Loading digest…</div>;
 

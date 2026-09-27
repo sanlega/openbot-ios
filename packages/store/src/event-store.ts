@@ -1,5 +1,5 @@
 import { newId, type OBEvent } from "@openbot/contracts";
-import { eq, gt } from "drizzle-orm";
+import { eq, gt, sql } from "drizzle-orm";
 import type { Db } from "./db.js";
 import { events } from "./schema.js";
 
@@ -35,6 +35,15 @@ export class EventStore {
   listSince(since: number): OBEvent[] {
     const rows = this.db.select().from(events).where(gt(events.seq, since)).all();
     return rows.map(toOBEvent);
+  }
+
+  /** Highest seq appended so far (0 when empty): a cursor for a later `listSince`. */
+  latestSeq(): number {
+    const row = this.db
+      .select({ seq: sql<number | null>`max(${events.seq})` })
+      .from(events)
+      .get();
+    return row?.seq ?? 0;
   }
 
   getBySeq(seq: number): OBEvent | undefined {

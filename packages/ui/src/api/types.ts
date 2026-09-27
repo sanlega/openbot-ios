@@ -161,7 +161,8 @@ export interface ComputerTaskView {
   goal: string;
   status: string;
   steps: number;
-  timeline: Array<{ ts: string; op: string; detail: string }>;
+  /** Not reported by the harness yet. */
+  timeline?: Array<{ ts: string; op: string; detail: string }>;
 }
 
 export interface ComputerTasksResponse {
@@ -175,7 +176,7 @@ export interface RoutineRunView {
   status: string;
   startedAt?: string;
   endedAt?: string;
-  usage: { usd: number; tokens: number };
+  usage: { usd: number; inputTokens: number; outputTokens: number };
   resultSummary?: string;
   plannedActions?: string[];
   skipReason?: string;
