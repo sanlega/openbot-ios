@@ -115,6 +115,8 @@ export class FakeEngineDriver implements EngineDriver {
         }
       }
 
+      await this.runDirectives(input, hooks, sessionId, () => interrupted);
+
       const replyText = interrupted
         ? "(interrupted before replying)"
         : [this.nextReply(), ...steeredTexts.map((t) => `(steered: ${t})`)].join(" ");
@@ -149,6 +151,59 @@ export class FakeEngineDriver implements EngineDriver {
     };
   }
 
+  /**
+   * Scripted tool use for E2E tests, one directive per line of the user text:
+   * `@tool <name> <json>` calls an OpenBot MCP tool through the `openbot`
+   * server injected for the turn (as a real engine's MCP client would), and
+   * `@approve <tool> <json>` asks permission for an engine-native tool.
+   */
+  private async runDirectives(
+    input: TurnInput,
+    hooks: TurnHooks,
+    sessionId: string,
+    isInterrupted: () => boolean,
+  ): Promise<void> {
+    const directives = parseDirectives(input.text);
+    for (const [index, directive] of directives.entries()) {
+      if (isInterrupted()) return;
+      const toolUseId = `${sessionId}_directive_${index}`;
+      if (directive.kind === "approve") {
+        await hooks.requestApproval({ toolName: directive.name, input: directive.args, toolUseId });
+        continue;
+      }
+      // Named like Claude reports MCP tools, so the runtime treats it as an MCP call.
+      const toolName = `mcp__openbot__${directive.name}`;
+      hooks.emit({ type: "tool_started", toolName, input: directive.args, toolUseId });
+      const server = input.mcpServers.find((s) => s.name === "openbot");
+      let output: unknown;
+      let isError: boolean;
+      if (!server?.env?.OPENBOT_API_URL || !server.env.OPENBOT_SESSION_TOKEN) {
+        output = { error: "no openbot MCP server for this turn" };
+        isError = true;
+      } else {
+        try {
+          const res = await fetch(
+            `${server.env.OPENBOT_API_URL}/internal/tools/${directive.name}`,
+            {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                "x-openbot-session": server.env.OPENBOT_SESSION_TOKEN,
+              },
+              body: JSON.stringify(directive.args),
+            },
+          );
+          output = await res.json();
+          isError = !res.ok;
+        } catch (error) {
+          output = { error: String(error) };
+          isError = true;
+        }
+      }
+      hooks.emit({ type: "tool_completed", toolUseId, output, isError });
+    }
+  }
+
   async dispose(): Promise<void> {
     this.disposed = true;
   }
@@ -156,4 +211,26 @@ export class FakeEngineDriver implements EngineDriver {
   get isDisposed(): boolean {
     return this.disposed;
   }
+}
+
+interface Directive {
+  kind: "tool" | "approve";
+  name: string;
+  args: Record<string, unknown>;
+}
+
+function parseDirectives(text: string): Directive[] {
+  const directives: Directive[] = [];
+  for (const line of text.split("\n")) {
+    const match = /^@(tool|approve)\s+([\w.-]+)\s*(\{.*\})?\s*$/.exec(line.trim());
+    if (!match) continue;
+    let args: Record<string, unknown>;
+    try {
+      args = match[3] ? (JSON.parse(match[3]) as Record<string, unknown>) : {};
+    } catch {
+      continue;
+    }
+    directives.push({ kind: match[1] as Directive["kind"], name: match[2]!, args });
+  }
+  return directives;
 }

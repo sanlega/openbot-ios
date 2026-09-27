@@ -55,6 +55,40 @@ test.describe("M1 One bot on desktop (fake engine and Jev)", () => {
     }
   });
 
+  test("the engine's own tool waits on the card during a chat turn", async () => {
+    const harness = await startTestHarness();
+    try {
+      const { bot, thread } = await createBot(harness, {
+        name: "Shell Bot",
+        description: "runs commands",
+        routing: { mode: "pinned", engine: "fake" },
+      });
+      const ws = await connectWs(harness);
+      const sent = await ws.command("message.send", {
+        botId: bot.id,
+        text: 'clean the build folder\n@approve Bash {"command":"rm -rf build"}',
+      });
+      expect(sent.ok).toBe(true);
+
+      const card = await eventually(async () => {
+        const res = await api<{ approvals: Array<{ id: string; botId: string }> }>(
+          harness,
+          "/api/approvals?status=pending",
+        );
+        return res.body.approvals.find((a) => a.botId === bot.id);
+      });
+      // The turn is blocked on the card until the user answers.
+      const stillRunning = await api<ThreadMessages>(harness, `/api/threads/${thread.id}/messages`);
+      expect(stillRunning.body.messages.map((m) => m.author.type)).toEqual(["user"]);
+
+      await ws.command("approval.resolve", { id: card.id, resolution: "allow" });
+      await ws.waitForEvent((e) => e.type === "turn.completed" && e.botId === bot.id);
+      ws.close();
+    } finally {
+      await harness.close();
+    }
+  });
+
   test("a file write waits on an approval card: deny, then allow", async () => {
     const harness = await startTestHarness();
     try {
