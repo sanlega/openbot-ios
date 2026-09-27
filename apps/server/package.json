@@ -18,6 +18,7 @@
     "@openbot/contracts": "workspace:*",
     "@openbot/core": "workspace:*",
     "@openbot/mcp": "workspace:*",
+    "@openbot/routines": "workspace:*",
     "fastify": "5.12.5"
   },
   "devDependencies": {

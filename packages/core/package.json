@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@openbot/decisions": "workspace:*",
+    "@openbot/routines": "workspace:*",
     "@openbot/testkit": "workspace:*",
     "@types/node": "22.20.4",
     "@types/ws": "8.18.1",

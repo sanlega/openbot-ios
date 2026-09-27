@@ -109,18 +109,24 @@ export function registerRoutineRoutes(app: FastifyInstance, ctx: CoreContext): v
     return { routine: ctx.repos.routines.getById(id) };
   });
 
-  // Actually running a routine (live or dry-run) needs WS12's scheduler/
-  // orchestrator to build a chain and drive an engine turn.
   app.post("/api/routines/:id/run", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
-    if (!ctx.repos.routines.getById((request.params as { id: string }).id)) {
+    const { id } = request.params as { id: string };
+    if (!ctx.repos.routines.getById(id)) {
       return reply.code(404).send({ error: "not_found" });
     }
     const body = parseOrReject(RunRoutineBody, request.body ?? {}, reply);
     if (!body) return;
-    return reply
-      .code(501)
-      .send({ error: "not_implemented", reason: "routine orchestration not wired yet (WS12)" });
+    if (!ctx.routineOrchestrator) {
+      return reply
+        .code(501)
+        .send({ error: "not_implemented", reason: "routine orchestration not wired yet (WS12)" });
+    }
+    const result = await ctx.routineOrchestrator.queueRun(id, "manual", { dryRun: body.dryRun });
+    if ("skipped" in result) {
+      return reply.code(409).send({ error: "skipped", reason: result.reason });
+    }
+    return { run: result };
   });
 
   app.get("/api/routines/:id/runs", async (request, reply) => {

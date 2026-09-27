@@ -20,6 +20,7 @@
     "@modelcontextprotocol/sdk": "1.12.1",
     "@openbot/contracts": "workspace:*",
     "@openbot/core": "workspace:*",
+    "@openbot/routines": "workspace:*",
     "@openbot/store": "workspace:*",
     "fastify": "5.12.5",
     "ulid": "3.0.2",

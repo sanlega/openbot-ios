@@ -15,6 +15,9 @@ export type {
   ToolRefusal,
   ToolResult,
   ToolSuccess,
+  CreateRoutineInput,
+  UpdateRoutineInput,
+  RunRoutineInput,
 } from "./types.js";
 export { allowed, refused } from "./types.js";
 export type {
@@ -26,3 +29,4 @@ export type {
   McpConnectorComposer,
 } from "./services/interfaces.js";
 export { createFakeMcpServices } from "./services/fakes.js";
+export { McpRoutineServiceAdapter } from "./services/routine-service.js";

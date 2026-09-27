@@ -21,6 +21,7 @@ export {
   type CreateCoreContextOptions,
   type SetupValidator,
   type SetupValidatorKind,
+  type RoutineOrchestratorLike,
 } from "./context.js";
 export { EventBus, type PublishInput } from "./event-bus.js";
 export { NdjsonWriter, NullNdjsonWriter } from "./ndjson-writer.js";

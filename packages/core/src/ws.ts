@@ -83,7 +83,7 @@ async function handleCommand(
   ctx: CoreContext,
   command: RunCommand,
   role: "owner" | "approver",
-): Promise<{ ok: boolean; reason?: string }> {
+): Promise<{ ok: boolean; reason?: string; runId?: string }> {
   if (command.command === "approval.resolve") {
     const id = command.payload?.id;
     const resolution = command.payload?.resolution;
@@ -103,9 +103,27 @@ async function handleCommand(
     return { ok: true };
   }
 
+  if (command.command === "routine.run") {
+    const routineId = command.payload?.routineId;
+    const dryRun = command.payload?.dryRun;
+    if (typeof routineId !== "string") {
+      return { ok: false, reason: "expected { routineId: string, dryRun?: boolean }" };
+    }
+    if (!ctx.routineOrchestrator) {
+      return { ok: false, reason: "routine orchestrator not wired (WS12)" };
+    }
+    const result = await ctx.routineOrchestrator.queueRun(routineId, "manual", {
+      dryRun: typeof dryRun === "boolean" ? dryRun : undefined,
+    });
+    if ("skipped" in result) {
+      return { ok: false, reason: result.reason };
+    }
+    return { ok: true, runId: result.id };
+  }
+
   void role;
   return {
     ok: false,
-    reason: `${command.command} needs the runtime (WS2/WS12), not wired into CoreContext yet`,
+    reason: `${command.command} needs the runtime (WS2), not wired into CoreContext yet`,
   };
 }

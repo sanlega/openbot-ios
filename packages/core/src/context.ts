@@ -1,5 +1,5 @@
 import { mkdir } from "node:fs/promises";
-import type { Clock, ComputerProvider, DecisionService } from "@openbot/contracts";
+import type { Clock, ComputerProvider, DecisionService, RoutineRun, RoutineRunCause } from "@openbot/contracts";
 import { systemClock } from "@openbot/contracts";
 import {
   ApprovalsRepo,
@@ -89,6 +89,17 @@ export interface CoreContext {
   computerProvider?: ComputerProvider;
   /** Setup-wizard validators for engine/connector/remote kinds; WS3/WS10/WS11 register theirs at boot. */
   validators: Partial<Record<SetupValidatorKind, SetupValidator>>;
+  /** Wired in by WS12; routine run/webhook/scheduler orchestration. */
+  routineOrchestrator?: RoutineOrchestratorLike;
+}
+
+/** Minimal WS12 surface exposed on CoreContext to avoid a core↔routines import cycle. */
+export interface RoutineOrchestratorLike {
+  queueRun(
+    routineId: string,
+    cause: RoutineRunCause,
+    opts?: { dryRun?: boolean; test?: boolean },
+  ): Promise<RoutineRun | { skipped: true; reason: string }>;
 }
 
 export interface CreateCoreContextOptions {
