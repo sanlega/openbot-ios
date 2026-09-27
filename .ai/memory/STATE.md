@@ -1,15 +1,14 @@
 # Estado actual
 
-_Última actualización: 2026-09-27 por cursor_
+_Última actualización: 2026-09-27 por cursor (CI fixes)_
 
 ## En curso
-- Rama `cursor/metaharness-bootstrap-8d1e` (PR 1 aún sin abrir, ver Bloqueos):
-  bootstrap de metaharness (`ADAPTERS="agents claude"`, contexto en inglés) +
-  herramientas del monorepo (pnpm 10 + Node 22, TypeScript 6.0.3, ESLint flat
-  config, Prettier, Vitest, CI de 3 SO). Plan copiado a
-  `.ai/memory/plans/openbot-v1.md`; decisiones D-001..D-014 registradas.
-- Rama `cursor/ws0-contracts-store-fakes-8d1e` (apilada sobre la anterior; PR 2
-  aún sin abrir, ver Bloqueos), WS0 en curso:
+- PR #1 (`cursor/metaharness-bootstrap-8d1e` → `main`): CI verde en las 3 SO
+  (fix: `.gitattributes` + Prettier `endOfLine: lf` para evitar fallos CRLF en
+  Windows).
+- PR #2 (`cursor/ws0-contracts-store-fakes-8d1e` → PR #1): CI verde en las 3 SO
+  (fix: build de `@openbot/contracts` antes de `typecheck`; matrix Windows
+  `windows-2022` + `npm_config_msvs_version=2022` para `better-sqlite3`).
   - `packages/contracts` ✅: zod para todas las entidades del plan §4.1, el
     contrato de eventos §4.2 (`OBEvent`/`EventType`, 58 tipos con un fixture
     cada uno), las SPI `EngineDriver`/`ComputerProvider`/`ConnectorProvider`/
