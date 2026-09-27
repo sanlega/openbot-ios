@@ -83,7 +83,7 @@ _Last updated: 2026-09-27 by codex (continued Claude's product-polish branch)_
 - Fixed flakes: UI turn tracking tolerates out-of-order bus events (the "Turn
   steps" flake); E2E harness uses OS-assigned free ports (EADDRINUSE flake).
 - Digest timezone bug is fixed in `da0f0ca`; the suite passes outside UTC.
-- The current UI product polish is on `claude/product-polish`; plan:
+- The UI product polish is pushed to `origin/claude/product-polish` at `2ff0e0b`; plan:
   `.ai/memory/plans/2026-09-27-ui-product-polish.md`. Setup, Activity, Routines,
   Settings, and Devices/Remote were redesigned. The UI reconnects after a lost
   WebSocket; a failed Settings load now offers retry. The mock serves harness
