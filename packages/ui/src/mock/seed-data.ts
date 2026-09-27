@@ -125,6 +125,20 @@ export const SEED_MESSAGES: Message[] = [
     pushed: false,
   },
   {
+    id: "msg_cos_digest",
+    threadId: "thr_cos",
+    author: { type: "bot", id: "bot_cos_01" },
+    text: "__digest__",
+    attachments: [],
+    chainId: "chn_digest",
+    hop: 0,
+    createdAt: "2026-09-26T18:00:00.000Z",
+    proactive: true,
+    kind: "result",
+    delivery: "delivered",
+    pushed: false,
+  },
+  {
     id: "msg_research_1",
     threadId: "thr_research",
     author: { type: "bot", id: "bot_research_01" },
@@ -223,6 +237,115 @@ export const SEED_ROUTINES: Routine[] = [
     },
     consecutiveFailures: 0,
     createdAt: "2026-09-20T08:00:00.000Z",
+  },
+  {
+    id: "rtn_summary",
+    botId: "bot_research_01",
+    name: "Morning competitor scan",
+    prompt: "Scan competitor news and summarize changes.",
+    createdBy: "user",
+    enabled: true,
+    liveApproved: false,
+    trigger: { type: "schedule", cron: "0 8 * * *", timezone: "America/Los_Angeles", catchUp: "none" },
+    limits: {
+      perRun: { usd: 0.5, tokens: 200_000, turns: 10, computerSteps: 50, wallMin: 15 },
+      dailyUsd: 2,
+      maxRunsPerDay: 1,
+      cooldownSec: 3600,
+    },
+    consecutiveFailures: 0,
+    createdAt: "2026-09-24T10:00:00.000Z",
+  },
+];
+
+export const SEED_ROUTINE_RUNS = [
+  {
+    id: "rrun_dry_01",
+    routineId: "rtn_summary",
+    dryRun: true,
+    status: "done",
+    startedAt: "2026-09-27T08:00:01.000Z",
+    endedAt: "2026-09-27T08:00:45.000Z",
+    usage: { usd: 0.04, tokens: 12_000 },
+    resultSummary: "Dry run completed — side effects planned.",
+    plannedActions: [
+      "Would post summary to Research thread",
+      "Would send email via connector (side effect)",
+    ],
+  },
+  {
+    id: "rrun_live_01",
+    routineId: "rtn_digest",
+    dryRun: false,
+    status: "done",
+    startedAt: "2026-09-26T18:00:00.000Z",
+    endedAt: "2026-09-26T18:01:20.000Z",
+    usage: { usd: 0.08, tokens: 24_000 },
+    resultSummary: "Digest posted to CoS thread",
+  },
+];
+
+export const SEED_DIGEST = {
+  id: "digest_2026_09_26",
+  postedAt: "2026-09-26T18:00:00.000Z",
+  sections: [
+    {
+      title: "Completed silently",
+      items: ["Research finished competitor landscape summary"],
+    },
+    {
+      title: "Held messages",
+      items: ["Research: progress update (2×)"],
+    },
+    {
+      title: "Archive candidates",
+      items: ["None this week"],
+    },
+  ],
+};
+
+export const SEED_DEVICES = [
+  {
+    id: "dev_phone_01",
+    name: "Pixel 9",
+    role: "owner" as const,
+    via: "tailscale" as const,
+    pairedAt: "2026-09-20T12:00:00.000Z",
+    lastSeenAt: "2026-09-27T11:55:00.000Z",
+  },
+  {
+    id: "dev_tablet_01",
+    name: "iPad approver",
+    role: "approver" as const,
+    via: "lan" as const,
+    pairedAt: "2026-09-22T09:00:00.000Z",
+    lastSeenAt: "2026-09-26T20:00:00.000Z",
+  },
+];
+
+export const SEED_REMOTE = {
+  enabled: true,
+  via: "tailscale" as const,
+  urls: ["https://openbot.tailnet.ts.net/app", "http://100.64.0.5:3847"],
+};
+
+export const SEED_ENGINES = [
+  { id: "claude", installed: true, version: "2.1.283", login: { ok: true, account: "user@example.com" } },
+  { id: "codex", installed: true, version: "0.157.1", login: { ok: true, account: "user@example.com" } },
+];
+
+export const SEED_COMPUTER_TASKS = [
+  {
+    id: "ctask_01",
+    botId: "bot_code_01",
+    goal: "Open GitHub PR list",
+    status: "running",
+    steps: 3,
+    timeline: [
+      { ts: "2026-09-27T10:40:00.000Z", op: "observe", detail: "Chromium on github.com" },
+      { ts: "2026-09-27T10:40:02.000Z", op: "click", detail: "Pull requests tab (#12)" },
+      { ts: "2026-09-27T10:40:05.000Z", op: "scroll", detail: "Page down" },
+    ],
   },
 ];
 

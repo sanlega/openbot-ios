@@ -5,4 +5,5 @@ export {
   SEED_MESSAGES,
   SEED_APPROVALS,
   buildSeedEvents,
+  SEED_DIGEST,
 } from "./seed-data.js";

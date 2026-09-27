@@ -9,7 +9,13 @@ import {
   SEED_APPROVALS,
   SEED_AUDIT,
   SEED_BOTS,
+  SEED_COMPUTER_TASKS,
+  SEED_DEVICES,
+  SEED_DIGEST,
+  SEED_ENGINES,
   SEED_MESSAGES,
+  SEED_REMOTE,
+  SEED_ROUTINE_RUNS,
   SEED_ROUTES,
   SEED_ROUTINES,
   SEED_SETTINGS,
@@ -33,7 +39,7 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
   });
   res.end(JSON.stringify(body));
@@ -49,6 +55,15 @@ export class MockClientApiServer {
   private events: OBEvent[] = buildSeedEvents();
   private messages = [...SEED_MESSAGES];
   private approvals = [...SEED_APPROVALS];
+  private settings = structuredClone(SEED_SETTINGS);
+  private routines = structuredClone(SEED_ROUTINES);
+  private routineRuns = structuredClone(SEED_ROUTINE_RUNS);
+  private takeoverByBot = new Map<string, boolean>();
+  private remote: {
+    enabled: boolean;
+    via?: "lan" | "tailscale" | "cloudflare";
+    urls?: string[];
+  } = structuredClone(SEED_REMOTE);
   private nextSeq = this.events.at(-1)?.seq ?? 0;
   private clients = new Set<WebSocket>();
 
@@ -152,7 +167,7 @@ export class MockClientApiServer {
     if (req.method === "OPTIONS") {
       res.writeHead(204, {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
       });
       res.end();
@@ -173,7 +188,8 @@ export class MockClientApiServer {
       const threads = SEED_THREADS.map((t) => {
         const view = threadView(t, SEED_BOTS);
         const last = [...this.messages].reverse().find((m) => m.threadId === t.id);
-        view.lastMessagePreview = last?.text.slice(0, 80);
+        view.lastMessagePreview =
+          last?.text === "__digest__" ? "Daily digest" : last?.text.slice(0, 80);
         return view;
       });
       return sendJson(res, 200, { threads });
@@ -208,7 +224,123 @@ export class MockClientApiServer {
       return sendJson(res, 200, { ok, reason: ok ? undefined : "Invalid or missing value" });
     }
     if (method === "GET" && path === "/api/settings") {
-      return sendJson(res, 200, { settings: SEED_SETTINGS });
+      return sendJson(res, 200, { settings: this.settings });
+    }
+    if (method === "PATCH" && path === "/api/settings") {
+      const patch = await readJson<Record<string, unknown>>(req);
+      if (patch.caps) this.settings.caps = { ...this.settings.caps, ...(patch.caps as Record<string, number>) };
+      if (patch.budgets) this.settings.budgets = { ...this.settings.budgets, ...(patch.budgets as Record<string, number>) };
+      if (patch.quietHours) this.settings.quietHours = patch.quietHours as typeof this.settings.quietHours;
+      this.settings.updatedAt = new Date().toISOString();
+      return sendJson(res, 200, { settings: this.settings });
+    }
+    if (method === "GET" && path === "/api/engines") {
+      return sendJson(res, 200, { engines: SEED_ENGINES });
+    }
+    if (method === "GET" && path === "/api/digest") {
+      return sendJson(res, 200, { digest: SEED_DIGEST });
+    }
+    if (method === "GET" && path === "/api/computer/status") {
+      return sendJson(res, 200, {
+        provider: "docker",
+        running: true,
+        screensActive: 2,
+        sharedWorkspaceNotice:
+          "Bots share one computer and workspace. Bots are not a security boundary.",
+      });
+    }
+    if (method === "GET" && path.match(/^\/api\/computer\/screens\/[^/]+\/live$/)) {
+      const botId = path.split("/")[4]!;
+      return sendJson(res, 200, {
+        url: `/mock/novnc/${botId}`,
+        token: `lv_${botId}`,
+        expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      });
+    }
+    if (method === "POST" && path.match(/^\/api\/computer\/screens\/[^/]+\/takeover$/)) {
+      const botId = path.split("/")[4]!;
+      const body = await readJson<{ on: boolean }>(req);
+      this.takeoverByBot.set(botId, body.on);
+      this.appendEvent({
+        ts: new Date().toISOString(),
+        type: body.on ? "computer.takeover_requested" : "computer.takeover_ended",
+        botId,
+        payload: { botId },
+      });
+      return sendJson(res, 200, { ok: true, takeover: body.on });
+    }
+    if (method === "GET" && path === "/api/computer/tasks") {
+      const botId = url.searchParams.get("botId");
+      const tasks = botId ? SEED_COMPUTER_TASKS.filter((t) => t.botId === botId) : SEED_COMPUTER_TASKS;
+      return sendJson(res, 200, { tasks });
+    }
+    if (method === "GET" && path.match(/^\/mock\/novnc\/[^/]+$/)) {
+      const botId = path.split("/")[3]!;
+      const takeover = this.takeoverByBot.get(botId) ?? false;
+      res.writeHead(200, { "Content-Type": "text/html", "Access-Control-Allow-Origin": "*" });
+      res.end(`<!DOCTYPE html><html><body style="margin:0;background:#111;color:#eee;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh"><div style="text-align:center"><div style="font-size:3rem">🖥️</div><p>noVNC live view · ${botId}</p><p style="color:#888">${takeover ? "Takeover active — you control the screen" : "Bot is driving"}</p></div></body></html>`);
+      return;
+    }
+    if (method === "GET" && path.match(/^\/api\/routines\/[^/]+\/runs$/)) {
+      const routineId = path.split("/")[3]!;
+      const runs = this.routineRuns.filter((r) => r.routineId === routineId);
+      return sendJson(res, 200, { runs });
+    }
+    if (method === "GET" && path.match(/^\/api\/runs\/[^/]+$/)) {
+      const runId = path.split("/")[3]!;
+      const run = this.routineRuns.find((r) => r.id === runId);
+      return sendJson(res, 200, run ?? { error: "not_found" });
+    }
+    if (method === "POST" && path.match(/^\/api\/routines\/[^/]+\/run$/)) {
+      const routineId = path.split("/")[3]!;
+      const body = await readJson<{ dryRun?: boolean }>(req);
+      const dryRun = body.dryRun !== false;
+      const run = {
+        id: `rrun_${ulid()}`,
+        routineId,
+        dryRun,
+        status: "done",
+        startedAt: new Date().toISOString(),
+        endedAt: new Date().toISOString(),
+        usage: { usd: 0.03, tokens: 8000 },
+        resultSummary: dryRun ? "Dry run — no side effects executed" : "Live test run completed",
+        plannedActions: dryRun ? ["Would update spreadsheet", "Would send Slack message"] : undefined,
+      };
+      this.routineRuns.unshift(run);
+      this.appendEvent({
+        ts: new Date().toISOString(),
+        type: "routine.run_completed",
+        payload: { runId: run.id, routineId, dryRun },
+      });
+      return sendJson(res, 200, run);
+    }
+    if (method === "POST" && path.match(/^\/api\/routines\/[^/]+\/enable-live$/)) {
+      const routineId = path.split("/")[3]!;
+      const routine = this.routines.find((r) => r.id === routineId);
+      if (routine) routine.liveApproved = true;
+      return sendJson(res, 200, { ok: true, routine });
+    }
+    if (method === "GET" && path === "/api/devices") {
+      return sendJson(res, 200, { devices: SEED_DEVICES });
+    }
+    if (method === "GET" && path === "/api/devices/pair") {
+      return sendJson(res, 200, {
+        qrUrl: "https://openbot.local/app#pair=mock",
+        pairSecret: "pair_secret_mock",
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+        urls: ["https://openbot.tailnet.ts.net/app", "http://192.168.1.10:3847/app"],
+      });
+    }
+    if (method === "GET" && path === "/api/remote/status") {
+      return sendJson(res, 200, this.remote);
+    }
+    if (method === "POST" && path === "/api/remote/tailscale/enable") {
+      this.remote = { enabled: true, via: "tailscale", urls: SEED_REMOTE.urls };
+      return sendJson(res, 200, this.remote);
+    }
+    if (method === "POST" && path === "/api/remote/tailscale/disable") {
+      this.remote = { enabled: false, via: undefined, urls: [] };
+      return sendJson(res, 200, this.remote);
     }
     if (method === "GET" && path.match(/^\/api\/bots\/[^/]+\/route$/)) {
       const botId = path.split("/")[3]!;
@@ -221,7 +353,7 @@ export class MockClientApiServer {
       return sendJson(res, 200, { justification: bot?.justification ?? null });
     }
     if (method === "GET" && path === "/api/routines") {
-      return sendJson(res, 200, { routines: SEED_ROUTINES });
+      return sendJson(res, 200, { routines: this.routines });
     }
     if (method === "POST" && path.match(/^\/api\/messages\/[^/]+\/promote$/)) {
       const messageId = path.split("/")[3]!;

@@ -141,3 +141,89 @@ export interface DevicesResponse {
     lastSeenAt?: string;
   }>;
 }
+
+export interface ComputerStatusResponse {
+  provider: "docker" | "local" | "fake";
+  running: boolean;
+  screensActive: number;
+  sharedWorkspaceNotice: string;
+}
+
+export interface LiveViewResponse {
+  url: string;
+  token: string;
+  expiresAt: string;
+}
+
+export interface ComputerTaskView {
+  id: string;
+  botId: string;
+  goal: string;
+  status: string;
+  steps: number;
+  timeline: Array<{ ts: string; op: string; detail: string }>;
+}
+
+export interface ComputerTasksResponse {
+  tasks: ComputerTaskView[];
+}
+
+export interface RoutineRunView {
+  id: string;
+  routineId: string;
+  dryRun: boolean;
+  status: string;
+  startedAt?: string;
+  endedAt?: string;
+  usage: { usd: number; tokens: number };
+  resultSummary?: string;
+  plannedActions?: string[];
+  skipReason?: string;
+}
+
+export interface RoutineRunsResponse {
+  runs: RoutineRunView[];
+}
+
+export interface EnginesResponse {
+  engines: Array<{
+    id: string;
+    installed: boolean;
+    version?: string;
+    login: { ok: boolean; account?: string };
+  }>;
+}
+
+export interface PairQrResponse {
+  qrUrl: string;
+  pairSecret: string;
+  expiresAt: string;
+  urls: string[];
+}
+
+export interface DigestContent {
+  id: string;
+  postedAt: string;
+  sections: Array<{ title: string; items: string[] }>;
+}
+
+export interface DigestResponse {
+  digest: DigestContent | null;
+}
+
+export interface SettingsPatch {
+  caps?: Record<string, number>;
+  budgets?: Record<string, number>;
+  quietHours?: { enabled: boolean; start: string; end: string };
+}
+
+export type AppScreen =
+  | "bots"
+  | "activity"
+  | "audit"
+  | "routines"
+  | "settings"
+  | "devices"
+  | "computer";
+
+export type ThreadPanel = "chat" | "computer" | "profile";

@@ -34,29 +34,34 @@ export class HttpTransport implements Transport {
   }
 
   async get<T>(path: string, init?: RequestInit): Promise<T> {
-    const res = await fetch(joinUrl(this.baseUrl, path), {
-      ...init,
-      method: "GET",
-      headers: this.headers(init?.headers),
-    });
-    if (!res.ok) {
-      throw new Error(`GET ${path} failed: ${res.status}`);
-    }
-    return (await res.json()) as T;
+    return this.request<T>("GET", path, undefined, init);
   }
 
   async post<T>(path: string, body?: unknown, init?: RequestInit): Promise<T> {
+    return this.request<T>("POST", path, body, init);
+  }
+
+  async patch<T>(path: string, body?: unknown, init?: RequestInit): Promise<T> {
+    return this.request<T>("PATCH", path, body, init);
+  }
+
+  private async request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    init?: RequestInit,
+  ): Promise<T> {
     const res = await fetch(joinUrl(this.baseUrl, path), {
       ...init,
-      method: "POST",
+      method,
       headers: this.headers({
-        "Content-Type": "application/json",
+        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
         ...init?.headers,
       }),
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     if (!res.ok) {
-      throw new Error(`POST ${path} failed: ${res.status}`);
+      throw new Error(`${method} ${path} failed: ${res.status}`);
     }
     return (await res.json()) as T;
   }

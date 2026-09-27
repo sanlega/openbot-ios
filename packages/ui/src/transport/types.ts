@@ -34,6 +34,7 @@ export interface Transport {
   readonly baseUrl: string;
   get<T>(path: string, init?: RequestInit): Promise<T>;
   post<T>(path: string, body?: unknown, init?: RequestInit): Promise<T>;
+  patch<T>(path: string, body?: unknown, init?: RequestInit): Promise<T>;
   connectWebSocket(
     onMessage: (msg: WsInbound) => void,
     onClose?: () => void,
