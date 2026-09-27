@@ -7,6 +7,7 @@ import {
   systemPreferences,
   Tray,
   Menu,
+  utilityProcess,
 } from "electron";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -20,7 +21,13 @@ import {
   harnessBaseUrl,
   harnessWsUrl,
 } from "./config.js";
-import { createNodeForkFactory, HarnessHost } from "./harness-host.js";
+import {
+  createNodeForkFactory,
+  createUtilityProcessFactory,
+  HarnessHost,
+  resolvePackagedHarnessEntry,
+  resolvePwaStaticRoot,
+} from "./harness-host.js";
 import { HarnessEventStream } from "./event-stream.js";
 import { Vault } from "./vault.js";
 import { parseDeepLink } from "./deep-link.js";
@@ -98,10 +105,13 @@ function extractDeepLinkArg(argv: string[]): string | undefined {
 }
 
 function startHarness(): void {
+  const packaged = app.isPackaged;
   harnessHost = new HarnessHost({
     port,
     openbotHome,
-    fork: createNodeForkFactory(),
+    fork: packaged ? createUtilityProcessFactory(utilityProcess) : createNodeForkFactory(),
+    harnessEntry: packaged ? resolvePackagedHarnessEntry() : undefined,
+    pwaStaticRoot: resolvePwaStaticRoot(),
   });
   harnessHost.start();
 }

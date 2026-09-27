@@ -18,7 +18,7 @@ describe("HarnessHost", () => {
       port: 4577,
       openbotHome: "/tmp/openbot",
       fork: { fork },
-      serverEntryPath: "/tmp/server-main.js",
+      harnessEntry: "/tmp/server-main.js",
       maxRestartDelayMs: 1000,
     });
 
@@ -45,7 +45,7 @@ describe("HarnessHost", () => {
       port: 4577,
       openbotHome: "/tmp/openbot",
       fork: { fork },
-      serverEntryPath: "/tmp/server-main.js",
+      harnessEntry: "/tmp/server-main.js",
     });
 
     host.start();

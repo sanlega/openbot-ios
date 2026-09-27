@@ -4,9 +4,8 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 const require = createRequire(import.meta.url);
-const serverRoot = dirname(dirname(require.resolve("@openbot/server")));
-const serverMain = join(serverRoot, "src", "main.ts");
-const tsxCli = join(serverRoot, "node_modules", "tsx", "dist", "cli.mjs");
+const serverIndex = require.resolve("@openbot/server");
+const serverMain = join(dirname(serverIndex), "main.js");
 
 export interface TestHarness {
   baseUrl: string;
@@ -28,7 +27,7 @@ export async function startTestHarness(): Promise<TestHarness> {
     JEV_API_KEY: "",
   };
 
-  const child: ChildProcess = spawn(process.execPath, [tsxCli, serverMain, "serve"], {
+  const child: ChildProcess = spawn(process.execPath, [serverMain, "serve"], {
     env,
     stdio: ["ignore", "pipe", "pipe"],
   });

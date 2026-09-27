@@ -1,6 +1,9 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  resolve: {
+    conditions: ["development"],
+  },
   test: {
     passWithNoTests: true,
     include: ["packages/**/*.{test,spec}.ts", "apps/**/*.{test,spec}.ts"],

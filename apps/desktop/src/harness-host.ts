@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export type HarnessHostEvents = {
   ready: [];
@@ -26,28 +27,34 @@ export interface HarnessHostOptions {
   port: number;
   openbotHome: string;
   fork: UtilityProcessFactory;
-  serverEntryPath?: string;
+  /** When set, fork this entry directly (packaged harness bundle). */
+  harnessEntry?: string;
+  pwaStaticRoot?: string;
   maxRestartDelayMs?: number;
 }
 
 const require = createRequire(import.meta.url);
+const desktopDist = dirname(fileURLToPath(import.meta.url));
 
-/** @deprecated Use {@link resolveHarnessLaunch} — workspace packages export TypeScript sources. */
-export function resolveServerEntryPath(): string {
+export function resolveServerMainPath(): string {
   const indexPath = require.resolve("@openbot/server");
   return join(dirname(indexPath), "main.js");
 }
 
-/** Resolve `tsx` + server entry so the harness can load workspace `.ts` packages. */
-export function resolveHarnessLaunch(cliArgs: string[] = []): { program: string; args: string[] } {
-  const indexPath = require.resolve("@openbot/server");
-  const serverRoot = dirname(dirname(indexPath));
-  const tsxCli = join(serverRoot, "node_modules", "tsx", "dist", "cli.mjs");
-  const serverMain = join(serverRoot, "src", "main.ts");
-  return { program: tsxCli, args: [serverMain, ...cliArgs] };
+export function resolvePackagedHarnessEntry(): string {
+  return join(desktopDist, "harness.mjs");
 }
 
-/** Node child_process spawn (used instead of Electron utilityProcess for native-module ABI + tsx). */
+export function resolvePwaStaticRoot(): string {
+  const pwaIndex = require.resolve("@openbot/pwa");
+  return join(dirname(dirname(pwaIndex)), "static");
+}
+
+/** Dev/test: spawn compiled server entry with system Node. */
+export function resolveDevHarnessLaunch(cliArgs: string[] = []): { program: string; args: string[] } {
+  return { program: resolveServerMainPath(), args: cliArgs };
+}
+
 export function createNodeForkFactory(): UtilityProcessFactory {
   return {
     fork(program, args, options) {
@@ -56,16 +63,32 @@ export function createNodeForkFactory(): UtilityProcessFactory {
         env: options?.env as NodeJS.ProcessEnv,
         stdio: "inherit",
       });
+      return wrapChildProcess(child);
+    },
+  };
+}
+
+export function createUtilityProcessFactory(
+  utilityProcess: {
+    fork(
+      modulePath: string,
+      args?: string[],
+      options?: { serviceName?: string; env?: Record<string, string | undefined> },
+    ): UtilityProcessLike;
+  },
+): UtilityProcessFactory {
+  return {
+    fork(modulePath, args, options) {
+      const child = utilityProcess.fork(modulePath, args, {
+        serviceName: options?.serviceName,
+        env: options?.env,
+      });
       return {
         on(event, listener) {
-          if (event === "spawn") {
-            if (child.pid !== undefined) queueMicrotask(() => listener());
-            else child.on("spawn", () => listener());
-          }
-          if (event === "exit") child.on("exit", (code) => listener(code));
+          child.on(event, listener);
         },
         kill: () => {
-          child.kill("SIGTERM");
+          child.kill();
         },
         pid: child.pid,
       };
@@ -73,7 +96,23 @@ export function createNodeForkFactory(): UtilityProcessFactory {
   };
 }
 
-/** Spawns the harness in an Electron `utilityProcess` and restarts it after unexpected exits. */
+function wrapChildProcess(child: ReturnType<typeof spawn>): UtilityProcessLike {
+  return {
+    on(event, listener) {
+      if (event === "spawn") {
+        if (child.pid !== undefined) queueMicrotask(() => listener());
+        else child.on("spawn", () => listener());
+      }
+      if (event === "exit") child.on("exit", (code) => listener(code));
+    },
+    kill: () => {
+      child.kill("SIGTERM");
+    },
+    pid: child.pid,
+  };
+}
+
+/** Spawns the harness and restarts it after unexpected exits. */
 export class HarnessHost extends EventEmitter<HarnessHostEvents> {
   private child?: UtilityProcessLike;
   private intentionalStop = false;
@@ -100,18 +139,22 @@ export class HarnessHost extends EventEmitter<HarnessHostEvents> {
     this.child = undefined;
   }
 
-  private spawn(): void {
-    const launch = this.options.serverEntryPath
-      ? { program: this.options.serverEntryPath, args: ["serve"] }
-      : resolveHarnessLaunch(["serve"]);
+  private harnessEnv(): Record<string, string | undefined> {
+    return {
+      ...process.env,
+      PORT: String(this.options.port),
+      OPENBOT_HOME: this.options.openbotHome,
+      OPENBOT_PWA_STATIC_ROOT: this.options.pwaStaticRoot ?? resolvePwaStaticRoot(),
+    };
+  }
 
-    this.child = this.options.fork.fork(launch.program, launch.args, {
+  private spawn(): void {
+    const entry = this.options.harnessEntry ?? resolveDevHarnessLaunch(["serve"]).program;
+    const args = ["serve"];
+
+    this.child = this.options.fork.fork(entry, args, {
       serviceName: "openbot-harness",
-      env: {
-        ...process.env,
-        PORT: String(this.options.port),
-        OPENBOT_HOME: this.options.openbotHome,
-      },
+      env: this.harnessEnv(),
     });
 
     this.child.on("spawn", () => {

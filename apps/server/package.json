@@ -10,12 +10,14 @@
   },
   "exports": {
     ".": {
+      "development": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.js",
       "default": "./dist/index.js"
     },
     "./bootstrap": {
+      "development": "./src/bootstrap.ts",
       "types": "./dist/bootstrap.d.ts",
       "import": "./dist/bootstrap.js",
       "default": "./dist/bootstrap.js"
@@ -46,12 +48,12 @@
     "@openbot/remote": "workspace:*",
     "@openbot/routines": "workspace:*",
     "@openbot/runtime": "workspace:*",
-    "fastify": "5.12.5",
-    "tsx": "4.23.15"
+    "fastify": "5.12.5"
   },
   "devDependencies": {
     "@openbot/testkit": "workspace:*",
     "@types/node": "22.20.4",
+    "tsx": "4.23.15",
     "typescript": "6.0.3",
     "vitest": "5.0.2"
   }

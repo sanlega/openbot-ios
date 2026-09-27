@@ -14,9 +14,27 @@ You bring your own keys and accounts — OpenBot has no backend and ships no key
 
 ## Run OpenBot v1 on your machine
 
-You need Node 22, pnpm, and your own Claude/Codex logins (or API keys) plus a
-TypeSafe (Jev) key. Optional: Docker Desktop for computer use, Tailscale for
-phone access.
+You need your own Claude/Codex logins (or API keys) plus a TypeSafe (Jev) key.
+Optional: Docker Desktop for computer use, Tailscale for phone access.
+
+### Prebuilt installer (no Node or pnpm)
+
+Every CI run on [PR #15](https://github.com/sanlega/OpenBot/pull/15) publishes
+unsigned desktop builds as workflow artifacts:
+
+1. Open the latest green **CI** run on the PR → **Artifacts**.
+2. Download the artifact for your OS (`openbot-desktop-ubuntu-latest`,
+   `openbot-desktop-macos-latest`, or `openbot-desktop-windows-2022`).
+3. Install or run:
+   - **Linux** — `OpenBot-*.AppImage` (or unpack `linux-unpacked/openbot`)
+   - **macOS** — mount the `.dmg` and drag OpenBot to Applications
+   - **Windows** — run the `.exe` installer from the artifact
+
+On first launch the setup wizard appears; no build tools required.
+
+### Build from source
+
+Requires Node 22 and pnpm:
 
 ```sh
 corepack enable
