@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { readdirSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -25,4 +25,10 @@ const result = spawnSync("pnpm", ["exec", "electron-rebuild", "-f", "-w", "bette
 
 if (result.status !== 0) {
   process.exit(result.status ?? 1);
+}
+
+const built = join(sqliteRoot, "build", "Release", "better_sqlite3.node");
+if (!existsSync(built)) {
+  console.error(`Expected Electron rebuild output missing: ${built}`);
+  process.exit(1);
 }

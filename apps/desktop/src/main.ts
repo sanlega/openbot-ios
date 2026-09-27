@@ -204,7 +204,7 @@ async function onReady(): Promise<void> {
     setupWindowManager();
     setupTray();
     startHarness();
-    await waitForHarnessReady(harnessBaseUrl(port));
+    await waitForHarnessReady(harnessBaseUrl(port), app.isPackaged ? 90_000 : 30_000);
     startEventStream();
     windowManager?.show();
 

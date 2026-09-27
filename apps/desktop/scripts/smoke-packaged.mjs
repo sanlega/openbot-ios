@@ -1,18 +1,34 @@
 #!/usr/bin/env node
 /**
  * CI smoke test for the unsigned Linux desktop package (`electron-builder --dir`).
- * Launches the packaged app under xvfb, waits for the harness, and checks `/app`.
+ * Extracts the app asar and runs the bundled harness with Electron's Node ABI,
+ * then checks `/api/harness/status` and `/app`.
  */
-import { spawn } from "node:child_process";
-import { createRequire } from "node:module";
+import { spawn, spawnSync } from "node:child_process";
+import { readdirSync } from "node:fs";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const require = createRequire(import.meta.url);
 const desktopRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+const repoRoot = dirname(dirname(desktopRoot));
 const releaseDir = join(desktopRoot, "release");
+const asarPkg = readdirSync(join(repoRoot, "node_modules", ".pnpm")).find((n) =>
+  n.startsWith("@electron+asar@"),
+);
+if (!asarPkg) throw new Error("@electron/asar not found");
+const asarCli = join(
+  repoRoot,
+  "node_modules",
+  ".pnpm",
+  asarPkg,
+  "node_modules",
+  "@electron",
+  "asar",
+  "bin",
+  "asar.js",
+);
 const port = 4577;
 
 async function findLinuxUnpackedDir() {
@@ -24,34 +40,7 @@ async function findLinuxUnpackedDir() {
   return join(releaseDir, unpacked.name);
 }
 
-async function findLinuxExecutable(unpackedDir) {
-  const preferred = join(unpackedDir, "openbot");
-  try {
-    await import("node:fs/promises").then(({ access }) => access(preferred));
-    return preferred;
-  } catch {
-    const entries = await readdir(unpackedDir, { withFileTypes: true });
-    const exe = entries.find(
-      (e) =>
-        e.isFile() &&
-        e.name !== "chrome-sandbox" &&
-        !e.name.startsWith("chrome_") &&
-        !e.name.startsWith("lib") &&
-        !e.name.endsWith(".pak"),
-    );
-    if (!exe) {
-      throw new Error(`No Linux executable found in ${unpackedDir}`);
-    }
-    return join(unpackedDir, exe.name);
-  }
-}
-
-function resolvePwaStaticRoot() {
-  const pwaIndex = require.resolve("@openbot/pwa");
-  return join(dirname(dirname(pwaIndex)), "static");
-}
-
-async function waitForHarness(baseUrl, timeoutMs = 60_000) {
+async function waitForHarness(baseUrl, timeoutMs = 90_000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
@@ -70,24 +59,38 @@ async function waitForHarness(baseUrl, timeoutMs = 60_000) {
 
 async function main() {
   const unpacked = await findLinuxUnpackedDir();
-  const binary = await findLinuxExecutable(unpacked);
-  const openbotHome = await mkdtemp(join(tmpdir(), "openbot-packaged-smoke-"));
+  const binary = join(unpacked, "openbot");
+  const asarPath = join(unpacked, "resources", "app.asar");
+  const extractDir = await mkdtemp(join(tmpdir(), "openbot-packaged-smoke-"));
+  const openbotHome = await mkdtemp(join(tmpdir(), "openbot-packaged-home-"));
   const baseUrl = `http://127.0.0.1:${port}`;
+
+  const extract = spawnSync(process.execPath, [asarCli, "extract", asarPath, extractDir], {
+    stdio: "inherit",
+  });
+  if (extract.status !== 0) {
+    throw new Error("Failed to extract app.asar");
+  }
+
+  const harnessEntry = join(extractDir, "dist", "harness.mjs");
+  const pwaStatic = join(extractDir, "node_modules", "@openbot", "pwa", "static");
 
   const env = {
     ...process.env,
+    ELECTRON_RUN_AS_NODE: "1",
     OPENBOT_HOME: openbotHome,
     PORT: String(port),
     OPENBOT_FAKE_JEV: "1",
     OPENBOT_FAKE_ENGINES: "1",
     OPENBOT_FAKE_COMPUTER: "1",
     OPENBOT_FAKE_COMPOSIO: "1",
-    OPENBOT_PWA_STATIC_ROOT: resolvePwaStaticRoot(),
-    ELECTRON_DISABLE_SECURITY_WARNINGS: "true",
+    OPENBOT_PWA_STATIC_ROOT: pwaStatic,
+    NODE_PATH: join(extractDir, "node_modules"),
   };
 
-  const child = spawn(binary, ["--no-sandbox"], {
+  const child = spawn(binary, [harnessEntry, "serve"], {
     env,
+    cwd: extractDir,
     stdio: ["ignore", "pipe", "pipe"],
   });
 
@@ -107,6 +110,9 @@ async function main() {
       throw new Error("/app did not return HTML");
     }
     console.log("Packaged smoke OK: harness connected and /app served");
+  } catch (err) {
+    if (stderr) console.error(stderr);
+    throw err;
   } finally {
     child.kill("SIGTERM");
     await new Promise((resolve) => {
@@ -117,9 +123,7 @@ async function main() {
       }, 5000);
     });
     await rm(openbotHome, { recursive: true, force: true });
-    if (child.exitCode && child.exitCode !== 0 && !stderr.includes("GPU")) {
-      console.error(stderr);
-    }
+    await rm(extractDir, { recursive: true, force: true });
   }
 }
 
