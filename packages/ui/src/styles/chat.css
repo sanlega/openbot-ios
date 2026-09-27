@@ -550,6 +550,14 @@
   color: var(--danger);
 }
 
+.turn-error {
+  margin: 6px 0 2px 26px;
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .turn-step-list {
   list-style: none;
   margin: 4px 0 4px 12px;

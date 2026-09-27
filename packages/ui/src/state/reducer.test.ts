@@ -44,6 +44,37 @@ describe("uiReducer", () => {
     expect(late.turns.get("t2")).toMatchObject({ status: "done", steps: [{ tool: "Read" }] });
   });
 
+  it("keeps the engine failure reason so the chat can explain why the Bot stopped", () => {
+    const started: OBEvent = {
+      id: "evt_started",
+      seq: 1,
+      ts: "2026-09-27T10:00:00.000Z",
+      type: "turn.started",
+      botId: "bot_code_01",
+      threadId: "thr_code",
+      turnId: "turn_failed",
+      payload: { engine: "claude", model: "opus" },
+    };
+    const failed: OBEvent = {
+      id: "evt_failed",
+      seq: 2,
+      ts: "2026-09-27T10:00:02.000Z",
+      type: "turn.failed",
+      botId: "bot_code_01",
+      threadId: "thr_code",
+      turnId: "turn_failed",
+      payload: { errorMessage: "You've hit your session limit · resets at 11:30pm" },
+    };
+    const state = uiReducer(
+      uiReducer(createInitialState(SEED_BOTS), { type: "event", event: started }),
+      { type: "event", event: failed },
+    );
+    expect(state.turns.get("turn_failed")).toMatchObject({
+      status: "failed",
+      errorMessage: "You've hit your session limit · resets at 11:30pm",
+    });
+  });
+
   it("shows a hydrated thread oldest first, whatever order the API used", () => {
     const [first, second] = SEED_MESSAGES.filter((m) => m.threadId === SEED_MESSAGES[0]!.threadId);
     const older = { ...first!, id: "m_old", createdAt: "2026-09-27T10:00:00.000Z" };

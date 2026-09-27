@@ -18,6 +18,8 @@ export interface TurnActivity {
   steps: TurnStep[];
   /** Text streamed so far (the reply arrives as a message when the turn ends). */
   text: string;
+  /** Short engine failure detail, such as an expired login or usage limit. */
+  errorMessage?: string;
 }
 
 export interface UiState {
@@ -303,6 +305,10 @@ function applyEvent(state: UiState, event: OBEvent): void {
           ...turn,
           endedAt: event.ts,
           status: event.type === "turn.completed" ? "done" : "failed",
+          errorMessage:
+            event.type === "turn.failed" && typeof p.errorMessage === "string"
+              ? p.errorMessage
+              : undefined,
           steps: turn.steps.map((s) => (s.status === "running" ? { ...s, status: "done" } : s)),
         });
       }

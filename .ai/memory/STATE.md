@@ -1,171 +1,39 @@
-# Estado actual
+# Project state
 
-_Last updated: 2026-09-27 by codex (Computer Live View and README polish)_
+_Last updated: 2026-09-27 by Codex_
 
-## Completed
-- Repaired and deployed Computer Live View. The original installed app had no
-  provider when Docker Desktop was started after OpenBot, and the noVNC path
-  could select a display whose VNC server had failed to start. The UI also
-  remained on "Loading computer…" after request errors.
-- The server now wires Docker even while the daemon is unavailable, reconnects
-  to existing containers with their saved token, and waits for Docker's control
-  API and per-bot VNC server to become ready. noVNC tokens are short-lived,
-  routed to the correct display, and the host ports bind only to loopback.
-- The UI shows recoverable errors, retries computer startup, explains local Mac
-  mode, and grants fullscreen to the noVNC iframe. Docker logs no longer include
-  its temporary WebSocket tokens.
-- Installed `[local machine path removed]` (arm64) and built
-  `openbot/desktop:latest`; the managed Docker container is healthy. The actual
-  panel iframe connected for both configured bots and two more displays.
-- Plan: `.ai/memory/plans/2026-09-27-computer-live-view.md`.
-- Validation: `pnpm build`, `pnpm typecheck`, `pnpm test` (730 passed, 18
-  skipped), `pnpm lint` (0 errors; 3 unrelated warnings), `pnpm format:check`,
-  `bash .ai/bin/mh check`, desktop E2E (1/1), four local Docker Live View
-  connections, and SQLite `integrity_check` passed.
-- Polished the virtual desktop after the user's screenshot: Fluxbox now uses a
-  native dark gradient, the missing wallpaper-dialog trigger is gone, Xvfb runs
-  at 1600×1000, Chromium starts maximized, and noVNC defaults to scale-to-fit
-  with quality 9. Replaced the running Docker container while retaining its
-  existing `/workspace` volume and keeping the former container stopped for
-  rollback. The new container is healthy and the real Live View route returned
-  the expected noVNC settings.
-- Rewrote the root README with the app logo, current install/development steps,
-  project status, and two Playwright captures rendered against mock demo data:
-  `docs/screenshots/chat-dark.png` and `docs/screenshots/activity-dark.png`.
-- Plan: `.ai/memory/plans/2026-09-27-desktop-visuals-readme.md`.
-- Validation: `pnpm build`, `pnpm typecheck`, `pnpm test` (731 passed, 18
-  skipped), `pnpm lint` (0 errors, 3 unrelated warnings), `pnpm format:check`,
-  `bash .ai/bin/mh check`, Docker image build, health check, preserved volume,
-  Xvfb 1600×1000, no Fluxbox `xmessage`, and live URL scale/quality settings.
+## In progress
+- Prepare the first downloadable GitHub release (`v0.1.0`) and polish the public repository.
+  Plan: `.ai/memory/plans/2026-09-27-github-release.md`.
+- Review the branch against `main`, complete a privacy/history audit, add reproducible
+  cross-platform installer releases, and wait for PR CI before merging.
+- Before public release, remove private development diary material from the current tree
+  and decide how to clean it from historical commits. No real credentials were found in
+  the scan; credential-shaped matches were synthetic test fixtures.
 
-## En curso
-- No open implementation work. The installed Mac app and refreshed Docker
-  computer image are running locally; the previous Docker container remains
-  stopped as a rollback point.
-- PRs #15 (v1 integration, WS0–WS13) and #16 (review fixes) are merged into
-  `main` (40d8a23). What works end to end (with fakes; E2E in `e2e/tests/`):
-  - **Jev**: never a silent fake in production (`KeyedDecisionService`); key read
-    from vault per call; `validateKey` probes Jev; `JEV_BASE_URL` override.
-  - **Chat turns** (`apps/server/src/turn-mailbox.ts`, `createTurnBuilder`): Jev
-    routing / pin / override, vault key or CLI login, OpenBot MCP server injected
-    per turn (runtime `prepareTurn`), user + bot messages stored, engine session
-    resumed from `engine_sessions`, CoS system prompt, stop via
-    `POST /api/threads/:id/stop`.
-  - **Approvals**: `permission_prompt` waits for the card; HTTP/WS resolution
-    wakes the broker (`ctx.onApprovalResolved`).
-  - **CoS caps**: S2/S3 fixed; S1–S10 settings apply live (no restart); spawn
-    history and S4/S5 counts survive restarts (derived from the store).
-  - **Dry runs** never execute (simulated engine tools are refused; side-effect
-    OpenBot tools only record `action.simulated`).
-  - **Routines**: runs are real Bot turns; dry run lists planned actions; per-run
-    cap interrupts (`runBudget`); allowing the `routine_live` card enables live;
-    15-min minimum for every cron form.
-  - **Digest**: posted once a day at the digest hour as a CoS message, from the
-    store (`apps/server/src/digest.ts`).
-  - **UI ↔ harness**: WS protocol, `GET /api/threads`, `PATCH /api/settings`,
-    adapters for activity/audit/computer/remote/pairing/runs
-    (`packages/ui/src/api/adapters.ts`); the mock speaks the harness protocol.
-    Browser E2E (`e2e/tests/m1-ui.spec.ts`) drives the PWA at `/app`.
-  - **WS**: events flow only after `subscribe`; no duplicates across replay.
-  - Fake engine directives for tests: `@tool <name> <json>`, `@approve <tool> <json>`.
-- Verified locally: 669 unit tests, lint 0 errors, typecheck, format, E2E 10/10
-  (`OPENBOT_E2E_CHROMIUM=/opt/pw-browsers/chromium` for a preinstalled browser).
-  `apps/desktop` cannot be installed in the cloud sandbox (codeload blocked); CI
-  covers it.
+## Product status
+- OpenBot is an early desktop preview for managing persistent Claude Code and Codex Bots.
+- The app includes chat, team delegation, approvals, routines, local computer use, a PWA,
+  and optional remote pairing.
+- Users supply their own provider accounts and keys. OpenBot has no hosted backend and
+  ships no bundled credentials.
+- Computer Live View uses a Docker-backed virtual desktop; local-computer mode is
+  available with explicit permissions.
+- The README includes screenshots generated with mock data.
 
-- First real run by the user (desktop app, real Claude + Codex keys): onboarding
-  worked, but no Bot could be created. Fixed in `da0f0ca` on `claude/product-polish`:
-  - The server seeds the Chief of Staff once setup is complete (and at startup
-    for installs already past setup): `apps/server/src/chief-of-staff.ts`, wired
-    in `bootstrap.ts`.
-  - Roster has a "+ New bot" form (`packages/ui/src/components/roster/BotList.tsx`);
-    the UI rehydrates on `bot.created` (a new Bot's DM thread had no event, so
-    new Bots, including CoS spawns, never showed without a reload).
-  - Wizard: Claude and Codex each optional, at least one engine required.
-  - Mock server supports `POST /api/bots`; new E2E "First run in the real UI".
-  - Verified: typecheck, lint 0 errors, E2E 11/11, unit tests 670 pass.
-- Chat format fixed in `da0f0ca`: Claude replies were stored twice (the parser
-  appended both `stream_event` deltas and the full `assistant` line;
-  `packages/engines/claude/src/parse-stream-json.ts` + test). Bot messages render
-  as Markdown (`react-markdown` + `remark-gfm`, no raw HTML;
-  `packages/ui/src/components/thread/MessageText.tsx`); Electron opens links in
-  the system browser. Messages stored before the fix stay duplicated.
-- Bots working together (in `da0f0ca`, verified: typecheck, lint, 676 unit, E2E 14/14):
-  - No approval cards for OpenBot's own tools: turns pass `--allowedTools mcp__openbot`
-    and `permission_prompt` allows `mcp__openbot__*` (their handlers carry the gates).
-  - A `send_message` wakes the recipient: `wakeOnBotMessages` (turn-mailbox.ts) runs
-    its turn on the same chain on `handoff.sent`. `send_message` also resolves a Bot
-    by its display name (user-created slugs have a random suffix).
-  - Engine turns no longer die after 30 s wall-clock: idle timeout of 35 min
-    (`@openbot/engines-common` `waitForTurnComplete`), longer than approval expiry.
-  - Claude parser now emits `tool_started`/`tool_completed` (before: none for Claude).
-    Claude CLI sends thinking blocks with EMPTY text, so the UI shows a folded
-    "Worked for Ns · N steps" block (tool steps) and a live "Thinking…" instead.
-  - CoS-spawned Bots get their engine/model pinned by Jev at creation
-    (`apps/server/src/bot-models.ts`); `/api/models` lists real models; Profile tab
-    is editable (name, description, model dropdown incl. "Auto", effort,
-    permissions, computer). `bot.updated` now carries the full bot.
-  - Chat reads oldest→newest (API lists newest first; hydrate sorts) and follows
-    new messages unless the user scrolled up.
-  - Messages sent before these fixes are not replayed: the "Research Helper" task
-    from the CoS stays unanswered until someone messages that Bot again.
-- Approvals (in `da0f0ca`, verified: typecheck, lint, 693 unit, E2E 14/14 x3):
-  - `classifyToolCall` (`packages/runtime/src/tool-classifier.ts`) shared by the
-    mailbox and `permission_prompt`: read tools and read-only shell pipelines are
-    read-only; Write/Edit inside the workspace are allowed (`workspace_write`/`full`).
-    Jev's risk gate now gets the action detail (command/path), not just the tool.
-  - Approval cards render at the bottom of the chat.
-  - CoS tool `archive_bot` (reversible; user-created bots only with
-    `user_requested`); profile has "Archive bot". CoS prompt says never touch
-    OpenBot files/DB to change the team.
-  - Markdown: a blank line is inserted before list items that follow a text line.
-- Fixed flakes: UI turn tracking tolerates out-of-order bus events (the "Turn
-  steps" flake); E2E harness uses OS-assigned free ports (EADDRINUSE flake).
-- Digest timezone bug is fixed in `da0f0ca`; the suite passes outside UTC.
-- The UI product-polish code was pushed to `origin/claude/product-polish` in `2ff0e0b`; plan:
-  `.ai/memory/plans/2026-09-27-ui-product-polish.md`. Setup, Activity, Routines,
-  Settings, and Devices/Remote were redesigned. The UI reconnects after a lost
-  WebSocket; a failed Settings load now offers retry. The mock serves harness
-  status. Verified on macOS: build, typecheck, lint (0 errors, 6 existing warnings),
-  format, 726 unit tests, 15 integration E2E, `mh check`.
-- Local macOS deployment: `~/Applications/OpenBot.app` now runs the product-polish
-  build with the user's existing `~/.openbot` data. The installed app served
-  `/api/harness/status` and `/app`, setup remained complete, and the database
-  passed `integrity_check`. Backup:
-  `~/.openbot-backups/2026-09-27-pre-product-polish` (SQLite backup verified).
-  Electron was updated from 34.2.0 to 38.8.0 because `better-sqlite3@13.0.3`
-  requires Node 22 and Electron 34 embeds Node 20; the old packaged utility
-  process crashed on macOS. The native rebuild now probes an actual SQLite query
-  under Electron. Plan: `.ai/memory/plans/2026-09-27-local-mac-deployment.md`.
-  Verified: build, typecheck, lint (0 errors), format, 726 unit tests, desktop E2E,
-  isolated packaged smoke, installed app API/UI/setup/database, `mh check`.
-- Local dev needs Node >=22.12 (user's default is 20; installed 22 via nvm) and
-  `corepack pnpm`. After `rebuild:native` for Electron, run
-  `corepack pnpm rebuild better-sqlite3` before Node unit tests.
+## Recent change
+- Chat now retains an engine failure reason and shows it beside the latest failed turn,
+  including failures that happen before any tool step. The chat error view redacts common
+  bearer and API-key formats. The PWA static assets are rebuilt and served locally.
 
-## Próximos pasos
-0. Structured user inputs (`ask_user` forms, secrets to vault, "Waiting on you")
-   are implemented in `da0f0ca`; the draft plan
-   `.ai/memory/plans/2026-09-27-user-inputs.md` still needs its status and boxes
-   updated to match the implementation.
-0b. User wants Composio removed (closed source) and replaced by tools that users
-   and agents create themselves. Proposed: (A) declarative HTTP tools (JSON spec +
-   vault secret, no code), then (B) script tools in Docker; agent-created tools
-   need an approval card to activate. Awaiting the user's choice, then write the
-   plan in `.ai/memory/plans/` (touches contracts `ConnectorProvider`, D-009,
-   setup wizard, connectors package).
-0c. Manually inspect the redesigned desktop UI and exercise routine editing,
-    device pairing, and remote provider actions with real providers. The E2E suite
-    currently smoke-tests screen loading and the existing core flows.
-1. Close superseded PRs #1–#14 if still open.
-2. WS3 follow-up spike with real Claude/Codex credentials (M1 sign-off): check
-   that the injected OpenBot MCP server works with both CLIs, that approvals
-   round-trip, and the tool names each engine reports (the runtime mailbox
-   special-cases bare `message_user`/`send_message` tool events).
-3. Nightly real-credential runs (`OPENBOT_E2E_REAL=1`), Docker computer, Composio,
-   Tailscale/Cloudflare.
-4. Smaller gaps: `/api/computer/tasks` has no step timeline; `/api/usage` and
-   `/api/decisions` are not shown in the UI; code signing/notarization.
+## Validation on the product-polish branch
+- UI test suite, UI typecheck, build, formatting, and lint passed after the latest UI fix.
+- The local `/app` route serves the rebuilt bundle. The branch still needs pull-request CI;
+  do not merge until required checks pass on the exact PR head.
 
-## Bloqueos / preguntas abiertas
-- Real engines, Jev, Docker, Composio, Tailscale/Cloudflare untested with credentials.
+## Known gaps
+- Real Claude/Codex and Jev credentials, Docker on other operating systems, and
+  remote-provider integrations need broader manual testing.
+- Desktop packages are unsigned and will show operating-system warnings.
+- Follow-up work includes code signing/notarization and deeper end-to-end coverage for
+  routine editing and remote pairing.

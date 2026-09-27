@@ -42,9 +42,12 @@ export function ThreadViewPanel({ onBack }: ThreadViewProps) {
   const messages = thread ? messagesForThread(thread.id) : [];
   const route = thread ? routeForBot(thread.botId) : undefined;
   const threadApprovals = pendingApprovals.filter((a) => a.botId === thread?.botId);
-  const runningTurn = [...state.turns.values()].find(
-    (t) => t.botId === thread?.botId && t.status === "running",
-  );
+  const botTurns = [...state.turns.values()]
+    .filter((t) => t.botId === thread?.botId)
+    .sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt));
+  const runningTurn = botTurns.find((t) => t.status === "running");
+  const latestTurn = botTurns[botTurns.length - 1];
+  const latestFailure = latestTurn?.status === "failed" ? latestTurn : undefined;
   const waiting =
     threadApprovals.length > 0 ||
     [...state.inputs.values()].some((i) => i.botId === bot?.id && i.status === "pending");
@@ -72,6 +75,7 @@ export function ThreadViewPanel({ onBack }: ThreadViewProps) {
     threadApprovals.length,
     runningTurn?.steps.length,
     runningTurn?.text.length,
+    latestFailure?.errorMessage,
   ]);
 
   if (!thread || !bot) {
@@ -197,6 +201,7 @@ export function ThreadViewPanel({ onBack }: ThreadViewProps) {
                 );
               })}
               {runningTurn ? <TurnSteps turn={runningTurn} /> : null}
+              {!runningTurn && latestFailure ? <TurnSteps turn={latestFailure} /> : null}
               {/* What needs the user now sits at the bottom, next to the composer. */}
               {threadApprovals.map((a: Approval) => (
                 <ApprovalCard key={a.id} approval={a} onResolve={(r) => resolveApproval(a.id, r)} />

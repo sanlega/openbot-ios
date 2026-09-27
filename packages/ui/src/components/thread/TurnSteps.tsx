@@ -25,7 +25,7 @@ const OPENBOT_PREFIX = "mcp__openbot__";
  */
 export function TurnSteps({ turn }: { turn: TurnActivity }) {
   const running = turn.status === "running";
-  if (!running && turn.steps.length === 0) return null;
+  if (!running && turn.steps.length === 0 && turn.status !== "failed") return null;
 
   const seconds = Math.max(
     1,
@@ -39,10 +39,17 @@ export function TurnSteps({ turn }: { turn: TurnActivity }) {
     ? current
       ? stepTitle(current)
       : "Thinking…"
-    : `Worked for ${formatDuration(seconds)} · ${steps} ${steps === 1 ? "step" : "steps"}`;
+    : turn.status === "failed"
+      ? `Couldn't finish · ${formatDuration(seconds)}`
+      : `Worked for ${formatDuration(seconds)} · ${steps} ${steps === 1 ? "step" : "steps"}`;
 
   return (
-    <details className="turn-steps" data-running={running} data-testid="turn-steps">
+    <details
+      className="turn-steps"
+      data-running={running}
+      data-testid="turn-steps"
+      open={turn.status === "failed"}
+    >
       <summary>
         {running ? (
           <Loader2 size={14} className="spin" aria-hidden />
@@ -71,6 +78,11 @@ export function TurnSteps({ turn }: { turn: TurnActivity }) {
           ))}
         </ol>
       ) : null}
+      {!running && turn.status === "failed" ? (
+        <p className="turn-error" role="alert">
+          {failureDetail(turn.errorMessage)}
+        </p>
+      ) : null}
       {running && turn.text ? <p className="turn-draft">{turn.text}</p> : null}
     </details>
   );
@@ -81,6 +93,15 @@ function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return s ? `${m}m ${s}s` : `${m}m`;
+}
+
+function failureDetail(message?: string): string {
+  const detail = message?.trim();
+  if (!detail) return "The engine stopped before it could reply. Check Activity for details.";
+  const redacted = detail
+    .replace(/\bBearer\s+\S+/gi, "Bearer [redacted]")
+    .replace(/\bsk-(?:ant-|proj-)?[A-Za-z0-9_-]{16,}/g, "[redacted key]");
+  return redacted.length > 300 ? `${redacted.slice(0, 297)}…` : redacted;
 }
 
 const TOOL_LABELS: Record<string, string> = {
