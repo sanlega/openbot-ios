@@ -1,10 +1,11 @@
 # Estado actual
 
-_Última actualización: 2026-09-27 por cursor_
+_Última actualización: 2026-09-27 por cursor (continuación WS1)_
 
 ## En curso
-- Rama `cursor/ws1-core-harness-09d8` (apilada sobre WS0; PR aún sin abrir,
-  ver Bloqueos), **WS1 completo** según el plan §5:
+- Rama `cursor/ws1-core-harness-09d8` (apilada sobre WS0; PR
+  https://github.com/sanlega/OpenBot/pull/3, lista para review), **WS1
+  completo** según el plan §5:
   - `packages/store`: 17 repos nuevos (uno por entidad del plan que faltaba)
     + `BotsRepo` extendido (`getBySlug`/`list`/`update`/`archive`). 37 tests.
   - `packages/core` (`@openbot/core`) ✅: `config.ts` (`loadConfig`,
