@@ -153,6 +153,7 @@ async function handleCommand(
       chainId: approval.chainId,
       payload: { id, resolution },
     });
+    ctx.onApprovalResolved?.(id, resolution);
     return { ok: true };
   }
 

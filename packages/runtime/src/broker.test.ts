@@ -252,6 +252,22 @@ describe("PermissionBroker approvals (30 min timeout, resolve)", () => {
     expect(await pending).toBe("deny");
   });
 
+  it("settleResolved wakes the waiter for a card the Client API already resolved", async () => {
+    const { broker, events } = setup(new StubRiskDecisionService(3, 0.6));
+    const decision = await broker.evaluate(req({ action: "risky_tool" }), {
+      mode: "live",
+      preset: "full",
+    });
+    const pending = broker.waitForApproval(decision.approvalId as string);
+    const resolvedBefore = events.byType("approval.resolved").length;
+
+    broker.settleResolved(decision.approvalId as string, "allow");
+
+    expect(await pending).toBe("allow");
+    // The Client API already recorded and announced it; the broker must not repeat that.
+    expect(events.byType("approval.resolved")).toHaveLength(resolvedBefore);
+  });
+
   it("approvals time out after 30 minutes and resolve to 'deny'", async () => {
     const { broker, clock, approvalStore } = setup(new StubRiskDecisionService(3, 0.6));
     const decision = await broker.evaluate(req({ action: "risky_tool" }), {

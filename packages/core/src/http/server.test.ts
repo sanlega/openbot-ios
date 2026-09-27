@@ -232,6 +232,8 @@ describe("approvals + chains (plan §4.7 safety)", () => {
       createdAt: now.toISOString(),
     };
     test.ctx.repos.approvals.create(approval);
+    const settled: Array<[string, string]> = [];
+    test.ctx.onApprovalResolved = (id, resolution) => settled.push([id, resolution]);
 
     const res = await app.inject({
       method: "POST",
@@ -239,6 +241,7 @@ describe("approvals + chains (plan §4.7 safety)", () => {
       payload: { resolution: "allow" },
     });
     expect(res.statusCode).toBe(200);
+    expect(settled).toEqual([[approval.id, "allow"]]);
 
     const events = test.ctx.eventBus.replaySince(0);
     expect(events.some((e) => e.type === "approval.resolved")).toBe(true);

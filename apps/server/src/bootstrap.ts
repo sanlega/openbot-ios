@@ -93,6 +93,8 @@ export async function bootstrapHarness(
     caps,
     mcp: () => mcp.current,
   });
+  ctx.onApprovalResolved = (approvalId, resolution) =>
+    runtime.broker.settleResolved(approvalId, resolution);
   ctx.computerProvider = options.computerProvider ?? providers.computerProvider;
 
   await wireConnectors(ctx);

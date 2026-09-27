@@ -130,6 +130,12 @@ export interface CoreContext {
   routineOrchestrator?: RoutineOrchestratorLike;
   /** Wired in by WS13; turn enqueue/stop/steer for Client API WebSocket. */
   mailbox?: TurnMailbox;
+  /**
+   * Wired in by WS13: told when a user resolves an approval card over HTTP or
+   * WS (after the store and event are updated), so the waiting turn or tool
+   * call continues instead of timing out.
+   */
+  onApprovalResolved?: (approvalId: string, resolution: "allow" | "deny") => void;
   /** Wired in by WS13 bootstrap; populated for `/api/engines` and routing. */
   availableEngines?: EngineId[];
   engineStatuses?: Partial<Record<EngineId, EngineStatus>>;

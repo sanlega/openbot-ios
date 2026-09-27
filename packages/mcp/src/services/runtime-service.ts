@@ -105,6 +105,12 @@ export class McpRuntimeServiceAdapter implements McpRuntimeService {
     if (decision.outcome === "allow" || decision.outcome === "simulate") {
       return allowed({ behavior: "allow" as const });
     }
+    if (decision.outcome === "ask" && decision.approvalId) {
+      // The engine is blocked on this tool call until the user answers the card
+      // (or it expires, which denies).
+      const resolution = await this.runtime.broker.waitForApproval(decision.approvalId);
+      return allowed({ behavior: resolution });
+    }
     return allowed({ behavior: "deny" as const });
   }
 
