@@ -42,3 +42,46 @@ test.describe("M1 in the real UI (PWA served by the harness)", () => {
     }
   });
 });
+
+test.describe("Every screen of the real UI loads against the harness", () => {
+  test("nav screens and bot panels render without errors", async ({ page }) => {
+    const harness = await startTestHarness();
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    page.on("response", (r) => {
+      if (r.status() >= 500) errors.push(`${r.status()} ${r.url()}`);
+    });
+    try {
+      await api(harness, "/api/setup/complete", { body: {} });
+      await createBot(harness, {
+        name: "Helper",
+        description: "helps",
+        computer: "docker",
+        routing: { mode: "pinned", engine: "fake" },
+      });
+      const screens: Array<[string, string]> = [
+        ["Activity", "activity-view"],
+        ["Audit", "audit-view"],
+        ["Routines", "routines-view"],
+        ["Settings", "settings-view"],
+        ["Devices", "devices-view"],
+      ];
+      for (const [tab, testId] of screens) {
+        await page.goto(`${harness.baseUrl}/app/`);
+        await page.getByRole("button", { name: tab, exact: true }).first().click();
+        await expect(page.getByTestId(testId)).toBeVisible();
+      }
+
+      await page.goto(`${harness.baseUrl}/app/`);
+      await page.getByRole("button", { name: "Profile", exact: true }).click();
+      await expect(page.getByText("Why does this bot exist?")).toBeVisible();
+      await page.getByRole("button", { name: "Computer", exact: true }).click();
+      await page.getByRole("button", { name: "Start computer" }).click();
+      await expect(page.getByRole("button", { name: "Take over screen" })).toBeVisible();
+
+      expect(errors).toEqual([]);
+    } finally {
+      await harness.close();
+    }
+  });
+});

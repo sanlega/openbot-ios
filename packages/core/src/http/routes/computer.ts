@@ -15,7 +15,7 @@ export function registerComputerRoutes(app: FastifyInstance, ctx: CoreContext): 
     if (!requireAuth(request, reply)) return;
     if (!ctx.computerProvider)
       return { ready: false, detail: "no ComputerProvider wired yet (WS9)" };
-    return ctx.computerProvider.status();
+    return { ...(await ctx.computerProvider.status()), provider: ctx.computerProvider.id };
   });
 
   app.post("/api/computer/start", async (request, reply) => {
@@ -31,6 +31,9 @@ export function registerComputerRoutes(app: FastifyInstance, ctx: CoreContext): 
     if (!ctx.computerProvider)
       return reply.code(501).send({ error: "not_implemented", reason: "WS9" });
     const { botId } = request.params as { botId: string };
+    if (!(await ctx.computerProvider.status()).ready) {
+      return reply.code(409).send({ error: "not_started", reason: "start the computer first" });
+    }
     const screen = await ctx.computerProvider.screen(botId);
     return screen.liveView();
   });

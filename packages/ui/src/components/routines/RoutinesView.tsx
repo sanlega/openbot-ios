@@ -123,7 +123,8 @@ export function RoutinesView() {
                   </div>
                   <div>{run.resultSummary}</div>
                   <div style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>
-                    ${run.usage.usd.toFixed(2)} · {run.usage.tokens.toLocaleString()} tokens
+                    ${run.usage.usd.toFixed(2)} ·{" "}
+                    {(run.usage.inputTokens + run.usage.outputTokens).toLocaleString()} tokens
                   </div>
                   {run.plannedActions?.length ? (
                     <ul className="planned-actions">

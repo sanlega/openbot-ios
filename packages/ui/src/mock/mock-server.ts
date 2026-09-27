@@ -5,9 +5,7 @@ import { monotonicFactory } from "ulid";
 import type { Approval, Message, OBEvent } from "@openbot/contracts";
 import type { SetupValidateRequest } from "../api/types.js";
 import {
-  SEED_ACTIVITY,
   SEED_APPROVALS,
-  SEED_AUDIT,
   SEED_BOTS,
   SEED_COMPUTER_TASKS,
   SEED_DEVICES,
@@ -222,16 +220,19 @@ export class MockClientApiServer {
         approvals: this.approvals.filter((a) => a.status === "pending"),
       });
     }
+    // Same shapes as the harness (packages/core/src/http/routes).
     if (method === "GET" && path === "/api/activity") {
-      let entries = [...SEED_ACTIVITY];
       const delivery = url.searchParams.get("delivery");
-      if (delivery === "held") entries = entries.filter((e) => e.delivery === "held");
       const botId = url.searchParams.get("botId");
-      if (botId) entries = entries.filter((e) => e.botId === botId);
-      return sendJson(res, 200, { events: entries });
+      const threadId = botId ? SEED_THREADS.find((t) => t.botId === botId)?.id : undefined;
+      const messages = this.messages
+        .filter((m) => !delivery || m.delivery === delivery)
+        .filter((m) => !threadId || m.threadId === threadId)
+        .filter((m) => m.text !== "__digest__");
+      return sendJson(res, 200, { messages });
     }
     if (method === "GET" && path === "/api/audit") {
-      return sendJson(res, 200, { entries: SEED_AUDIT });
+      return sendJson(res, 200, { approvals: this.approvals, turns: [] });
     }
     if (method === "GET" && path === "/api/setup") {
       return sendJson(res, 200, { setup: SEED_SETUP });
@@ -239,7 +240,10 @@ export class MockClientApiServer {
     if (method === "POST" && path === "/api/setup/validate") {
       const body = await readJson<SetupValidateRequest>(req);
       const ok = Boolean(body.value && body.value.length >= 8);
-      return sendJson(res, 200, { ok, reason: ok ? undefined : "Invalid or missing value" });
+      return sendJson(res, 200, {
+        result: { ok, reason: ok ? undefined : "Invalid or missing value" },
+        setup: SEED_SETUP,
+      });
     }
     if (method === "GET" && path === "/api/settings") {
       return sendJson(res, 200, { settings: this.settings });
@@ -265,13 +269,7 @@ export class MockClientApiServer {
       return sendJson(res, 200, { digest: SEED_DIGEST });
     }
     if (method === "GET" && path === "/api/computer/status") {
-      return sendJson(res, 200, {
-        provider: "docker",
-        running: true,
-        screensActive: 2,
-        sharedWorkspaceNotice:
-          "Bots share one computer and workspace. Bots are not a security boundary.",
-      });
+      return sendJson(res, 200, { ready: true, provider: "docker" });
     }
     if (method === "GET" && path.match(/^\/api\/computer\/screens\/[^/]+\/live$/)) {
       const botId = path.split("/")[4]!;
@@ -330,7 +328,7 @@ export class MockClientApiServer {
         status: "done",
         startedAt: new Date().toISOString(),
         endedAt: new Date().toISOString(),
-        usage: { usd: 0.03, tokens: 8000 },
+        usage: { usd: 0.03, inputTokens: 6000, outputTokens: 2000 },
         resultSummary: dryRun ? "Dry run — no side effects executed" : "Live test run completed",
         plannedActions: dryRun
           ? ["Would update spreadsheet", "Would send Slack message"]
@@ -353,7 +351,7 @@ export class MockClientApiServer {
     if (method === "GET" && path === "/api/devices") {
       return sendJson(res, 200, { devices: SEED_DEVICES });
     }
-    if (method === "GET" && path === "/api/devices/pair") {
+    if (method === "POST" && path === "/api/devices/pair/qr") {
       return sendJson(res, 200, {
         qrUrl: "https://openbot.local/app#pair=mock",
         pairSecret: "pair_secret_mock",
@@ -362,15 +360,23 @@ export class MockClientApiServer {
       });
     }
     if (method === "GET" && path === "/api/remote/status") {
-      return sendJson(res, 200, this.remote);
+      return sendJson(res, 200, {
+        remoteEnabled: this.remote.enabled,
+        tailscale: {
+          installed: true,
+          serveEnabled: this.remote.enabled && this.remote.via === "tailscale",
+          serveUrls: this.remote.enabled ? (this.remote.urls ?? []) : [],
+        },
+        cloudflare: { running: false },
+      });
     }
     if (method === "POST" && path === "/api/remote/tailscale/enable") {
       this.remote = { enabled: true, via: "tailscale", urls: SEED_REMOTE.urls };
-      return sendJson(res, 200, this.remote);
+      return sendJson(res, 200, { result: { ok: true } });
     }
     if (method === "POST" && path === "/api/remote/tailscale/disable") {
       this.remote = { enabled: false, via: undefined, urls: [] };
-      return sendJson(res, 200, this.remote);
+      return sendJson(res, 200, { ok: true });
     }
     if (method === "GET" && path.match(/^\/api\/bots\/[^/]+\/route$/)) {
       const botId = path.split("/")[3]!;

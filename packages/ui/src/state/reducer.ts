@@ -134,6 +134,7 @@ function applyEvent(state: UiState, event: OBEvent): void {
         kind: p.kind as Message["kind"],
         delivery: (p.delivery as Message["delivery"]) ?? "delivered",
         pushed: Boolean(p.pushed),
+        dedupeKey: typeof p.dedupeKey === "string" ? p.dedupeKey : undefined,
       };
       upsertMessage(state, msg);
       break;

@@ -101,9 +101,12 @@ export function ThreadViewPanel({ onBack }: ThreadViewProps) {
               <ApprovalCard key={a.id} approval={a} onResolve={(r) => resolveApproval(a.id, r)} />
             ))}
             {messages.map((m) =>
-              m.text === "__digest__" ? (
+              m.text === "__digest__" || m.dedupeKey?.startsWith("digest:") ? (
                 <div key={m.id} className="message-row" data-author="bot">
-                  <DigestMessage postedAt={m.createdAt} />
+                  <DigestMessage
+                    postedAt={m.createdAt}
+                    text={m.text === "__digest__" ? undefined : m.text}
+                  />
                   <span className="message-meta">{bot.name}</span>
                 </div>
               ) : (

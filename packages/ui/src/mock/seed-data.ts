@@ -294,7 +294,7 @@ export const SEED_ROUTINE_RUNS = [
     status: "done",
     startedAt: "2026-09-27T08:00:01.000Z",
     endedAt: "2026-09-27T08:00:45.000Z",
-    usage: { usd: 0.04, tokens: 12_000 },
+    usage: { usd: 0.04, inputTokens: 9_000, outputTokens: 3_000 },
     resultSummary: "Dry run completed — side effects planned.",
     plannedActions: [
       "Would post summary to Research thread",
@@ -308,7 +308,7 @@ export const SEED_ROUTINE_RUNS = [
     status: "done",
     startedAt: "2026-09-26T18:00:00.000Z",
     endedAt: "2026-09-26T18:01:20.000Z",
-    usage: { usd: 0.08, tokens: 24_000 },
+    usage: { usd: 0.08, inputTokens: 18_000, outputTokens: 6_000 },
     resultSummary: "Digest posted to CoS thread",
   },
 ];

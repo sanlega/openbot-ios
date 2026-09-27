@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import type { ActivityEntry } from "../../api/types.js";
+import type { Approval, Message } from "@openbot/contracts";
+import { activityFromMessages, auditFromApprovals } from "../../api/adapters.js";
+import type { ActivityEntry, AuditEntry } from "../../api/types.js";
 import { useOpenBot } from "../../state/context.js";
 import { EventCard } from "../cards/EventCard.js";
 
@@ -12,7 +14,9 @@ export function ActivityView() {
 
   useEffect(() => {
     const path = filter === "held" ? "/api/activity?delivery=held" : "/api/activity";
-    void transport.get<{ events: ActivityEntry[] }>(path).then((res) => setEntries(res.events));
+    void transport
+      .get<{ messages: Message[] }>(path)
+      .then((res) => setEntries(activityFromMessages(res.messages)));
   }, [transport, filter]);
 
   return (
@@ -103,14 +107,12 @@ function PromoteMuteButtons({
 
 export function AuditView() {
   const { transport } = useOpenBot();
-  const [entries, setEntries] = useState<
-    Array<{ id: string; ts: string; actor: string; action: string; detail: string }>
-  >([]);
+  const [entries, setEntries] = useState<AuditEntry[]>([]);
 
   useEffect(() => {
     void transport
-      .get<{ entries: typeof entries }>("/api/audit")
-      .then((res) => setEntries(res.entries));
+      .get<{ approvals: Approval[] }>("/api/audit")
+      .then((res) => setEntries(auditFromApprovals(res.approvals)));
   }, [transport]);
 
   return (

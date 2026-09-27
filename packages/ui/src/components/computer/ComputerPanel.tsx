@@ -4,6 +4,7 @@ import type {
   ComputerTasksResponse,
   LiveViewResponse,
 } from "../../api/types.js";
+import { computerStatusView } from "../../api/adapters.js";
 import { useOpenBot } from "../../state/context.js";
 
 interface ComputerPanelProps {
@@ -18,16 +19,25 @@ export function ComputerPanel({ botId }: ComputerPanelProps) {
   const [takeover, setTakeover] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const [started, setStarted] = useState(0);
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [st, lv, tk] = await Promise.all([
-        transport.get<ComputerStatusResponse>("/api/computer/status"),
-        transport.get<LiveViewResponse>(`/api/computer/screens/${botId}/live`),
+      const [st, tk] = await Promise.all([
+        transport.get<{ ready: boolean; detail?: string; provider?: string }>(
+          "/api/computer/status",
+        ),
         transport.get<ComputerTasksResponse>(`/api/computer/tasks?botId=${botId}`),
       ]);
+      // The live view only exists once the computer is running.
+      const lv = st.ready
+        ? await transport
+            .get<LiveViewResponse>(`/api/computer/screens/${botId}/live`)
+            .catch(() => null)
+        : null;
       if (cancelled) return;
-      setStatus(st);
+      setStatus(computerStatusView(st));
       setLive(lv);
       setTasks(tk.tasks);
       setLoading(false);
@@ -35,7 +45,13 @@ export function ComputerPanel({ botId }: ComputerPanelProps) {
     return () => {
       cancelled = true;
     };
-  }, [transport, botId]);
+  }, [transport, botId, started]);
+
+  const startComputer = async () => {
+    setLoading(true);
+    await transport.post("/api/computer/start");
+    setStarted((n) => n + 1);
+  };
 
   const toggleTakeover = async () => {
     const next = !takeover;
@@ -56,23 +72,34 @@ export function ComputerPanel({ botId }: ComputerPanelProps) {
       <div className="computer-grid">
         <section className="card">
           <h3 className="card-title">Live view</h3>
-          <div className="novnc-frame-wrap">
-            <iframe
-              title="Bot screen live view"
-              src={liveSrc}
-              className="novnc-frame"
-              sandbox="allow-scripts allow-same-origin"
-            />
-          </div>
-          <div className="card-actions">
-            <button
-              type="button"
-              className={takeover ? "danger" : "primary"}
-              onClick={() => void toggleTakeover()}
-            >
-              {takeover ? "End takeover" : "Take over screen"}
-            </button>
-          </div>
+          {live ? (
+            <>
+              <div className="novnc-frame-wrap">
+                <iframe
+                  title="Bot screen live view"
+                  src={liveSrc}
+                  className="novnc-frame"
+                  sandbox="allow-scripts allow-same-origin"
+                />
+              </div>
+              <div className="card-actions">
+                <button
+                  type="button"
+                  className={takeover ? "danger" : "primary"}
+                  onClick={() => void toggleTakeover()}
+                >
+                  {takeover ? "End takeover" : "Take over screen"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="card-actions">
+              <p style={{ color: "var(--text-muted)" }}>The computer is not running.</p>
+              <button type="button" className="primary" onClick={() => void startComputer()}>
+                Start computer
+              </button>
+            </div>
+          )}
         </section>
 
         <section className="card">
@@ -87,7 +114,7 @@ export function ComputerPanel({ botId }: ComputerPanelProps) {
                   {task.status}
                 </span>
                 <ol className="timeline">
-                  {task.timeline.map((step, i) => (
+                  {(task.timeline ?? []).map((step, i) => (
                     <li key={i}>
                       <time>{new Date(step.ts).toLocaleTimeString()}</time>
                       <span>
