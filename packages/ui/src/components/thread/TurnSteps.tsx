@@ -5,6 +5,7 @@ import {
   ChevronRight,
   ClipboardList,
   FileText,
+  Hand,
   Globe,
   ListTodo,
   Loader2,
@@ -23,8 +24,16 @@ const OPENBOT_PREFIX = "mcp__openbot__";
  * What the Bot did before answering, folded by default like a "thinking" block.
  * Engines do not expose their raw reasoning, so this shows the steps it took.
  */
-export function TurnSteps({ turn }: { turn: TurnActivity }) {
+export function TurnSteps({
+  turn,
+  waitingForUser = false,
+}: {
+  turn: TurnActivity;
+  /** The running turn is parked on an approval card: say so instead of "Thinking…". */
+  waitingForUser?: boolean;
+}) {
   const running = turn.status === "running";
+  const waiting = running && waitingForUser;
   if (!running && turn.steps.length === 0 && turn.status !== "failed") return null;
 
   const seconds = Math.max(
@@ -35,13 +44,15 @@ export function TurnSteps({ turn }: { turn: TurnActivity }) {
   );
   const steps = turn.steps.length;
   const current = turn.steps[steps - 1];
-  const summary = running
-    ? current
-      ? stepTitle(current)
-      : "Thinking…"
-    : turn.status === "failed"
-      ? `Couldn't finish · ${formatDuration(seconds)}`
-      : `Worked for ${formatDuration(seconds)} · ${steps} ${steps === 1 ? "step" : "steps"}`;
+  const summary = waiting
+    ? "Waiting for your approval"
+    : running
+      ? current
+        ? stepTitle(current)
+        : "Thinking…"
+      : turn.status === "failed"
+        ? `Couldn't finish · ${formatDuration(seconds)}`
+        : `Worked for ${formatDuration(seconds)} · ${steps} ${steps === 1 ? "step" : "steps"}`;
 
   return (
     <details
@@ -51,14 +62,16 @@ export function TurnSteps({ turn }: { turn: TurnActivity }) {
       open={turn.status === "failed"}
     >
       <summary>
-        {running ? (
+        {waiting ? (
+          <Hand size={14} className="turn-waiting" aria-hidden />
+        ) : running ? (
           <Loader2 size={14} className="spin" aria-hidden />
         ) : turn.status === "failed" ? (
           <X size={14} className="turn-failed" aria-hidden />
         ) : (
           <Check size={14} aria-hidden />
         )}
-        <span className={running ? "shimmer" : undefined}>{summary}</span>
+        <span className={running && !waiting ? "shimmer" : undefined}>{summary}</span>
         {steps > 0 ? <ChevronRight size={14} className="turn-chevron" aria-hidden /> : null}
       </summary>
       {steps > 0 ? (

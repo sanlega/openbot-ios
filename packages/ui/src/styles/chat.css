@@ -840,3 +840,7 @@
     display: none;
   }
 }
+
+.turn-waiting {
+  color: var(--warning);
+}

@@ -201,7 +201,9 @@ export function ThreadViewPanel({ onBack }: ThreadViewProps) {
                   </Fragment>
                 );
               })}
-              {runningTurn ? <TurnSteps turn={runningTurn} /> : null}
+              {runningTurn ? (
+                <TurnSteps turn={runningTurn} waitingForUser={threadApprovals.length > 0} />
+              ) : null}
               {!runningTurn && latestFailure ? <TurnSteps turn={latestFailure} /> : null}
               {/* What needs the user now sits at the bottom, next to the composer. */}
               {threadApprovals.map((a: Approval) => (
