@@ -1,0 +1,10 @@
+pnpm-lock.yaml
+.ai/**
+.claude/**
+.agents/**
+AGENTS.md
+CLAUDE.md
+**/dist/**
+**/build/**
+**/coverage/**
+images/**
