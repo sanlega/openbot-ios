@@ -33,3 +33,6 @@ export const O7_GUARDRAILS = {
 
 /** Webhook rate limit (plan §5 WS12): 60 per minute per routine. */
 export const WEBHOOK_RATE_LIMIT_PER_MIN = 60;
+
+/** File-watch debounce before coalescing fs events into one trigger (plan §5 WS12). */
+export const FILE_WATCH_DEBOUNCE_MS = 300;

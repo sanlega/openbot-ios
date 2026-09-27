@@ -4,10 +4,12 @@ import { createModuleHost } from "@openbot/core";
 import { RoutineOrchestrator, type RoutineOrchestratorOptions } from "./orchestrator.js";
 import { registerRoutineHookRoutes } from "./routes.js";
 import { OpenBotEventTriggerSource } from "./trigger-sources/openbot-events.js";
+import { FileWatchTriggerSource } from "./trigger-sources/file-watch.js";
 
 export interface IntegrateRoutinesResult {
   orchestrator: RoutineOrchestrator;
   openBotEvents: OpenBotEventTriggerSource;
+  fileWatch: FileWatchTriggerSource;
 }
 
 /**
@@ -28,7 +30,11 @@ export async function integrateRoutines(
   const openBotEvents = new OpenBotEventTriggerSource(ctx, orchestrator);
   openBotEvents.start();
 
+  const fileWatch = new FileWatchTriggerSource(ctx, orchestrator);
+  orchestrator.attachTriggerSources({ fileWatch });
+  fileWatch.start();
+
   await orchestrator.start();
 
-  return { orchestrator, openBotEvents };
+  return { orchestrator, openBotEvents, fileWatch };
 }

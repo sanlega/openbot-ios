@@ -16,9 +16,15 @@ import type { RoutineRuntime } from "./runtime-spi.js";
 import { RoutineScheduler } from "./scheduler.js";
 import { SimulatedRoutineRuntime } from "./simulated-runtime.js";
 import { StormControl } from "./storm-control.js";
+import type { FileWatchTriggerSource } from "./trigger-sources/file-watch.js";
 
 export interface RoutineOrchestratorOptions {
   runtime?: RoutineRuntime;
+}
+
+/** Optional trigger sources the orchestrator notifies on routine lifecycle changes. */
+export interface RoutineTriggerSources {
+  fileWatch?: FileWatchTriggerSource;
 }
 
 /**
@@ -32,6 +38,7 @@ export class RoutineOrchestrator {
   private started = false;
   private readonly pendingExecutions = new Map<string, number>();
   private readonly coalesceDelayMs = 100;
+  private triggerSources: RoutineTriggerSources = {};
 
   constructor(
     readonly ctx: CoreContext,
@@ -51,8 +58,13 @@ export class RoutineOrchestrator {
     this.scheduler.start(this.ctx.repos.routines.list());
   }
 
+  attachTriggerSources(sources: RoutineTriggerSources): void {
+    this.triggerSources = sources;
+  }
+
   async stop(): Promise<void> {
     this.scheduler.stopAll();
+    this.triggerSources.fileWatch?.stop();
     this.started = false;
   }
 
@@ -465,6 +477,7 @@ export class RoutineOrchestrator {
     if (routine.trigger.type === "event" && routine.trigger.source === "webhook") {
       void this.ensureWebhookSecret(routine.id);
     }
+    this.triggerSources.fileWatch?.syncRoutine(routine);
     // First run is always a dry run
     void this.queueRun(routine.id, "manual", { dryRun: true });
   }
@@ -474,10 +487,12 @@ export class RoutineOrchestrator {
     if (routine.enabled && routine.trigger.type === "schedule") {
       this.scheduler.scheduleRoutine(routine);
     }
+    this.triggerSources.fileWatch?.syncRoutine(routine);
   }
 
   onRoutineDeleted(routineId: string): void {
     this.scheduler.unschedule(routineId);
+    this.triggerSources.fileWatch?.removeRoutine(routineId);
   }
 
   private async ensureWebhookSecret(routineId: string): Promise<string> {

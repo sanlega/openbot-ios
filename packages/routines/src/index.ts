@@ -13,3 +13,5 @@ export { SimulatedRoutineRuntime, type SimulatedRuntimeOptions } from "./simulat
 export { integrateRoutines, type IntegrateRoutinesResult } from "./integrate.js";
 export { registerRoutineHookRoutes } from "./routes.js";
 export { OpenBotEventTriggerSource } from "./trigger-sources/openbot-events.js";
+export { FileWatchTriggerSource, type FileWatchOptions } from "./trigger-sources/file-watch.js";
+export { resolveWatchPath, allowedWatchRoots } from "./trigger-sources/file-watch-paths.js";
