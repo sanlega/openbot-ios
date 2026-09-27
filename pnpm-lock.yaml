@@ -259,7 +259,25 @@ importers:
       '@openbot/contracts':
         specifier: workspace:*
         version: link:../contracts
+      ulid:
+        specifier: 3.0.2
+        version: 3.0.2
     devDependencies:
+      '@openbot/computer-fake':
+        specifier: workspace:*
+        version: link:../computer/fake
+      '@openbot/decisions':
+        specifier: workspace:*
+        version: link:../decisions
+      '@openbot/engines-fake':
+        specifier: workspace:*
+        version: link:../engines/fake
+      '@openbot/store':
+        specifier: workspace:*
+        version: link:../store
+      '@openbot/testkit':
+        specifier: workspace:*
+        version: link:../testkit
       typescript:
         specifier: 6.0.3
         version: 6.0.3

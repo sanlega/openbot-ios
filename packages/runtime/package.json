@@ -14,9 +14,15 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@openbot/contracts": "workspace:*"
+    "@openbot/contracts": "workspace:*",
+    "ulid": "3.0.2"
   },
   "devDependencies": {
+    "@openbot/decisions": "workspace:*",
+    "@openbot/engines-fake": "workspace:*",
+    "@openbot/computer-fake": "workspace:*",
+    "@openbot/store": "workspace:*",
+    "@openbot/testkit": "workspace:*",
     "typescript": "6.0.3",
     "vitest": "5.0.2"
   }
