@@ -17,11 +17,11 @@ const sqliteRoot = join(pnpmDir, sqlitePkgDir, "node_modules", "better-sqlite3")
 rmSync(join(sqliteRoot, "prebuilds"), { recursive: true, force: true });
 rmSync(join(sqliteRoot, "build"), { recursive: true, force: true });
 
-const result = spawnSync(
-  "pnpm",
-  ["exec", "electron-rebuild", "-f", "-w", "better-sqlite3"],
-  { cwd: desktopRoot, stdio: "inherit", shell: true },
-);
+const result = spawnSync("pnpm", ["exec", "electron-rebuild", "-f", "-w", "better-sqlite3"], {
+  cwd: desktopRoot,
+  stdio: "inherit",
+  shell: true,
+});
 
 if (result.status !== 0) {
   process.exit(result.status ?? 1);

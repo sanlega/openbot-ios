@@ -51,7 +51,10 @@ export function resolvePwaStaticRoot(): string {
 }
 
 /** Dev/test: spawn compiled server entry with system Node. */
-export function resolveDevHarnessLaunch(cliArgs: string[] = []): { program: string; args: string[] } {
+export function resolveDevHarnessLaunch(cliArgs: string[] = []): {
+  program: string;
+  args: string[];
+} {
   return { program: resolveServerMainPath(), args: cliArgs };
 }
 
@@ -68,15 +71,13 @@ export function createNodeForkFactory(): UtilityProcessFactory {
   };
 }
 
-export function createUtilityProcessFactory(
-  utilityProcess: {
-    fork(
-      modulePath: string,
-      args?: string[],
-      options?: { serviceName?: string; env?: Record<string, string | undefined> },
-    ): UtilityProcessLike;
-  },
-): UtilityProcessFactory {
+export function createUtilityProcessFactory(utilityProcess: {
+  fork(
+    modulePath: string,
+    args?: string[],
+    options?: { serviceName?: string; env?: Record<string, string | undefined> },
+  ): UtilityProcessLike;
+}): UtilityProcessFactory {
   return {
     fork(modulePath, args, options) {
       const child = utilityProcess.fork(modulePath, args, {

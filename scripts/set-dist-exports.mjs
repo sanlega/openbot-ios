@@ -50,7 +50,10 @@ const packages = [
   { path: "packages/remote/package.json", exports: { ".": "./src/index.ts" } },
   { path: "packages/routines/package.json", exports: { ".": "./src/index.ts" } },
   { path: "packages/connectors/package.json", exports: { ".": "./src/index.ts" } },
-  { path: "packages/computer/package.json", exports: { ".": "./src/index.ts", "./observation": "./src/observation/index.ts" } },
+  {
+    path: "packages/computer/package.json",
+    exports: { ".": "./src/index.ts", "./observation": "./src/observation/index.ts" },
+  },
   { path: "packages/computer/docker/package.json", exports: { ".": "./src/index.ts" } },
   { path: "packages/computer/fake/package.json", exports: { ".": "./src/index.ts" } },
   { path: "packages/computer/local/package.json", exports: { ".": "./src/index.ts" } },
@@ -58,7 +61,10 @@ const packages = [
   { path: "packages/engines/claude/package.json", exports: { ".": "./src/index.ts" } },
   { path: "packages/engines/codex/package.json", exports: { ".": "./src/index.ts" } },
   { path: "packages/engines/fake/package.json", exports: { ".": "./src/index.ts" } },
-  { path: "packages/ui/package.json", exports: { ".": "./src/index.ts", "./mock": "./src/mock/index.ts" } },
+  {
+    path: "packages/ui/package.json",
+    exports: { ".": "./src/index.ts", "./mock": "./src/mock/index.ts" },
+  },
   { path: "apps/pwa/package.json", exports: { ".": "./src/index.ts" } },
 ];
 
