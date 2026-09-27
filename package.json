@@ -15,11 +15,7 @@
     "dev": "pnpm -r --if-present --parallel run dev",
     "test": "vitest run",
     "test:watch": "vitest",
-<<<<<<< HEAD
     "typecheck": "pnpm --filter @openbot/contracts run build && pnpm -r --if-present run typecheck",
-=======
-    "typecheck": "pnpm run build && pnpm -r --if-present run typecheck",
->>>>>>> 561c085 (Fix pnpm typecheck to build first (composite project refs need dist to exist))
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
