@@ -33,6 +33,8 @@ export interface EnqueueTurnInput extends TurnInput {
    * depend on it — e.g. the OpenBot MCP server, whose session token names the turn.
    */
   prepareTurn?: (turnId: string) => Promise<Partial<Pick<TurnInput, "mcpServers">>>;
+  /** Per-run cap (routine runs): the turn is interrupted once its chain's usage exceeds it. */
+  runBudget?: { usd?: number; tokens?: number };
 }
 
 export interface TurnOutcome {
@@ -370,6 +372,13 @@ export class Mailbox {
         const usd = event.usd ?? 0;
         const tokens = event.inputTokens + event.outputTokens;
         this.opts.chains.recordUsage(input.chainId, { usd, tokens });
+        if (input.runBudget) {
+          const chain = this.opts.chains.get(input.chainId);
+          const overUsd = input.runBudget.usd !== undefined && chain.usd > input.runBudget.usd;
+          const overTokens =
+            input.runBudget.tokens !== undefined && chain.tokens > input.runBudget.tokens;
+          if (overUsd || overTokens) void this.interrupt(botId);
+        }
         if (this.opts.spendCaps && input.spendLimits) {
           void this.opts.spendCaps
             .recordUsage({ botId, chainId: input.chainId, usd, tokens, ...input.spendLimits })
@@ -447,8 +456,10 @@ export class Mailbox {
       mode: this.opts.chains.get(input.chainId).mode,
       preset: input.permission,
     });
-    if (decision.outcome === "allow" || decision.outcome === "simulate") return "allow";
-    if (decision.outcome === "deny") return "deny";
+    if (decision.outcome === "allow") return "allow";
+    // A simulated action is recorded (`action.simulated`) and must not run: the
+    // engine executes whatever it is allowed to, so refuse it.
+    if (decision.outcome === "deny" || decision.outcome === "simulate") return "deny";
     return this.opts.broker.waitForApproval(decision.approvalId as string);
   }
 }

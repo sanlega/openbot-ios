@@ -416,3 +416,74 @@ describe("Mailbox thread persistence, session resume, and per-turn preparation",
     expect(runtime.events.byType("turn.failed")).toHaveLength(1);
   });
 });
+
+describe("Mailbox per-run budget", () => {
+  it("interrupts the turn once the chain's usage exceeds runBudget", async () => {
+    let interrupted = false;
+    const driver: EngineDriver = {
+      id: "fake",
+      detect: async () => ({ installed: true, login: { ok: true }, apiKey: { ok: true } }),
+      validateKey: async () => ({ ok: true }),
+      listModels: async () => [],
+      dispose: async () => {},
+      startTurn(_input: TurnInput, hooks: TurnHooks): TurnHandle {
+        const done = (async (): Promise<TurnResult> => {
+          for (let i = 0; i < 5 && !interrupted; i++) {
+            hooks.emit({ type: "usage", inputTokens: 100, outputTokens: 100, usd: 0.2 });
+            await Promise.resolve();
+          }
+          return turnResult({
+            isError: interrupted,
+            errorMessage: interrupted ? "interrupted" : undefined,
+          });
+        })();
+        return {
+          steer: async () => {},
+          interrupt: async () => {
+            interrupted = true;
+          },
+          done,
+        };
+      },
+    };
+    const runtime = buildRuntime(driver);
+    const input = makeInput(runtime, { runBudget: { usd: 0.5 } });
+
+    const outcome = await runtime.mailbox.submit(input);
+
+    expect(outcome.status).toBe("interrupted");
+    expect(runtime.chains.get(input.chainId).usd).toBeCloseTo(0.6);
+  });
+});
+
+describe("Mailbox in a dry_run chain", () => {
+  it("refuses the engine's side-effecting tools and records them as simulated", async () => {
+    const decisions: Array<"allow" | "deny"> = [];
+    const runtime = buildRuntime(
+      new ScriptedEngineDriver(async (hooks) => {
+        decisions.push(
+          await hooks.requestApproval({
+            toolName: "Write",
+            input: { path: "/workspace/report.md", content: "x" },
+            toolUseId: "t1",
+          }),
+        );
+        decisions.push(
+          await hooks.requestApproval({
+            toolName: "read_file",
+            input: { path: "/workspace/notes.md" },
+            toolUseId: "t2",
+          }),
+        );
+        return turnResult();
+      }),
+    );
+    const chainId = runtime.chains.create({ origin: "routine", mode: "dry_run" }).id;
+
+    await runtime.mailbox.submit(makeInput(runtime, { chainId }));
+
+    expect(decisions).toEqual(["deny", "allow"]);
+    const simulated = runtime.events.byType("action.simulated");
+    expect(simulated.map((e) => e.payload.action)).toEqual(["Write"]);
+  });
+});

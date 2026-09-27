@@ -102,8 +102,12 @@ export class McpRuntimeServiceAdapter implements McpRuntimeService {
       },
       { mode: session.mode, preset: session.bot.permissionPreset },
     );
-    if (decision.outcome === "allow" || decision.outcome === "simulate") {
+    if (decision.outcome === "allow") {
       return allowed({ behavior: "allow" as const });
+    }
+    if (decision.outcome === "simulate") {
+      // Dry run: the broker recorded the action; the engine must not perform it.
+      return allowed({ behavior: "deny" as const });
     }
     if (decision.outcome === "ask" && decision.approvalId) {
       // The engine is blocked on this tool call until the user answers the card
