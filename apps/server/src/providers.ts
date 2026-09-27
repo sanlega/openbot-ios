@@ -9,7 +9,7 @@ import type { CoreContext } from "@openbot/core";
 import { FakeComputerProvider } from "@openbot/computer-fake";
 import { createDockerProvider, isDockerAvailable } from "@openbot/computer-docker";
 import { LocalProvider } from "@openbot/computer-local";
-import { createDecisionService, FakeDecisionService } from "@openbot/decisions";
+import { FakeDecisionService, KeyedDecisionService } from "@openbot/decisions";
 import { ClaudeDriver, detectClaude } from "@openbot/engines-claude";
 import { CodexDriver, detectCodex } from "@openbot/engines-codex";
 import { validateAnthropicKey, validateOpenAiKey } from "@openbot/engines-common";
@@ -54,7 +54,7 @@ export async function bootstrapProviders(
   ctx: CoreContext,
   detection: ProviderDetection = defaultDetection,
 ): Promise<BootstrapProvidersResult> {
-  const decisionService = await resolveDecisionService(ctx);
+  const decisionService = resolveDecisionService(ctx);
   const { drivers, engineStatuses, availableEngines } = await resolveEngineDrivers(detection);
   const computerProvider = await resolveComputerProvider(detection);
 
@@ -66,14 +66,17 @@ export async function bootstrapProviders(
   return { decisionService, drivers, computerProvider, engineStatuses, availableEngines };
 }
 
-async function resolveDecisionService(ctx: CoreContext): Promise<DecisionService> {
+/**
+ * Jev is required (plan U1), so production never falls back to the fake: with
+ * no key yet, decisions degrade conservatively and the key is re-read from the
+ * vault on each call, so the one saved by the setup wizard applies immediately.
+ */
+function resolveDecisionService(ctx: CoreContext): DecisionService {
   if (fakeFlag("OPENBOT_FAKE_JEV")) return new FakeDecisionService();
 
-  const vaultKey = await ctx.vault.get(VAULT_KEYS.typesafe);
-  const apiKey = process.env.JEV_API_KEY ?? vaultKey;
-  if (!apiKey) return new FakeDecisionService();
-
-  return createDecisionService({ apiKey });
+  return new KeyedDecisionService({
+    getApiKey: async () => process.env.JEV_API_KEY || (await ctx.vault.get(VAULT_KEYS.typesafe)),
+  });
 }
 
 async function resolveEngineDrivers(detection: ProviderDetection): Promise<{

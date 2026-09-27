@@ -7,6 +7,7 @@ export * from "./fallbacks.js";
 export * from "./state-builders.js";
 export * from "./decision-log.js";
 export * from "./decision-service.js";
+export * from "./keyed-decision-service.js";
 export * from "./router.js";
 export * from "./gate-rules.js";
 export * from "./llm-fallback.js";
