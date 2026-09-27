@@ -1,47 +1,54 @@
-import type { OBEvent } from "@openbot/contracts";
+import type { EventType, OBEvent } from "@openbot/contracts";
 import { EVENT_TYPES } from "@openbot/contracts";
+import { useOptionalOpenBot } from "../../state/context.js";
+import { plainText } from "../activity/format.js";
 
-const EVENT_LABELS: Record<string, string> = {
-  "message.created": "Message created",
-  "message.delta": "Streaming…",
-  "message.completed": "Message complete",
-  "message.held": "Message held",
-  "message.merged": "Message merged",
-  "turn.queued": "Turn queued",
-  "turn.started": "Turn started",
-  "turn.completed": "Turn completed",
-  "turn.failed": "Turn failed",
-  "turn.interrupted": "Turn interrupted",
-  "tool.started": "Tool started",
-  "tool.completed": "Tool completed",
-  "action.simulated": "Action simulated (dry run)",
-  "approval.requested": "Approval requested",
-  "approval.resolved": "Approval resolved",
-  "handoff.sent": "Handoff sent",
-  "handoff.received": "Handoff received",
+/** Plain-language names for every event type; never shown as raw ids like "message.held". */
+const EVENT_LABELS: Record<EventType, string> = {
+  "message.created": "New message",
+  "message.delta": "Writing…",
+  "message.completed": "Message sent",
+  "message.held": "Held back",
+  "message.merged": "Merged into another update",
+  "turn.queued": "Waiting to start",
+  "turn.started": "Started working",
+  "turn.completed": "Finished working",
+  "turn.failed": "Ran into a problem",
+  "turn.interrupted": "Stopped",
+  "tool.started": "Using a tool",
+  "tool.completed": "Used a tool",
+  "action.simulated": "Would have acted (dry run)",
+  "approval.requested": "Asked for your OK",
+  "approval.resolved": "You answered a request",
+  "input.requested": "Asked you",
+  "input.answered": "You answered",
+  "input.dismissed": "You skipped a form",
+  "input.cancelled": "Form withdrawn",
+  "handoff.sent": "Handed off work",
+  "handoff.received": "Picked up a handoff",
   "bot.created": "Bot created",
   "bot.updated": "Bot updated",
   "bot.archived": "Bot archived",
-  "bot.archive_suggested": "Archive suggested",
-  "route.decided": "Route decided",
-  "gate.decided": "Gate decided",
-  "chain.limit_reached": "Chain limit reached",
-  "guard.tripped": "Guard tripped",
-  "cap.hit": "Cap hit",
-  "chain.resumed": "Chain resumed",
-  "chain.stopped": "Chain stopped",
+  "bot.archive_suggested": "Suggested archiving a bot",
+  "route.decided": "Picked an engine",
+  "gate.decided": "Chief of Staff decided",
+  "chain.limit_reached": "Reached its step limit",
+  "guard.tripped": "Loop guard stepped in",
+  "cap.hit": "Hit a limit",
+  "chain.resumed": "Resumed",
+  "chain.stopped": "Stopped",
   "attention.changed": "Attention changed",
-  "notify.requested": "Notify requested",
+  "notify.requested": "Wanted to notify you",
   "digest.posted": "Daily digest",
   "usage.recorded": "Usage recorded",
-  "decision.made": "Decision made",
+  "decision.made": "Made a decision",
   "computer.status": "Computer status",
-  "computer.task_started": "Computer task started",
+  "computer.task_started": "Started a computer task",
   "computer.step": "Computer step",
-  "computer.escalated": "Computer escalated",
-  "computer.takeover_requested": "Takeover requested",
+  "computer.escalated": "Needs help on the computer",
+  "computer.takeover_requested": "Asked you to take over",
   "computer.takeover_ended": "Takeover ended",
-  "computer.task_completed": "Computer task completed",
+  "computer.task_completed": "Finished a computer task",
   "routine.created": "Routine created",
   "routine.updated": "Routine updated",
   "routine.deleted": "Routine deleted",
@@ -50,24 +57,29 @@ const EVENT_LABELS: Record<string, string> = {
   "trigger.received": "Trigger received",
   "routine.run_queued": "Routine run queued",
   "routine.run_started": "Routine run started",
-  "routine.run_completed": "Routine run completed",
+  "routine.run_completed": "Routine run finished",
   "routine.run_skipped": "Routine run skipped",
   "device.paired": "Device paired",
-  "device.revoked": "Device revoked",
-  "remote.status": "Remote status",
-  "connector.connected": "Connector connected",
-  "connector.disconnected": "Connector disconnected",
+  "device.revoked": "Device removed",
+  "remote.status": "Remote access changed",
+  "connector.connected": "App connected",
+  "connector.disconnected": "App disconnected",
   "setup.changed": "Setup changed",
   "engine.status": "Engine status",
-  error: "Error",
+  error: "Something went wrong",
 };
 
+export function eventLabel(type: string): string {
+  return (EVENT_LABELS as Record<string, string>)[type] ?? "Update";
+}
+
 function cardKind(type: string): string {
-  if (type.startsWith("approval")) return "approval";
+  if (type.startsWith("approval") || type.startsWith("input")) return "approval";
   if (type === "route.decided") return "route";
-  if (type.startsWith("chain") || type === "guard.tripped") return "chain";
+  if (type.startsWith("chain") || type === "guard.tripped" || type === "cap.hit") return "chain";
   if (type.startsWith("computer")) return "computer";
   if (type.startsWith("routine")) return "routine";
+  if (type === "error" || type === "turn.failed") return "error";
   return "default";
 }
 
@@ -75,24 +87,35 @@ interface EventCardProps {
   event: OBEvent;
 }
 
-/** Renders any OBEvent type — used in thread timeline and activity audit trail. */
+/** Renders any OBEvent as "<Bot> · <what happened> — <short detail>". */
 export function EventCard({ event }: EventCardProps) {
-  const label = EVENT_LABELS[event.type] ?? event.type;
+  const openbot = useOptionalOpenBot();
+  const bot = event.botId ? openbot?.bots.find((b) => b.id === event.botId) : undefined;
   const summary = summarizePayload(event);
 
   return (
     <div className="event-card" data-kind={cardKind(event.type)} data-event-type={event.type}>
-      <strong>{label}</strong>
-      {summary ? <> — {summary}</> : null}
+      {bot ? <span className="event-card-bot">{bot.name}</span> : null}
+      <strong>{eventLabel(event.type)}</strong>
+      {summary ? <span className="event-card-detail">{summary}</span> : null}
     </div>
   );
 }
 
 function summarizePayload(event: OBEvent): string {
   const p = event.payload;
-  if (typeof p.summary === "string") return p.summary;
-  if (typeof p.text === "string") return p.text;
-  if (typeof p.reason === "string") return p.reason;
+  const text =
+    typeof p.summary === "string"
+      ? p.summary
+      : typeof p.text === "string"
+        ? p.text
+        : typeof p.reason === "string"
+          ? p.reason
+          : "";
+  if (text) {
+    const plain = plainText(text);
+    return plain.length > 160 ? `${plain.slice(0, 157)}…` : plain;
+  }
   if (typeof p.engine === "string" && typeof p.model === "string") {
     return `${p.engine} / ${p.model}`;
   }

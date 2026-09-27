@@ -195,6 +195,9 @@ export class MockClientApiServer {
     if (method === "GET" && path === "/api/health") {
       return sendJson(res, 200, { status: "ok" });
     }
+    if (method === "GET" && path === "/api/harness/status") {
+      return sendJson(res, 200, { connected: true, version: "0.1.0" });
+    }
     if (method === "GET" && path === "/api/bots") {
       return sendJson(res, 200, { bots: SEED_BOTS });
     }

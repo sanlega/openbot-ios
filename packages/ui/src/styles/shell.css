@@ -447,3 +447,57 @@ body {
     display: none !important;
   }
 }
+
+/* Start-up, offline, and crash screens */
+.app-status {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-8);
+  text-align: center;
+  color: var(--text-2);
+  background: var(--bg);
+}
+
+.app-status h1 {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 650;
+  color: var(--text);
+}
+
+.app-status p {
+  margin: 0;
+  max-width: 420px;
+}
+
+.app-status pre {
+  max-width: 560px;
+  overflow: auto;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+  color: var(--danger);
+}
+
+.app-status-mark {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: url("/app/icon-512.png") center / cover no-repeat;
+  animation: pulse 1.6s var(--ease) infinite;
+}
+
+.banner-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 1.2s var(--ease) infinite;
+}

@@ -51,6 +51,7 @@ export interface Transport {
   connectWebSocket(
     onMessage: (msg: WsInbound) => void,
     onClose?: () => void,
+    onOpen?: () => void,
   ): { subscribe(since: number): void; send(command: WsCommand): void; close(): void };
   close(): Promise<void>;
 }

@@ -158,6 +158,11 @@ export function AppShell({ showSetup = false }: AppShellProps) {
           </nav>
         </aside>
         <main className="main-panel">
+          {!state.connected && state.everConnected ? (
+            <div className="banner banner-warning" role="status">
+              <span className="banner-dot" aria-hidden /> Reconnecting to OpenBot…
+            </div>
+          ) : null}
           <ShellBackContext.Provider value={() => setMobileView("list")}>
             {mainContent()}
           </ShellBackContext.Provider>

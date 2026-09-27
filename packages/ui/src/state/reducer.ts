@@ -35,6 +35,8 @@ export interface UiState {
   /** `ask_user` forms by id. */
   inputs: Map<string, InputRequest>;
   connected: boolean;
+  /** Set once the WebSocket first opens, so "Reconnecting…" never shows during start-up. */
+  everConnected: boolean;
   replayDone: boolean;
 }
 
@@ -56,6 +58,7 @@ export function createInitialState(
     turnByMessage: new Map(),
     inputs: new Map(),
     connected: false,
+    everConnected: false,
     replayDone: false,
   };
   for (const msg of messages) {
@@ -72,6 +75,7 @@ export function createInitialState(
 
 export type UiAction =
   | { type: "ws.connected" }
+  | { type: "ws.disconnected" }
   | { type: "ws.replay.done" }
   | {
       type: "hydrate";
@@ -105,7 +109,9 @@ function upsertMessage(state: UiState, message: Message): void {
 export function uiReducer(state: UiState, action: UiAction): UiState {
   switch (action.type) {
     case "ws.connected":
-      return { ...state, connected: true };
+      return { ...state, connected: true, everConnected: true };
+    case "ws.disconnected":
+      return { ...state, connected: false };
     case "ws.replay.done":
       return { ...state, replayDone: true };
     case "hydrate": {
@@ -118,6 +124,8 @@ export function uiReducer(state: UiState, action: UiAction): UiState {
       next.turnByMessage = state.turnByMessage;
       next.lastSeq = state.lastSeq;
       next.seenEventIds = state.seenEventIds;
+      next.connected = state.connected;
+      next.everConnected = state.everConnected;
       return next;
     }
     case "event": {

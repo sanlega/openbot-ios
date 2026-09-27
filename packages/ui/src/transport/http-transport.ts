@@ -74,6 +74,7 @@ export class HttpTransport implements Transport {
   connectWebSocket(
     onMessage: (msg: WsInbound) => void,
     onClose?: () => void,
+    onOpen?: () => void,
   ): { subscribe(since: number): void; send(command: WsCommand): void; close(): void } {
     const wsUrl = joinUrl(this.baseUrl, "/api/ws").replace(/^http/, "ws");
     const ws = new WebSocket(wsUrl);
@@ -92,6 +93,7 @@ export class HttpTransport implements Transport {
     };
     ws.addEventListener("open", () => {
       for (const text of pending.splice(0)) ws.send(text);
+      onOpen?.();
     });
 
     return {

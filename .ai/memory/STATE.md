@@ -1,6 +1,6 @@
 # Estado actual
 
-_Última actualización: 2026-09-27 por claude (first-run fixes after the user tried the desktop app)_
+_Last updated: 2026-09-27 by codex (continued Claude's product-polish branch)_
 
 ## En curso
 - PRs #15 (v1 integration, WS0–WS13) and #16 (review fixes) are merged into
@@ -35,7 +35,7 @@ _Última actualización: 2026-09-27 por claude (first-run fixes after the user t
   covers it.
 
 - First real run by the user (desktop app, real Claude + Codex keys): onboarding
-  worked, but no Bot could be created. Fixed (uncommitted, on `main` working tree):
+  worked, but no Bot could be created. Fixed in `da0f0ca` on `claude/product-polish`:
   - The server seeds the Chief of Staff once setup is complete (and at startup
     for installs already past setup): `apps/server/src/chief-of-staff.ts`, wired
     in `bootstrap.ts`.
@@ -45,13 +45,13 @@ _Última actualización: 2026-09-27 por claude (first-run fixes after the user t
   - Wizard: Claude and Codex each optional, at least one engine required.
   - Mock server supports `POST /api/bots`; new E2E "First run in the real UI".
   - Verified: typecheck, lint 0 errors, E2E 11/11, unit tests 670 pass.
-- Chat format fixed (uncommitted): Claude replies were stored twice (the parser
+- Chat format fixed in `da0f0ca`: Claude replies were stored twice (the parser
   appended both `stream_event` deltas and the full `assistant` line;
   `packages/engines/claude/src/parse-stream-json.ts` + test). Bot messages render
   as Markdown (`react-markdown` + `remark-gfm`, no raw HTML;
   `packages/ui/src/components/thread/MessageText.tsx`); Electron opens links in
   the system browser. Messages stored before the fix stay duplicated.
-- Bots working together (uncommitted, verified: typecheck, lint, 676 unit, E2E 14/14):
+- Bots working together (in `da0f0ca`, verified: typecheck, lint, 676 unit, E2E 14/14):
   - No approval cards for OpenBot's own tools: turns pass `--allowedTools mcp__openbot`
     and `permission_prompt` allows `mcp__openbot__*` (their handlers carry the gates).
   - A `send_message` wakes the recipient: `wakeOnBotMessages` (turn-mailbox.ts) runs
@@ -70,7 +70,7 @@ _Última actualización: 2026-09-27 por claude (first-run fixes after the user t
     new messages unless the user scrolled up.
   - Messages sent before these fixes are not replayed: the "Research Helper" task
     from the CoS stays unanswered until someone messages that Bot again.
-- Approvals (uncommitted, verified: typecheck, lint, 693 unit, E2E 14/14 x3):
+- Approvals (in `da0f0ca`, verified: typecheck, lint, 693 unit, E2E 14/14 x3):
   - `classifyToolCall` (`packages/runtime/src/tool-classifier.ts`) shared by the
     mailbox and `permission_prompt`: read tools and read-only shell pipelines are
     read-only; Write/Edit inside the workspace are allowed (`workspace_write`/`full`).
@@ -82,24 +82,31 @@ _Última actualización: 2026-09-27 por claude (first-run fixes after the user t
   - Markdown: a blank line is inserted before list items that follow a text line.
 - Fixed flakes: UI turn tracking tolerates out-of-order bus events (the "Turn
   steps" flake); E2E harness uses OS-assigned free ports (EADDRINUSE flake).
-- Known failing unit test: `packages/cos/src/digest.test.ts` fails outside UTC:
-  `DigestService.tick` uses `now.getHours()` (local time) and ignores
-  `config.timezone`. CI is UTC so it never showed. Not fixed yet.
+- Digest timezone bug is fixed in `da0f0ca`; the suite passes outside UTC.
+- The current UI product polish is on `claude/product-polish`; plan:
+  `.ai/memory/plans/2026-09-27-ui-product-polish.md`. Setup, Activity, Routines,
+  Settings, and Devices/Remote were redesigned. The UI reconnects after a lost
+  WebSocket; a failed Settings load now offers retry. The mock serves harness
+  status. Verified on macOS: build, typecheck, lint (0 errors, 6 existing warnings),
+  format, 726 unit tests, 15 integration E2E, `mh check`.
 - Local dev needs Node >=22.12 (user's default is 20; installed 22 via nvm) and
   `corepack pnpm`. After `rebuild:native` for Electron, run
   `corepack pnpm rebuild better-sqlite3` before Node unit tests.
 
 ## Próximos pasos
-0. Plan for structured user inputs (`ask_user` forms, secrets to vault,
-   "Waiting on you"): `.ai/memory/plans/2026-09-27-user-inputs.md`, draft,
-   awaiting user approval; then T1.
+0. Structured user inputs (`ask_user` forms, secrets to vault, "Waiting on you")
+   are implemented in `da0f0ca`; the draft plan
+   `.ai/memory/plans/2026-09-27-user-inputs.md` still needs its status and boxes
+   updated to match the implementation.
 0b. User wants Composio removed (closed source) and replaced by tools that users
    and agents create themselves. Proposed: (A) declarative HTTP tools (JSON spec +
    vault secret, no code), then (B) script tools in Docker; agent-created tools
    need an approval card to activate. Awaiting the user's choice, then write the
    plan in `.ai/memory/plans/` (touches contracts `ConnectorProvider`, D-009,
-   setup wizard, connectors package). Also: commit the first-run fixes (user has
-   not asked yet) and fix the digest timezone bug.
+   setup wizard, connectors package).
+0c. Manually inspect the redesigned desktop UI and exercise routine editing,
+    device pairing, and remote provider actions with real providers. The E2E suite
+    currently smoke-tests screen loading and the existing core flows.
 1. Close superseded PRs #1–#14 if still open.
 2. WS3 follow-up spike with real Claude/Codex credentials (M1 sign-off): check
    that the injected OpenBot MCP server works with both CLIs, that approvals

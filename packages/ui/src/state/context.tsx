@@ -96,29 +96,49 @@ export function OpenBotProvider({ transport, children }: OpenBotProviderProps) {
     lastSeqRef.current = state.lastSeq;
   }, [state.lastSeq]);
 
+  // Reconnects with backoff when the harness restarts or the network drops, and
+  // catches up: the subscribe replays every event after the last one seen.
+  const [wsGeneration, setWsGeneration] = useState(0);
+  const retryRef = useRef(0);
   useEffect(() => {
     let cancelled = false;
-    const conn = transport.connectWebSocket((msg) => {
-      if (cancelled) return;
-      if (msg.type === "event" && msg.event) {
-        dispatch({ type: "event", event: msg.event });
-        // The roster lists threads, and a new Bot's DM thread has no event of its own.
-        if (msg.event.type === "bot.created") void hydrate();
-      }
-      if (msg.type === "replay.done") {
-        dispatch({ type: "ws.replay.done" });
-      }
-    });
+    let reconnect: ReturnType<typeof setTimeout> | undefined;
+    const conn = transport.connectWebSocket(
+      (msg) => {
+        if (cancelled) return;
+        if (msg.type === "event" && msg.event) {
+          dispatch({ type: "event", event: msg.event });
+          // The roster lists threads, and a new Bot's DM thread has no event of its own.
+          if (msg.event.type === "bot.created") void hydrate();
+        }
+        if (msg.type === "replay.done") {
+          dispatch({ type: "ws.replay.done" });
+        }
+      },
+      () => {
+        if (cancelled) return;
+        dispatch({ type: "ws.disconnected" });
+        const delay = Math.min(10_000, 500 * 2 ** retryRef.current);
+        retryRef.current += 1;
+        reconnect = setTimeout(() => setWsGeneration((g) => g + 1), delay);
+      },
+      () => {
+        if (cancelled) return;
+        if (retryRef.current > 0) void hydrate().catch(() => undefined);
+        retryRef.current = 0;
+        dispatch({ type: "ws.connected" });
+      },
+    );
     wsRef.current = conn;
-    dispatch({ type: "ws.connected" });
     conn.subscribe(lastSeqRef.current);
 
     return () => {
       cancelled = true;
+      if (reconnect) clearTimeout(reconnect);
       conn.close();
       wsRef.current = null;
     };
-  }, [transport, hydrate]);
+  }, [transport, hydrate, wsGeneration]);
 
   const sendMessage = useCallback(
     async (text: string) => {
