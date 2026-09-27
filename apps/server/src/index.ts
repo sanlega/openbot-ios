@@ -1,23 +1,20 @@
-import Fastify, { type FastifyInstance } from "fastify";
+import type { FastifyInstance } from "fastify";
+import { buildServer, createCoreContext, type CoreContext, type CreateCoreContextOptions } from "@openbot/core";
 
 export const SERVER_VERSION = "0.1.0";
 
 /**
- * Minimal headless-shell boot (plan §3/§5 WS1: `apps/server`, `openbot
- * serve|doctor|pair`). WS0's scope is just standing up a bootable server with
- * a health/status endpoint the desktop shell can poll to show "harness
- * connected" (the WS0 acceptance criterion); WS1 owns the real Client API
- * (plan §4.7), WebSocket, and `serve|doctor|pair` CLI subcommands.
+ * Boots one Client API server backed by a fresh `CoreContext` (plan §5 WS1:
+ * `apps/server` is the headless host for `@openbot/core`). `openbot serve`
+ * (`cli.ts`) calls `createCoreContext`/`buildServer` directly instead, since
+ * it also needs to resolve the bind host and log the listening address —
+ * this helper exists so tests and `apps/desktop` don't need their own
+ * `@openbot/core` wiring.
  */
-export function createServer(): FastifyInstance {
-  const app = Fastify({ logger: false });
-
-  app.get("/health", async () => ({ status: "ok" }));
-
-  app.get("/api/harness/status", async () => ({
-    connected: true,
-    version: SERVER_VERSION,
-  }));
-
-  return app;
+export async function createServer(options?: CreateCoreContextOptions): Promise<{ app: FastifyInstance; ctx: CoreContext }> {
+  const ctx = await createCoreContext(options);
+  const app = await buildServer(ctx);
+  return { app, ctx };
 }
+
+export { runCli } from "./cli.js";
