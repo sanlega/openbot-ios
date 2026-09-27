@@ -1,4 +1,4 @@
-import type { JevAnswer, JevQuestion } from "@openbot/contracts";
+import type { JevAnswer } from "@openbot/contracts";
 
 export interface SpawnGateInput {
   capsOk: boolean;

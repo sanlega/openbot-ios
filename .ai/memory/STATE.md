@@ -3,12 +3,10 @@
 _Última actualización: 2026-09-27 por cursor (WS7)_
 
 ## En curso
-- Rama `cursor/ws7-decision-service-43da` (WS7): implementación de
-  `DecisionService` + `JevClient` + router de modelos, presupuestos O4,
-  reintentos 429/529, fallbacks conservadores, builders de question sets,
-  logging de decisiones con `x-typesafe-request-id`, y `DecisionsRepo` en
-  `@openbot/store`. Tests contra `FakeJevServer` + live opt-in con
-  `JEV_API_KEY`. PR apilada sobre `cursor/ws0-contracts-store-fakes-8d1e`.
+  - **WS7** (`cursor/ws7-decision-service-43da`, PR #5): `DecisionServiceImpl`,
+    `JevClient`, O4 budgets, fallbacks (heuristic + `EngineLlmFallback` via
+    `EngineDriver`), gate rules, labeled spawn/notify eval sets, load-test
+    acceptance against fake-jev. Live eval opt-in with `JEV_API_KEY`.
 - Rama `cursor/metaharness-bootstrap-8d1e` (PR 1 aún sin abrir, ver Bloqueos):
   bootstrap de metaharness (`ADAPTERS="agents claude"`, contexto en inglés) +
   herramientas del monorepo (pnpm 10 + Node 22, TypeScript 6.0.3, ESLint flat

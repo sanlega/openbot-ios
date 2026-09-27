@@ -48,7 +48,7 @@ describe("WS7 load acceptance (fake-jev)", () => {
       }),
     );
 
-    const computerTasks = ["task_a", "task_b", "task_c"].map((taskId) =>
+    const computerTasks = ["task_a", "task_b", "task_c"].map((_taskId) =>
       (async () => {
         for (let step = 0; step < 8; step += 1) {
           await service.decide({
