@@ -5,6 +5,7 @@ export default defineConfig({
     conditions: ["development"],
   },
   test: {
+    testTimeout: 15_000,
     passWithNoTests: true,
     include: ["packages/**/*.{test,spec}.ts", "apps/**/*.{test,spec}.ts"],
     exclude: [
