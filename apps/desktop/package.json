@@ -38,7 +38,8 @@
     "executableName": "openbot",
     "npmRebuild": false,
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "resources"
     },
     "files": [
       "dist/**/*",
@@ -58,8 +59,9 @@
       ],
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
+      "entitlements": "resources/entitlements.mac.plist",
+      "entitlementsInherit": "resources/entitlements.mac.plist",
+      "icon": "resources/icon.icns"
     },
     "win": {
       "target": [
@@ -70,14 +72,16 @@
             "arm64"
           ]
         }
-      ]
+      ],
+      "icon": "resources/icon.png"
     },
     "linux": {
       "target": [
         "AppImage",
         "deb"
       ],
-      "category": "Utility"
+      "category": "Utility",
+      "icon": "resources/icon.png"
     }
   }
 }

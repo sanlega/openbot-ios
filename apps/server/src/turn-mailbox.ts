@@ -2,7 +2,12 @@ import type { Bot, ChainMode, EngineDriver, EngineId, TurnInput } from "@openbot
 import type { CoreContext, TurnMailbox } from "@openbot/core";
 import { buildCosSystemPrompt, type AutonomyCaps, type CapCounterService } from "@openbot/cos";
 import { McpComposer, type SessionTokenService } from "@openbot/mcp";
-import type { EnqueueTurnInput, Runtime, SessionStore } from "@openbot/runtime";
+import {
+  NON_COS_RULE_BLOCK,
+  type EnqueueTurnInput,
+  type Runtime,
+  type SessionStore,
+} from "@openbot/runtime";
 import { VAULT_KEYS } from "./providers.js";
 
 type McpConnectors = Parameters<typeof McpComposer.forTurnAsync>[1]["connectors"];
@@ -41,7 +46,14 @@ export type TurnBuilder = (args: BuildTurnArgs) => Promise<EnqueueTurnInput | { 
  * CLI login), the CoS prompt, and the OpenBot MCP server with a session token
  * bound to the turn (and to the chain's mode, so dry runs only simulate).
  */
-export function createTurnBuilder(ctx: CoreContext, deps: TurnMailboxDeps): TurnBuilder {
+export type EngineChooser = (
+  bot: Bot,
+  text: string,
+  requested?: EngineId,
+) => Promise<EngineChoice | { error: string }>;
+
+/** Engine and model for a Bot: an explicit override, the Bot's pin, or Jev's route. */
+export function createEngineChooser(ctx: CoreContext, deps: TurnMailboxDeps): EngineChooser {
   const modelCache = new Map<EngineId, string[]>();
 
   async function modelsFor(engine: EngineId): Promise<string[]> {
@@ -97,6 +109,12 @@ export function createTurnBuilder(ctx: CoreContext, deps: TurnMailboxDeps): Turn
     return { engine, model, effort: route.effort, routeDecisionId: route.decisionId };
   }
 
+  return chooseEngine;
+}
+
+export function createTurnBuilder(ctx: CoreContext, deps: TurnMailboxDeps): TurnBuilder {
+  const chooseEngine = createEngineChooser(ctx, deps);
+
   async function authFor(bot: Bot, engine: EngineId): Promise<TurnInput["auth"]> {
     if (engine !== "claude" && engine !== "codex") return { mode: "login", env: {} };
     const vaultKey = engine === "claude" ? VAULT_KEYS.anthropic : VAULT_KEYS.openai;
@@ -109,7 +127,7 @@ export function createTurnBuilder(ctx: CoreContext, deps: TurnMailboxDeps): Turn
   }
 
   function systemPromptFor(bot: Bot): string {
-    if (!bot.isChiefOfStaff) return bot.description;
+    if (!bot.isChiefOfStaff) return `${bot.description}\n\n${NON_COS_RULE_BLOCK}`;
     const roster = ctx.repos.bots.list();
     return `${bot.description}\n\n${buildCosSystemPrompt({
       userName: "the user",
@@ -133,7 +151,9 @@ export function createTurnBuilder(ctx: CoreContext, deps: TurnMailboxDeps): Turn
       auth: await authFor(bot, choice.engine),
       mcpServers: [],
       permission: bot.permissionPreset,
-      allowTools: [],
+      // OpenBot's own tools carry their own gates (spawn/notify gates, caps S1–S10,
+      // dry-run simulation); the engine must not ask the user about them.
+      allowTools: ["mcp__openbot"],
       denyTools: [],
       model: choice.model,
       effort: choice.effort,
@@ -246,6 +266,50 @@ export function createTurnMailbox(
       }
     },
   };
+}
+
+/**
+ * A message from another Bot (`send_message`) is a task for the recipient: run
+ * its turn on the same chain, so hop limits and loop guards keep applying. The
+ * message itself is already in the recipient's thread (runtime delivery).
+ */
+export function wakeOnBotMessages(
+  ctx: CoreContext,
+  deps: TurnMailboxDeps,
+  buildTurn: TurnBuilder,
+): () => void {
+  return ctx.eventBus.subscribe((event) => {
+    if (event.type !== "handoff.sent" || !event.chainId) return;
+    const toBotId = event.payload.toBotId;
+    const messageId = event.payload.messageId;
+    if (typeof toBotId !== "string" || typeof messageId !== "string") return;
+    const chainId = event.chainId;
+    void (async () => {
+      const bot = ctx.repos.bots.getById(toBotId);
+      const thread = bot ? ctx.repos.threads.getByBotId(bot.id) : undefined;
+      const message = ctx.repos.messages.getById(messageId);
+      if (!bot || !thread || !message) return;
+      const from = event.botId ? ctx.repos.bots.getById(event.botId) : undefined;
+      const turn = await buildTurn({
+        bot,
+        text: `Message from ${from?.name ?? "another Bot"} (bot "${from?.slug ?? event.botId}"):\n\n${message.text}`,
+        chainId,
+        threadId: thread.id,
+        mode: ctx.repos.chains.getById(chainId)?.mode ?? "live",
+      });
+      if ("error" in turn) {
+        await ctx.eventBus.publish({
+          type: "turn.failed",
+          botId: bot.id,
+          threadId: thread.id,
+          chainId,
+          payload: { text: "", errorMessage: turn.error },
+        });
+        return;
+      }
+      void deps.runtime.mailbox.submit(turn);
+    })().catch(() => undefined);
+  });
 }
 
 /** `engine_sessions`-backed store, so a Bot resumes its engine session after a restart (M1). */

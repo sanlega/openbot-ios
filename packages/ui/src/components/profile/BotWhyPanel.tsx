@@ -17,28 +17,28 @@ export function BotWhyPanel({ botId }: BotWhyPanelProps) {
 
   if (!bot) return null;
 
-  if (!why?.justification && bot.createdBy === "user") {
-    return (
-      <div className="card bot-why" data-testid="bot-why-panel">
-        <h3 className="card-title">Why does this bot exist?</h3>
-        <p style={{ color: "var(--text-muted)" }}>User-created bot — no CoS spawn justification.</p>
-      </div>
-    );
-  }
+  // Only Bots the Chief of Staff created carry a spawn justification.
+  if (!why?.justification && bot.createdBy === "user") return null;
 
   const j = why?.justification ?? bot.justification;
   if (!j) {
     return (
-      <div className="card bot-why" data-testid="bot-why-panel">
-        <h3 className="card-title">Why does this bot exist?</h3>
+      <div className="settings-card bot-why" data-testid="bot-why-panel">
+        <div className="settings-card-header">
+          <h3>Why does this bot exist?</h3>
+          <p>The Chief of Staff created it with this reasoning.</p>
+        </div>
         <p style={{ color: "var(--text-muted)" }}>No justification on file.</p>
       </div>
     );
   }
 
   return (
-    <div className="card bot-why" data-testid="bot-why-panel">
-      <h3 className="card-title">Why does this bot exist?</h3>
+    <div className="settings-card bot-why" data-testid="bot-why-panel">
+      <div className="settings-card-header">
+        <h3>Why does this bot exist?</h3>
+        <p>The Chief of Staff created it with this reasoning.</p>
+      </div>
       <dl className="why-list">
         <dt>Responsibility</dt>
         <dd>{j.responsibility}</dd>

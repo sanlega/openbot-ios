@@ -26,6 +26,19 @@ describe("DigestService", () => {
     expect(onDigest).toHaveBeenCalledTimes(1);
   });
 
+  it("uses the configured time zone, not the machine's", () => {
+    // 16:00 UTC is 18:00 in Madrid (CEST).
+    const clock = new FakeClock(new Date("2026-09-27T16:00:00Z"));
+    const onDigest = vi.fn();
+    const digest = new DigestService({
+      clock,
+      onDigest,
+      config: { hour: 18, minute: 0, timezone: "Europe/Madrid" },
+    });
+    digest.tick();
+    expect(onDigest).toHaveBeenCalledTimes(1);
+  });
+
   it("lists archive candidates for idle CoS-created bots (S9)", () => {
     const now = new Date("2026-09-27T12:00:00Z");
     const bots: Bot[] = [

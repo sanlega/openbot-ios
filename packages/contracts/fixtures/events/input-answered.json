@@ -1,0 +1,11 @@
+{
+  "id": "evt_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "seq": 1,
+  "ts": "2026-09-27T00:00:00.000Z",
+  "botId": "bot_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "threadId": "thr_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "type": "input.answered",
+  "payload": {
+    "requestId": "inp_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+  }
+}

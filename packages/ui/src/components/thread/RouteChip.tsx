@@ -1,3 +1,4 @@
+import { Cpu } from "lucide-react";
 import type { RoutePreview } from "../../api/types.js";
 
 interface RouteChipProps {
@@ -5,21 +6,40 @@ interface RouteChipProps {
   onOverride?: () => void;
 }
 
+const MODEL_LABELS: Record<string, string> = {
+  "claude-opus-5-5": "Opus 5.5",
+  "claude-sonnet-5": "Sonnet 5",
+  "claude-haiku-4-5": "Haiku 4.5",
+};
+
+/** Which engine and model the Bot runs on; "Auto" when Jev picks per turn. */
 export function RouteChip({ route, onOverride }: RouteChipProps) {
+  const auto = route.engine === "auto";
   const pct = Math.round(route.confidence * 100);
+  const showConfidence = !auto && pct > 0 && pct < 100;
+  const model = MODEL_LABELS[route.model] ?? route.model;
   return (
     <button
       type="button"
       className="route-chip"
       onClick={onOverride}
-      title="Engine route — click to override"
+      disabled={!onOverride}
+      title={
+        auto
+          ? "Jev picks the engine and model for each message"
+          : `Runs on ${route.engine} · ${route.model}${showConfidence ? ` (Jev confidence ${pct}%)` : ""}`
+      }
     >
-      <strong>{route.engine}</strong>
-      <span>{route.model}</span>
-      <span className="confidence-bar" aria-label={`${pct}% confidence`}>
-        <span className="confidence-fill" style={{ width: `${pct}%` }} />
-      </span>
-      <span>{pct}%</span>
+      <Cpu size={13} aria-hidden />
+      {auto ? (
+        <span>Auto</span>
+      ) : (
+        <>
+          <strong>{route.engine}</strong>
+          {model && model !== "auto" ? <span className="route-model">{model}</span> : null}
+        </>
+      )}
+      {showConfidence ? <span className="route-confidence">{pct}%</span> : null}
     </button>
   );
 }

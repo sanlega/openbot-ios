@@ -80,6 +80,44 @@ describe("POST /internal/tools/* integration", () => {
     });
   });
 
+  it("archive_bot: the CoS archives its own spawns, and user bots only when the user asked", async () => {
+    harness = await createMcpTestHarness();
+    const h = harness;
+    const cos = makeBot({ name: "CoS", slug: "cos", isChiefOfStaff: true });
+    const spawn = makeBot({ name: "Research Helper", slug: "ideas", createdBy: cos.id });
+    const mine = makeBot({ name: "Mine", slug: "mine", createdBy: "user" });
+    const worker = makeBot({ name: "Worker", slug: "worker" });
+    for (const b of [cos, spawn, mine, worker]) h.ctx.repos.bots.create(b);
+
+    const archive = (caller: typeof cos, payload: Record<string, unknown>) =>
+      h.app
+        .inject({
+          method: "POST",
+          url: "/internal/tools/archive_bot",
+          headers: { "x-openbot-session": issueToken(h, caller) },
+          payload,
+        })
+        .then((r) => r.json<{ allowed: boolean; reason?: string }>());
+
+    expect(await archive(worker, { bot: "ideas", reason: "done" })).toMatchObject({
+      allowed: false,
+    });
+    expect(await archive(cos, { bot: "cos", reason: "x" })).toMatchObject({ allowed: false });
+    expect(await archive(cos, { bot: "mine", reason: "cleanup" })).toMatchObject({
+      allowed: false,
+    });
+    expect(await archive(cos, { bot: "Research Helper", reason: "user asked" })).toMatchObject({
+      allowed: true,
+    });
+    expect(
+      await archive(cos, { bot: "mine", reason: "user asked", user_requested: true }),
+    ).toMatchObject({ allowed: true });
+
+    expect(h.ctx.repos.bots.getById(spawn.id)?.archivedAt).toBeDefined();
+    expect(h.ctx.repos.bots.getById(mine.id)?.archivedAt).toBeDefined();
+    expect(h.ctx.repos.bots.getById(cos.id)?.archivedAt).toBeUndefined();
+  });
+
   it("allows create_bot for the Chief of Staff via fake cos service", async () => {
     const services = createFakeMcpServices();
     harness = await createMcpTestHarness({ services });

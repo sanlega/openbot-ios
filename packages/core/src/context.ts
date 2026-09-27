@@ -5,6 +5,7 @@ import type {
   DecisionService,
   EngineId,
   EngineStatus,
+  ModelInfo,
   RoutineRun,
   RoutineRunCause,
 } from "@openbot/contracts";
@@ -12,6 +13,7 @@ import { systemClock } from "@openbot/contracts";
 import type { RemoteServices } from "@openbot/remote";
 import {
   ApprovalsRepo,
+  InputRequestsRepo,
   BotsRepo,
   CapCountersRepo,
   ChainsRepo,
@@ -48,6 +50,7 @@ export interface CoreRepos {
   chains: ChainsRepo;
   turns: TurnsRepo;
   approvals: ApprovalsRepo;
+  inputRequests: InputRequestsRepo;
   rules: RulesRepo;
   devices: DevicesRepo;
   connections: ConnectionsRepo;
@@ -141,6 +144,8 @@ export interface CoreContext {
   /** Wired in by WS13 bootstrap; populated for `/api/engines` and routing. */
   availableEngines?: EngineId[];
   engineStatuses?: Partial<Record<EngineId, EngineStatus>>;
+  /** Models of each available engine, for `/api/models` (Bot profile model picker). */
+  listModels?: () => Promise<Array<{ engine: EngineId; models: ModelInfo[] }>>;
 }
 
 /** Minimal WS12 surface exposed on CoreContext to avoid a core↔routines import cycle. */
@@ -201,6 +206,7 @@ export async function createCoreContext(
       chains: new ChainsRepo(db),
       turns: new TurnsRepo(db),
       approvals: new ApprovalsRepo(db),
+      inputRequests: new InputRequestsRepo(db),
       rules: new RulesRepo(db),
       devices: new DevicesRepo(db),
       connections: new ConnectionsRepo(db),

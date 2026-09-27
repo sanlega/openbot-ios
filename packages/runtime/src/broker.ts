@@ -96,6 +96,11 @@ export class PermissionBroker {
     if (denyReason) return { outcome: "deny", reason: `built-in deny: ${denyReason}` };
 
     if (req.readOnly) return { outcome: "allow", reason: "read-only action" };
+    // A file edit the classifier placed inside the Bot's workspace (never set for
+    // other actions): what the workspace_write and full presets exist for.
+    if (req.kind === "tool" && req.inWorkspace === true && req.target && preset !== "read_only") {
+      return { outcome: "allow", reason: "file edit inside the workspace" };
+    }
 
     const rules = [
       ...builtinAskRules(req),
@@ -120,7 +125,14 @@ export class PermissionBroker {
   private async consultJevRiskGate(req: BrokerRequest): Promise<BrokerDecision> {
     const decision = await this.opts.decisions.decide({
       purpose: "risk",
-      state: { botId: req.botId, kind: req.kind, action: req.action, target: req.target ?? null },
+      // Jev needs what the action does (the command, the path), not just the tool name.
+      state: {
+        botId: req.botId,
+        kind: req.kind,
+        action: req.action,
+        target: req.target ?? null,
+        detail: req.detail.slice(0, 600),
+      },
       questions: {
         external_side_effect: {
           type: "score",

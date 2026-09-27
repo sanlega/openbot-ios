@@ -44,7 +44,7 @@ async function main(): Promise<void> {
     if (COS_ONLY_TOOLS.has(toolName) && !COS_TOOLS) {
       const payload = {
         allowed: false,
-        reason: "create_bot is only available to the Chief of Staff",
+        reason: `${toolName} is only available to the Chief of Staff`,
         suggestion: "delegate to the CoS or reuse an existing bot",
       };
       return {

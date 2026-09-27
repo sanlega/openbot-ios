@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { InputField } from "@openbot/contracts";
 
 export const SendMessageSchema = z.object({
   bot: z.string().min(1),
@@ -88,6 +89,17 @@ export const TOOL_INPUT_SCHEMAS: Record<string, z.ZodTypeAny> = {
   report_done: ReportDoneSchema,
   get_bot_status: GetBotStatusSchema,
   list_bots: z.object({}),
+  ask_user: z.object({
+    title: z.string().min(1).max(200),
+    intro: z.string().max(2000).optional(),
+    fields: z.array(InputField).min(1).max(20),
+  }),
+  cancel_input: z.object({ request_id: z.string().min(1) }),
+  archive_bot: z.object({
+    bot: z.string().min(1),
+    reason: z.string().min(1),
+    user_requested: z.boolean().default(false),
+  }),
   list_routines: z.object({}),
   permission_prompt: PermissionPromptSchema,
 };

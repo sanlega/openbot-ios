@@ -23,6 +23,7 @@ export const ID_PREFIXES = {
   routineRun: "rrun_",
   triggerEvent: "tev_",
   capCounter: "capctr_",
+  inputRequest: "inp_",
 } as const;
 
 export type IdKind = keyof typeof ID_PREFIXES;

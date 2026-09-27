@@ -7,6 +7,8 @@ import type {
   RoutineTrigger,
   RoutineLimits,
   TurnUsage,
+  InputField,
+  InputAnswer,
 } from "@openbot/contracts";
 
 /**
@@ -74,10 +76,32 @@ export const messages = sqliteTable(
     delivery: text("delivery").notNull(),
     pushed: integer("pushed", { mode: "boolean" }).notNull().default(false),
     notifyDecisionId: text("notify_decision_id"),
+    inputRequestId: text("input_request_id"),
   },
   (t) => [
     index("messages_thread_id_idx").on(t.threadId),
     index("messages_dedupe_key_idx").on(t.dedupeKey),
+  ],
+);
+
+export const inputRequests = sqliteTable(
+  "input_requests",
+  {
+    id: text("id").primaryKey(),
+    botId: text("bot_id").notNull(),
+    threadId: text("thread_id").notNull(),
+    chainId: text("chain_id"),
+    title: text("title").notNull(),
+    intro: text("intro"),
+    fields: text("fields", { mode: "json" }).notNull().$type<InputField[]>(),
+    status: text("status").notNull(),
+    answers: text("answers", { mode: "json" }).$type<Record<string, InputAnswer>>(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    resolvedAt: integer("resolved_at", { mode: "timestamp_ms" }),
+  },
+  (t) => [
+    index("input_requests_bot_id_idx").on(t.botId),
+    index("input_requests_status_idx").on(t.status),
   ],
 );
 

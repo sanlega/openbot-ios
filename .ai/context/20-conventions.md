@@ -7,13 +7,13 @@
   run out. Keep `.ai/memory/STATE.md` current and run `mh handoff` before a long gap.
 - **Package boundaries**: cross-package imports go only through `@openbot/contracts`
   and `CoreContext` (see `.ai/context/10-project.md`). Never import another
-  package's internals (e.g. `packages/engines/src/claude/...` from `packages/cos`).
+  package's internals (e.g. `packages/engines/claude/src/...` from `packages/cos`).
   Each workstream (WS0–WS13 in the plan) owns its own directories; don't edit another
   workstream's package without a coordinator-reviewed PR when the change touches
   shared contracts.
-- **Schema changes**: after WS0 merges, any change to `packages/store`'s schema needs
-  a new numbered Drizzle migration (never edit `0001` in place) and a
-  coordinator-reviewed PR, per the plan's WS0 rule.
+- **Schema changes**: any change to `packages/store/src/schema.ts` needs a new
+  numbered Drizzle migration (`pnpm --filter @openbot/store db:generate`; never edit
+  `migrations/0000_init.sql` in place) and a coordinator-reviewed PR.
 - **Code style**: TypeScript strict mode everywhere (`tsconfig.base.json`), ESLint
   flat config + Prettier, enforced in CI. Node 22, pnpm workspaces — no npm/yarn
   lockfiles, no global installs assumed by scripts.

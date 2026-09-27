@@ -72,21 +72,28 @@ Key paths:
   approvals, routines, events, `EngineDriver`, `DecisionService`, `Computer`,
   `ConnectorProvider` SPIs) plus fixtures. Changing this needs a coordinator-reviewed
   PR (see `.ai/memory/plans/openbot-v1.md` §4).
-- `packages/store` — SQLite schema, Drizzle migrations (`0001` = all v1 tables),
+- `packages/store` — SQLite schema, Drizzle migrations (`migrations/0000_init.sql` = all v1 tables),
   repositories.
 - `packages/core` — config, event bus, Client API (HTTP+WS), setup validators,
   devices, vault, module host.
 - `packages/runtime` — mailbox, chains, delivery, permission broker (incl. dry-run
   simulation), loop guards, caps, usage.
-- `packages/engines` — `ClaudeDriver`/`CodexDriver` (`claude/`, `codex/`), `auth.ts`,
-  `detect.ts`, `conformance.ts`; `fake/` (WS0) implements the same `EngineDriver`
-  interface for CI without credentials.
+- `packages/engines/*` — separate workspace packages: `claude/`, `codex/`
+  (`@openbot/engines-claude|codex`), `common/`, `conformance/` (shared driver
+  test suite), and `fake/` (WS0), which implements `EngineDriver` for CI without
+  credentials. Fakes sit one level deep (`packages/*/*` is a workspace glob).
 - `packages/decisions` — `DecisionService`: Jev client, purpose budgets, fallbacks,
   question builders, decision log.
 - `packages/cos` — Chief of Staff prompt, `SpawnGate`, `NotifyGate`, caps S1–S10,
   daily digest.
-- `packages/computer` — `Computer` SPI, `docker/`/`local/` providers, the fast
-  observe→decide→act loop, takeover; `fake/` (WS0) for CI.
+- `packages/computer` — broker, the fast observe→decide→act loop, takeover;
+  providers are their own packages: `docker/`, `local/`, `fake/`
+  (`@openbot/computer-docker|local|fake`).
+- `packages/mcp` — the OpenBot MCP server that is injected into every engine turn:
+  stdio shim (`shim/stdio.ts`) → internal HTTP tool routes on the harness, session
+  tokens per turn, tool definitions (base vs CoS-only tools), per-turn MCP config
+  composer.
+- `packages/testkit` — fake clock, fake trigger source, conformance helpers.
 - `packages/connectors` — `ConnectorProvider` SPI: raw MCP + MCP Registry, Composio.
 - `packages/remote` — pairing, device crypto, E2E framing, Tailscale/Cloudflare
   managers.
@@ -97,6 +104,27 @@ Key paths:
 - `apps/server` — headless `openbot serve|doctor|pair`.
 - `apps/pwa` — PWA build of `packages/ui`.
 - `e2e/` — cross-package Playwright scenarios.
+
+### How it is wired at runtime
+
+`apps/server/src/bootstrap.ts` (`bootstrapHarness`) is the composition root. Both
+`openbot serve` and the Electron main process call it: it takes a `CoreContext`
+(from `@openbot/core`: store repos, event bus, vault, config, Fastify HTTP+WS API)
+and plugs in the runtime, CoS gates/caps, MCP services, connectors, routines,
+remote, and the digest. A chat turn goes UI → Client API → `turn-mailbox.ts`
+(`createTurnMailbox`/`createTurnBuilder`: Jev routing, engine auth, session resume
+from `engine_sessions`, CoS system prompt) → runtime mailbox → `EngineDriver`. The
+engine calls back into OpenBot only through the injected MCP server; tool calls
+that need a human go through the runtime permission broker, which parks the turn
+until an approval card is resolved over HTTP/WS (`ctx.onApprovalResolved`). All
+state changes are published as events on the bus and streamed to UI clients after a
+WS `subscribe` (ordering is not guaranteed; see LESSONS.md).
+
+The UI (`packages/ui`) talks only to the Client API; `packages/ui/src/api/adapters.ts`
+maps harness responses to UI shapes, and the UI's mock server must speak the same
+protocol as the real one (the browser E2E in `e2e/tests/` runs the UI against the
+real server). The fake engine understands directives in messages for tests:
+`@tool <name> <json>` and `@approve <tool> <json>`.
 
 Full plan (decisions, contracts, workstream scopes/acceptance criteria, milestones):
 `.ai/memory/plans/openbot-v1.md`. Decisions are logged incrementally in
@@ -111,13 +139,13 @@ Full plan (decisions, contracts, workstream scopes/acceptance criteria, mileston
   run out. Keep `.ai/memory/STATE.md` current and run `mh handoff` before a long gap.
 - **Package boundaries**: cross-package imports go only through `@openbot/contracts`
   and `CoreContext` (see `.ai/context/10-project.md`). Never import another
-  package's internals (e.g. `packages/engines/src/claude/...` from `packages/cos`).
+  package's internals (e.g. `packages/engines/claude/src/...` from `packages/cos`).
   Each workstream (WS0–WS13 in the plan) owns its own directories; don't edit another
   workstream's package without a coordinator-reviewed PR when the change touches
   shared contracts.
-- **Schema changes**: after WS0 merges, any change to `packages/store`'s schema needs
-  a new numbered Drizzle migration (never edit `0001` in place) and a
-  coordinator-reviewed PR, per the plan's WS0 rule.
+- **Schema changes**: any change to `packages/store/src/schema.ts` needs a new
+  numbered Drizzle migration (`pnpm --filter @openbot/store db:generate`; never edit
+  `migrations/0000_init.sql` in place) and a coordinator-reviewed PR.
 - **Code style**: TypeScript strict mode everywhere (`tsconfig.base.json`), ESLint
   flat config + Prettier, enforced in CI. Node 22, pnpm workspaces — no npm/yarn
   lockfiles, no global installs assumed by scripts.
@@ -134,35 +162,52 @@ Full plan (decisions, contracts, workstream scopes/acceptance criteria, mileston
 # Commands
 
 ```sh
-# install (Node 22, pnpm 10 — see package.json "engines"/"packageManager"):
+# install (Node >=22.12, pnpm 10 via corepack):
 pnpm install
 
-# build every package/app that has a build script:
-pnpm build
-
-# unit/contract tests (Vitest, root config discovers packages/**, apps/**):
-pnpm test
+pnpm build              # tsc/vite build of every package/app (pnpm -r --if-present)
+pnpm typecheck          # builds @openbot/contracts first, then typechecks everything
+pnpm test               # Vitest from the root config; runs packages/** and apps/**
 pnpm test:watch
+pnpm lint               # ESLint flat config; lint:fix to autofix
+pnpm format:check       # Prettier; `pnpm format` to write
+bash .ai/bin/mh check   # metaharness adapter drift check (also in CI; = pnpm mh:check)
 
-# typecheck every package/app that has a typecheck script:
-pnpm typecheck
+# single test file / single test (always from the repo root, which owns the config):
+pnpm vitest run packages/runtime/src/broker.test.ts
+pnpm vitest run packages/runtime/src/broker.test.ts -t "resolves approval"
 
-# lint / format:
-pnpm lint
-pnpm lint:fix
-pnpm format
-pnpm format:check
+# run the app:
+pnpm --filter @openbot/server dev serve        # headless harness; UI at http://127.0.0.1:4577/app
+pnpm --filter @openbot/desktop start           # Electron (needs `pnpm build` first)
 
-# metaharness adapter drift check (also runs in CI):
-bash .ai/bin/mh check
-pnpm mh:check          # same thing, via package.json
+# cross-package milestone E2E (Playwright, fakes only; builds e2e/ then runs dist/tests):
+pnpm build && pnpm --filter @openbot/e2e test:e2e
+# use a preinstalled Chromium instead of `playwright install`:
+OPENBOT_E2E_CHROMIUM=/path/to/chromium pnpm --filter @openbot/e2e test:e2e
+
+# Electron smoke E2E (CI order):
+pnpm build && pnpm --filter @openbot/desktop run rebuild:native && pnpm --filter @openbot/desktop test:e2e
+
+# store migrations (Drizzle; packages/store/migrations):
+pnpm --filter @openbot/store db:generate
+pnpm --filter @openbot/store db:check
 ```
 
-No packages exist yet (see `.ai/memory/plans/openbot-v1.md`, WS0 is next); the
-`build`/`typecheck` scripts are `pnpm -r --if-present` fan-outs that succeed as
-no-ops until `packages/*`/`apps/*` start adding their own `build`/`typecheck`
-scripts. `pnpm test` and `pnpm lint` already work at the root (Vitest is configured
-with `passWithNoTests`; ESLint's flat config lints every root TS/JS file).
+Notes:
+- Vitest resolves workspace packages through the `development` export condition
+  (`src/*.ts`), so unit tests need no build; `tsc` and Playwright use `dist/`, so
+  run `pnpm build` before typechecking an app or running E2E after changing a
+  dependency package.
+- `rebuild:native` recompiles the shared `better-sqlite3` binary for Electron's
+  ABI; Node-side Vitest suites that open SQLite then fail until you run
+  `pnpm rebuild better-sqlite3`.
+- Real-credential suites are opt-in and skipped by default: `*.live.test.ts` need
+  `JEV_API_KEY` (the CoS gate suite also `OPENBOT_LIVE_JEV=1`); engine conformance
+  against real CLIs needs `OPENBOT_E2E_REAL=1`. CI runs everything against fakes.
+- CI (`.github/workflows/ci.yml`): lint → format:check → build → typecheck → test →
+  mh check on macOS/Windows/Linux, plus desktop E2E, integration E2E, and unsigned
+  desktop packaging (`pack` + `smoke:packaged`).
 
 # Skills disponibles
 

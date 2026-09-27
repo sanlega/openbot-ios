@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { FileVault } from "@openbot/core";
@@ -33,9 +34,23 @@ export interface TestHarness {
  * computer and fake Composio. Jev is the in-process fake unless `jev` points
  * the server at an HTTP endpoint (the real `DecisionService` then runs).
  */
+/** A port the OS says is free right now (random ports collided when tests run in parallel). */
+function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.unref();
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      server.close(() => resolve(port));
+    });
+  });
+}
+
 export async function startTestHarness(options: HarnessOptions = {}): Promise<TestHarness> {
   const home = options.home ?? (await mkdtemp(join(tmpdir(), "openbot-e2e-")));
-  const port = 18000 + Math.floor(Math.random() * 1000);
+  const port = await freePort();
   const jev = options.jev ?? { kind: "fake" };
   const env: NodeJS.ProcessEnv = {
     ...process.env,

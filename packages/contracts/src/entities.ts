@@ -100,6 +100,8 @@ export const Message = z.object({
   delivery: MessageDelivery,
   pushed: z.boolean().default(false),
   notifyDecisionId: z.string().optional(),
+  /** Set on the message that shows an `ask_user` form card. */
+  inputRequestId: z.string().optional(),
 });
 export type Message = z.infer<typeof Message>;
 

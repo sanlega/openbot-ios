@@ -87,11 +87,12 @@ export class DigestService {
   /** Check if it's time to post the digest and fire if so. */
   tick(bots: Bot[] = [], idleDays = DEFAULT_AUTONOMY_CAPS.idleBotReviewDays): void {
     const now = this.clock.now();
-    const dateKey = now.toISOString().slice(0, 10);
+    const local = wallClock(now, this.config.timezone);
+    const dateKey = local.date;
 
     if (
-      now.getHours() === this.config.hour &&
-      now.getMinutes() >= this.config.minute &&
+      local.hour === this.config.hour &&
+      local.minute >= this.config.minute &&
       this.lastDigestDate !== dateKey
     ) {
       const archiveBots = DigestService.archiveCandidates(bots, idleDays, now);
@@ -127,4 +128,35 @@ export class DigestService {
       this.timerId = null;
     }
   }
+}
+
+/** Date, hour, and minute on the wall clock of `timeZone` (an IANA name; invalid → system time). */
+function wallClock(at: Date, timeZone: string): { date: string; hour: number; minute: number } {
+  let parts: Intl.DateTimeFormatPart[];
+  try {
+    parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(at);
+  } catch {
+    parts = new Intl.DateTimeFormat("en-CA", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(at);
+  }
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "0";
+  return {
+    date: `${get("year")}-${get("month")}-${get("day")}`,
+    hour: Number(get("hour")),
+    minute: Number(get("minute")),
+  };
 }

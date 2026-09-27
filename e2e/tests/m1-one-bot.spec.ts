@@ -89,7 +89,7 @@ test.describe("M1 One bot on desktop (fake engine and Jev)", () => {
     }
   });
 
-  test("a file write waits on an approval card: deny, then allow", async () => {
+  test("a file write outside the workspace waits on an approval card: deny, then allow", async () => {
     const harness = await startTestHarness();
     try {
       const { bot } = await createBot(harness, {
@@ -104,11 +104,19 @@ test.describe("M1 One bot on desktop (fake engine and Jev)", () => {
       });
       const token = await sessionTokenFor(harness, { botId: bot.id, chainId });
 
+      // Inside the Bot's workspace a write needs nobody.
+      expect(
+        await callTool(harness, token, "permission_prompt", {
+          tool_name: "Write",
+          input: { file_path: "notes/todo.md", content: "- buy milk" },
+        }),
+      ).toMatchObject({ allowed: true, behavior: "allow" });
+
       for (const resolution of ["deny", "allow"] as const) {
         // The engine's permission prompt blocks until the user answers the card.
         const prompt = callTool<{ behavior: string }>(harness, token, "permission_prompt", {
           tool_name: "Write",
-          input: { file_path: "notes/todo.md", content: "- buy milk" },
+          input: { file_path: "[local machine path removed]", content: "- buy milk" },
         });
         const card = await eventually(async () => {
           const res = await api<{ approvals: Array<{ id: string; botId: string }> }>(

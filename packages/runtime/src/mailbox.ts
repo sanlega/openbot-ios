@@ -19,6 +19,7 @@ import type { ChainManager } from "./chain.js";
 import type { DeliveryService } from "./delivery.js";
 import type { EventSink } from "./event-sink.js";
 import type { TurnStore } from "./turn-store.js";
+import { classifyToolCall } from "./tool-classifier.js";
 
 export interface EnqueueTurnInput extends TurnInput {
   engine: EngineId;
@@ -70,27 +71,11 @@ export interface MailboxOptions {
   sessions?: SessionStore;
 }
 
-const READ_ONLY_TOOL_RE = /^(read|get|list|search|observe|screenshot|status)/i;
 const MESSAGE_USER_TOOL = "message_user";
 const SEND_MESSAGE_TOOL = "send_message";
 
-function defaultClassify(r: ToolApprovalRequest): Partial<BrokerRequest> {
-  const input = (r.input ?? {}) as Record<string, unknown>;
-  const target =
-    typeof input.target === "string"
-      ? input.target
-      : typeof input.path === "string"
-        ? input.path
-        : typeof input.url === "string"
-          ? input.url
-          : undefined;
-  return {
-    kind: "tool",
-    action: r.toolName,
-    target,
-    readOnly: READ_ONLY_TOOL_RE.test(r.toolName),
-    args: input,
-  };
+function defaultClassify(r: ToolApprovalRequest, workspaceDir?: string): Partial<BrokerRequest> {
+  return classifyToolCall(r.toolName, r.input, workspaceDir);
 }
 
 /**
@@ -438,7 +423,10 @@ export class Mailbox {
     input: EnqueueTurnInput,
     r: ToolApprovalRequest,
   ): Promise<"allow" | "deny"> {
-    const classified = { ...defaultClassify(r), ...(input.classifyApproval?.(r) ?? {}) };
+    const classified = {
+      ...defaultClassify(r, input.cwd),
+      ...(input.classifyApproval?.(r) ?? {}),
+    };
     const req: BrokerRequest = {
       botId,
       chainId: input.chainId,

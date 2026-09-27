@@ -7,6 +7,7 @@ export * from "./messages-repo.js";
 export * from "./chains-repo.js";
 export * from "./turns-repo.js";
 export * from "./approvals-repo.js";
+export * from "./input-requests-repo.js";
 export * from "./rules-repo.js";
 export * from "./devices-repo.js";
 export * from "./connections-repo.js";

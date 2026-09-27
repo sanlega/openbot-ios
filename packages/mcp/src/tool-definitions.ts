@@ -46,6 +46,21 @@ export const OPENBOT_TOOL_DEFINITIONS: Tool[] = [
     },
   },
   {
+    name: "archive_bot",
+    description:
+      "Remove a bot from the roster (Chief of Staff only). Archiving is reversible: its history is kept. Archive a user-created bot only when the user asked for it (user_requested: true).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        bot: { type: "string", description: "Bot slug, id, or name" },
+        reason: { type: "string" },
+        user_requested: { type: "boolean" },
+      },
+      required: ["bot", "reason"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "send_message",
     description: "Send an asynchronous bot-to-bot message (hop+1).",
     inputSchema: {
@@ -71,6 +86,60 @@ export const OPENBOT_TOOL_DEFINITIONS: Tool[] = [
         dedupe_key: { type: "string" },
       },
       required: ["kind", "body"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "ask_user",
+    description:
+      "Ask the user for information you need, as a short form instead of questions in text. Use it whenever you have 2+ questions, a choice between options, a yes/no, or need a secret (API key, password: use type 'secret', you get a reference, never the value). Keep it short (1-7 fields), mark only truly needed fields required. After calling it, END YOUR TURN: the answers arrive later as the user's next message.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "What the form is about, e.g. 'About you'" },
+        intro: { type: "string", description: "One or two sentences on why you ask" },
+        fields: {
+          type: "array",
+          minItems: 1,
+          maxItems: 20,
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string", description: "snake_case key for the answer" },
+              type: {
+                type: "string",
+                enum: ["text", "number", "choice", "confirm", "date", "secret"],
+              },
+              label: { type: "string" },
+              help: { type: "string" },
+              required: { type: "boolean" },
+              multiline: { type: "boolean", description: "text: long answer" },
+              placeholder: { type: "string" },
+              options: {
+                type: "array",
+                items: { type: "string" },
+                description: "choice: 2-20 options",
+              },
+              multiple: { type: "boolean", description: "choice: allow several" },
+              allowOther: { type: "boolean", description: "choice: allow a free answer" },
+              min: { type: "number" },
+              max: { type: "number" },
+            },
+            required: ["id", "type", "label"],
+          },
+        },
+      },
+      required: ["title", "fields"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "cancel_input",
+    description: "Withdraw a form you sent with ask_user that is no longer needed.",
+    inputSchema: {
+      type: "object",
+      properties: { request_id: { type: "string" } },
+      required: ["request_id"],
       additionalProperties: false,
     },
   },
@@ -183,7 +252,7 @@ export const OPENBOT_TOOL_DEFINITIONS: Tool[] = [
 ];
 
 /** Tools only injected into the Chief of Staff session (plan §4.9). */
-export const COS_ONLY_TOOLS = new Set(["create_bot"]);
+export const COS_ONLY_TOOLS = new Set(["create_bot", "archive_bot"]);
 
 /** Tools exposed to every bot session. */
 export const BASE_TOOLS = OPENBOT_TOOL_DEFINITIONS.filter((t) => !COS_ONLY_TOOLS.has(t.name));

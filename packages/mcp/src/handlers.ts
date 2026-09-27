@@ -1,4 +1,10 @@
-import type { Bot } from "@openbot/contracts";
+import {
+  newId,
+  type Bot,
+  type InputField,
+  type InputRequest,
+  type Message,
+} from "@openbot/contracts";
 import type { CoreContext } from "@openbot/core";
 import type { McpToolServices } from "./services/interfaces.js";
 import { TOOL_INPUT_SCHEMAS } from "./tool-schemas.js";
@@ -11,6 +17,9 @@ const SIDE_EFFECT_TOOLS = new Set([
   "send_message",
   "message_user",
   "create_bot",
+  "archive_bot",
+  "ask_user",
+  "cancel_input",
   "request_approval",
   "computer_task",
   "create_routine",
@@ -34,7 +43,7 @@ export class ToolRouter {
   ): Promise<ToolResult<Record<string, unknown>>> {
     if (COS_ONLY_TOOLS.has(toolName) && !session.isChiefOfStaff) {
       return refused(
-        "create_bot is only available to the Chief of Staff",
+        `${toolName} is only available to the Chief of Staff`,
         "delegate to the CoS or reuse an existing bot",
       );
     }
@@ -68,6 +77,18 @@ export class ToolRouter {
         return this.getBotStatus(parsed.data as { bot: string });
       case "create_bot":
         return this.services.cos.createBot(session, parsed.data as never);
+      case "ask_user":
+        return this.askUser(
+          session,
+          parsed.data as { title: string; intro?: string; fields: InputField[] },
+        );
+      case "cancel_input":
+        return this.cancelInput(session, (parsed.data as { request_id: string }).request_id);
+      case "archive_bot":
+        return this.archiveBot(
+          session,
+          parsed.data as { bot: string; reason: string; user_requested: boolean },
+        );
       case "send_message":
         return this.services.runtime.sendMessage(session, parsed.data as never);
       case "message_user":
@@ -93,6 +114,133 @@ export class ToolRouter {
       default:
         return refused(`tool not implemented: ${toolName}`);
     }
+  }
+
+  /**
+   * Posts a form card and returns at once: the answers come back as a new user
+   * turn (a parked engine turn would hold a CLI process for hours and time out).
+   */
+  private async askUser(
+    session: SessionContext,
+    input: { title: string; intro?: string; fields: InputField[] },
+  ): Promise<ToolResult<{ request_id: string; status: "pending"; instruction: string }>> {
+    const ids = new Set<string>();
+    for (const field of input.fields) {
+      if (ids.has(field.id)) return refused(`duplicate field id: ${field.id}`);
+      ids.add(field.id);
+    }
+    const thread = this.ctx.repos.threads.getByBotId(session.botId);
+    if (!thread) return refused(`no thread for bot ${session.botId}`);
+
+    const now = this.ctx.clock.now().toISOString();
+    const request: InputRequest = {
+      id: newId("inputRequest"),
+      botId: session.botId,
+      threadId: thread.id,
+      chainId: session.chainId,
+      title: input.title,
+      intro: input.intro,
+      fields: input.fields,
+      status: "pending",
+      createdAt: now,
+    };
+    this.ctx.repos.inputRequests.create(request);
+    const message: Message = {
+      id: newId("message"),
+      threadId: thread.id,
+      author: { type: "bot", id: session.botId },
+      text: input.intro ? `${input.title}\n\n${input.intro}` : input.title,
+      attachments: [],
+      chainId: session.chainId,
+      hop: 0,
+      createdAt: now,
+      proactive: false,
+      delivery: "delivered",
+      pushed: false,
+      inputRequestId: request.id,
+    };
+    this.ctx.repos.messages.create(message);
+    await this.ctx.eventBus.publish({
+      type: "input.requested",
+      botId: session.botId,
+      threadId: thread.id,
+      chainId: session.chainId,
+      turnId: session.turnId,
+      payload: { requestId: request.id, messageId: message.id, title: request.title, request },
+    });
+    await this.ctx.eventBus.publish({
+      type: "message.created",
+      botId: session.botId,
+      threadId: thread.id,
+      chainId: session.chainId,
+      turnId: session.turnId,
+      payload: {
+        messageId: message.id,
+        text: message.text,
+        author: "bot",
+        inputRequestId: request.id,
+      },
+    });
+    return allowed({
+      request_id: request.id,
+      status: "pending" as const,
+      instruction:
+        "The form is in front of the user. End your turn now; their answers arrive as their next message.",
+    });
+  }
+
+  private async cancelInput(
+    session: SessionContext,
+    requestId: string,
+  ): Promise<ToolResult<{ cancelled: boolean }>> {
+    const request = this.ctx.repos.inputRequests.getById(requestId);
+    if (!request || request.botId !== session.botId) return refused(`no such form: ${requestId}`);
+    const cancelled = this.ctx.repos.inputRequests.resolve(
+      requestId,
+      "cancelled",
+      this.ctx.clock.now(),
+    );
+    if (cancelled) {
+      await this.ctx.eventBus.publish({
+        type: "input.cancelled",
+        botId: session.botId,
+        threadId: request.threadId,
+        payload: { requestId },
+      });
+    }
+    return allowed({ cancelled });
+  }
+
+  private async archiveBot(
+    session: SessionContext,
+    input: { bot: string; reason: string; user_requested: boolean },
+  ): Promise<ToolResult<{ archived: string }>> {
+    const bot = this.findBot(input.bot);
+    if (!bot) return refused(`bot not found: ${input.bot}`, "call list_bots for exact slugs");
+    if (bot.isChiefOfStaff) return refused("the Chief of Staff cannot be archived");
+    if (bot.archivedAt) return allowed({ archived: bot.slug });
+    if (bot.createdBy === "user" && !input.user_requested) {
+      return refused(
+        "this bot was created by the user; archive it only when the user asks",
+        "ask the user first",
+      );
+    }
+    this.ctx.repos.bots.archive(bot.id, this.ctx.clock.now());
+    await this.ctx.eventBus.publish({
+      type: "bot.archived",
+      botId: bot.id,
+      chainId: session.chainId,
+      payload: { botId: bot.id, by: session.botId, reason: input.reason },
+    });
+    return allowed({ archived: bot.slug });
+  }
+
+  private findBot(ref: string): Bot | undefined {
+    const byKey = this.ctx.repos.bots.getById(ref) ?? this.ctx.repos.bots.getBySlug(ref);
+    if (byKey) return byKey;
+    const name = ref.trim().toLowerCase();
+    const byName = this.ctx.repos.bots.list().filter((b) => b.name.toLowerCase() === name);
+    return byName.length === 1 ? byName[0] : undefined;
   }
 
   private listBots(): ToolResult<{ bots: Record<string, unknown>[] }> {

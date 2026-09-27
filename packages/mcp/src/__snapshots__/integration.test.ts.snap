@@ -25,6 +25,13 @@ exports[`McpComposer > snapshots tool input schemas 1`] = `
     ],
   },
   {
+    "name": "archive_bot",
+    "required": [
+      "bot",
+      "reason",
+    ],
+  },
+  {
     "name": "send_message",
     "required": [
       "bot",
@@ -36,6 +43,19 @@ exports[`McpComposer > snapshots tool input schemas 1`] = `
     "required": [
       "kind",
       "body",
+    ],
+  },
+  {
+    "name": "ask_user",
+    "required": [
+      "title",
+      "fields",
+    ],
+  },
+  {
+    "name": "cancel_input",
+    "required": [
+      "request_id",
     ],
   },
   {

@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 import { WebSocketServer, type WebSocket } from "ws";
 import { monotonicFactory } from "ulid";
-import type { Approval, Message, OBEvent } from "@openbot/contracts";
+import type { Approval, Bot, Message, OBEvent, Thread } from "@openbot/contracts";
 import type { SetupValidateRequest } from "../api/types.js";
 import {
   SEED_APPROVALS,
@@ -198,6 +198,34 @@ export class MockClientApiServer {
     if (method === "GET" && path === "/api/bots") {
       return sendJson(res, 200, { bots: SEED_BOTS });
     }
+    if (method === "POST" && path === "/api/bots") {
+      const body = await readJson<{ name: string; description?: string }>(req);
+      const id = `bot_${Date.now().toString(36)}`;
+      const bot: Bot = {
+        id,
+        slug: body.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        name: body.name,
+        description: body.description ?? "",
+        pinned: false,
+        hidden: false,
+        isChiefOfStaff: false,
+        createdBy: "user",
+        routing: { mode: "auto" },
+        permissionPreset: "workspace_write",
+        computer: "none",
+        connectors: [],
+        limits: {},
+      };
+      const thread: Thread = {
+        id: `thr_${id}`,
+        botId: id,
+        kind: "dm",
+        createdAt: new Date().toISOString(),
+      };
+      SEED_BOTS.push(bot);
+      SEED_THREADS.push(thread);
+      return sendJson(res, 201, { bot, thread });
+    }
     if (method === "GET" && path === "/api/threads") {
       const threads = SEED_THREADS.map((t) => {
         const view = threadView(t, SEED_BOTS);
@@ -376,6 +404,41 @@ export class MockClientApiServer {
     }
     if (method === "POST" && path === "/api/remote/tailscale/disable") {
       this.remote = { enabled: false, via: undefined, urls: [] };
+      return sendJson(res, 200, { ok: true });
+    }
+    if (method === "GET" && path === "/api/inputs") {
+      return sendJson(res, 200, { inputs: [] });
+    }
+    if (method === "POST" && path.match(/^\/api\/inputs\/[^/]+\/(answer|dismiss)$/)) {
+      return sendJson(res, 404, { error: "not_found" });
+    }
+    if (method === "GET" && path === "/api/models") {
+      return sendJson(res, 200, {
+        engines: [
+          {
+            engine: "claude",
+            models: [
+              { id: "claude-opus-5-5", label: "Claude Opus 5.5", contextWindow: 200_000 },
+              { id: "claude-sonnet-5", label: "Claude Sonnet 5", contextWindow: 200_000 },
+            ],
+          },
+          { engine: "codex", models: [{ id: "gpt-5-codex", label: "GPT-5 Codex" }] },
+        ],
+      });
+    }
+    if (method === "PATCH" && path.match(/^\/api\/bots\/[^/]+$/)) {
+      const botId = path.split("/")[3]!;
+      const idx = SEED_BOTS.findIndex((b) => b.id === botId);
+      if (idx < 0) return sendJson(res, 404, { error: "not_found" });
+      const patch = await readJson<Partial<Bot>>(req);
+      SEED_BOTS[idx] = { ...SEED_BOTS[idx]!, ...patch };
+      return sendJson(res, 200, { bot: SEED_BOTS[idx] });
+    }
+    if (method === "DELETE" && path.match(/^\/api\/bots\/[^/]+$/)) {
+      const botId = path.split("/")[3]!;
+      const idx = SEED_BOTS.findIndex((b) => b.id === botId);
+      if (idx < 0) return sendJson(res, 404, { error: "not_found" });
+      SEED_BOTS[idx] = { ...SEED_BOTS[idx]!, archivedAt: new Date().toISOString() };
       return sendJson(res, 200, { ok: true });
     }
     if (method === "GET" && path.match(/^\/api\/bots\/[^/]+\/route$/)) {

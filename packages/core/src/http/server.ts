@@ -6,6 +6,7 @@ import type { CoreContext } from "../context.js";
 import { resolveDeviceIdentity } from "./auth.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerBotRoutes } from "./routes/bots.js";
+import { registerInputRoutes } from "./routes/inputs.js";
 import { registerThreadRoutes } from "./routes/threads.js";
 import { registerSafetyRoutes } from "./routes/safety.js";
 import { registerDeviceRoutes } from "./routes/devices.js";
@@ -74,6 +75,7 @@ export async function buildServer(
 
   registerHealthRoutes(app, ctx);
   registerBotRoutes(app, ctx);
+  registerInputRoutes(app, ctx);
   registerThreadRoutes(app, ctx);
   registerSafetyRoutes(app, ctx);
   registerDeviceRoutes(app, ctx);

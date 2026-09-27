@@ -1,12 +1,10 @@
 # Estado actual
 
-_Última actualización: 2026-09-27 por claude (review + fixes, PR #16)_
+_Última actualización: 2026-09-27 por claude (first-run fixes after the user tried the desktop app)_
 
 ## En curso
-- `cursor/v1-integration` (PR #15 → `main`) integrates WS0–WS12. `main` still has
-  only the initial commit; PRs #1–#14 are superseded by #15.
-- PR #16 (`claude/openbot-dev-review-vi6h4j` → `cursor/v1-integration`) carries the
-  review fixes. What now works end to end (with fakes; E2E in `e2e/tests/`):
+- PRs #15 (v1 integration, WS0–WS13) and #16 (review fixes) are merged into
+  `main` (40d8a23). What works end to end (with fakes; E2E in `e2e/tests/`):
   - **Jev**: never a silent fake in production (`KeyedDecisionService`); key read
     from vault per call; `validateKey` probes Jev; `JEV_BASE_URL` override.
   - **Chat turns** (`apps/server/src/turn-mailbox.ts`, `createTurnBuilder`): Jev
@@ -36,8 +34,73 @@ _Última actualización: 2026-09-27 por claude (review + fixes, PR #16)_
   `apps/desktop` cannot be installed in the cloud sandbox (codeload blocked); CI
   covers it.
 
+- First real run by the user (desktop app, real Claude + Codex keys): onboarding
+  worked, but no Bot could be created. Fixed (uncommitted, on `main` working tree):
+  - The server seeds the Chief of Staff once setup is complete (and at startup
+    for installs already past setup): `apps/server/src/chief-of-staff.ts`, wired
+    in `bootstrap.ts`.
+  - Roster has a "+ New bot" form (`packages/ui/src/components/roster/BotList.tsx`);
+    the UI rehydrates on `bot.created` (a new Bot's DM thread had no event, so
+    new Bots, including CoS spawns, never showed without a reload).
+  - Wizard: Claude and Codex each optional, at least one engine required.
+  - Mock server supports `POST /api/bots`; new E2E "First run in the real UI".
+  - Verified: typecheck, lint 0 errors, E2E 11/11, unit tests 670 pass.
+- Chat format fixed (uncommitted): Claude replies were stored twice (the parser
+  appended both `stream_event` deltas and the full `assistant` line;
+  `packages/engines/claude/src/parse-stream-json.ts` + test). Bot messages render
+  as Markdown (`react-markdown` + `remark-gfm`, no raw HTML;
+  `packages/ui/src/components/thread/MessageText.tsx`); Electron opens links in
+  the system browser. Messages stored before the fix stay duplicated.
+- Bots working together (uncommitted, verified: typecheck, lint, 676 unit, E2E 14/14):
+  - No approval cards for OpenBot's own tools: turns pass `--allowedTools mcp__openbot`
+    and `permission_prompt` allows `mcp__openbot__*` (their handlers carry the gates).
+  - A `send_message` wakes the recipient: `wakeOnBotMessages` (turn-mailbox.ts) runs
+    its turn on the same chain on `handoff.sent`. `send_message` also resolves a Bot
+    by its display name (user-created slugs have a random suffix).
+  - Engine turns no longer die after 30 s wall-clock: idle timeout of 35 min
+    (`@openbot/engines-common` `waitForTurnComplete`), longer than approval expiry.
+  - Claude parser now emits `tool_started`/`tool_completed` (before: none for Claude).
+    Claude CLI sends thinking blocks with EMPTY text, so the UI shows a folded
+    "Worked for Ns · N steps" block (tool steps) and a live "Thinking…" instead.
+  - CoS-spawned Bots get their engine/model pinned by Jev at creation
+    (`apps/server/src/bot-models.ts`); `/api/models` lists real models; Profile tab
+    is editable (name, description, model dropdown incl. "Auto", effort,
+    permissions, computer). `bot.updated` now carries the full bot.
+  - Chat reads oldest→newest (API lists newest first; hydrate sorts) and follows
+    new messages unless the user scrolled up.
+  - Messages sent before these fixes are not replayed: the "Research Helper" task
+    from the CoS stays unanswered until someone messages that Bot again.
+- Approvals (uncommitted, verified: typecheck, lint, 693 unit, E2E 14/14 x3):
+  - `classifyToolCall` (`packages/runtime/src/tool-classifier.ts`) shared by the
+    mailbox and `permission_prompt`: read tools and read-only shell pipelines are
+    read-only; Write/Edit inside the workspace are allowed (`workspace_write`/`full`).
+    Jev's risk gate now gets the action detail (command/path), not just the tool.
+  - Approval cards render at the bottom of the chat.
+  - CoS tool `archive_bot` (reversible; user-created bots only with
+    `user_requested`); profile has "Archive bot". CoS prompt says never touch
+    OpenBot files/DB to change the team.
+  - Markdown: a blank line is inserted before list items that follow a text line.
+- Fixed flakes: UI turn tracking tolerates out-of-order bus events (the "Turn
+  steps" flake); E2E harness uses OS-assigned free ports (EADDRINUSE flake).
+- Known failing unit test: `packages/cos/src/digest.test.ts` fails outside UTC:
+  `DigestService.tick` uses `now.getHours()` (local time) and ignores
+  `config.timezone`. CI is UTC so it never showed. Not fixed yet.
+- Local dev needs Node >=22.12 (user's default is 20; installed 22 via nvm) and
+  `corepack pnpm`. After `rebuild:native` for Electron, run
+  `corepack pnpm rebuild better-sqlite3` before Node unit tests.
+
 ## Próximos pasos
-1. Get PR #16 green and reviewed; merge it into #15, merge #15, close #1–#14.
+0. Plan for structured user inputs (`ask_user` forms, secrets to vault,
+   "Waiting on you"): `.ai/memory/plans/2026-09-27-user-inputs.md`, draft,
+   awaiting user approval; then T1.
+0b. User wants Composio removed (closed source) and replaced by tools that users
+   and agents create themselves. Proposed: (A) declarative HTTP tools (JSON spec +
+   vault secret, no code), then (B) script tools in Docker; agent-created tools
+   need an approval card to activate. Awaiting the user's choice, then write the
+   plan in `.ai/memory/plans/` (touches contracts `ConnectorProvider`, D-009,
+   setup wizard, connectors package). Also: commit the first-run fixes (user has
+   not asked yet) and fix the digest timezone bug.
+1. Close superseded PRs #1–#14 if still open.
 2. WS3 follow-up spike with real Claude/Codex credentials (M1 sign-off): check
    that the injected OpenBot MCP server works with both CLIs, that approvals
    round-trip, and the tool names each engine reports (the runtime mailbox

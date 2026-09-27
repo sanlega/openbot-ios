@@ -37,6 +37,7 @@ export class MessagesRepo {
         delivery: message.delivery,
         pushed: message.pushed,
         notifyDecisionId: message.notifyDecisionId,
+        inputRequestId: message.inputRequestId,
       })
       .run();
   }
@@ -114,5 +115,6 @@ function toMessage(row: MessageRow): Message {
     delivery: row.delivery as Message["delivery"],
     pushed: row.pushed,
     notifyDecisionId: row.notifyDecisionId ?? undefined,
+    inputRequestId: row.inputRequestId ?? undefined,
   };
 }

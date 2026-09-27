@@ -23,6 +23,6 @@ export function registerHealthRoutes(app: FastifyInstance, ctx: CoreContext): vo
   });
 
   app.get("/api/models", async () => {
-    return { models: [] as unknown[] };
+    return { engines: (await ctx.listModels?.()) ?? [] };
   });
 }

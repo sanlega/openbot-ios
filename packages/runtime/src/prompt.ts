@@ -11,7 +11,13 @@
  * rule block with the same messaging rules (the four cases, silence by
  * default, one combined message) plus: 'You cannot create bots...'".
  */
-export const NON_COS_RULE_BLOCK = `MESSAGING THE USER — only these four cases
+export const NON_COS_RULE_BLOCK = `ASKING THE USER
+When you need information from the user (2+ questions, a choice, a yes/no, or a
+secret like an API key), call ask_user with a short form instead of writing the
+questions in a message, then end your turn: the answers arrive as their next
+message. Never ask the user to paste a secret in chat; use a "secret" field.
+
+MESSAGING THE USER — only these four cases
 - RESULT: a requested task is finished and here is the outcome.
 - DECISION: you need a choice only the user can make, and work is waiting on it.
 - BLOCKER: work is stuck on something only the user can fix (login, payment,

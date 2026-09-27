@@ -8,6 +8,8 @@ export interface ClaudeParseState {
   errorMessage?: string;
   authFailure: boolean;
   turnComplete: boolean;
+  /** Partial deltas arrived for the message in progress; its full `assistant` line repeats them. */
+  streamedText: boolean;
 }
 
 export function createClaudeParseState(): ClaudeParseState {
@@ -17,6 +19,7 @@ export function createClaudeParseState(): ClaudeParseState {
     isError: false,
     authFailure: false,
     turnComplete: false,
+    streamedText: false,
   };
 }
 
@@ -34,14 +37,37 @@ export function handleClaudeLine(
 
   if (type === "assistant") {
     const message = line.message as
-      { content?: Array<{ type?: string; text?: string }> } | undefined;
+      | {
+          content?: Array<{
+            type?: string;
+            text?: string;
+            id?: string;
+            name?: string;
+            input?: unknown;
+          }>;
+        }
+      | undefined;
     const chunks = message?.content ?? [];
     for (const chunk of chunks) {
-      if (chunk.type === "text" && typeof chunk.text === "string" && chunk.text.length > 0) {
-        state.text += chunk.text;
-        hooks.emit({ type: "text_delta", text: chunk.text });
+      if (chunk.type === "tool_use" && chunk.id && chunk.name) {
+        hooks.emit({
+          type: "tool_started",
+          toolName: chunk.name,
+          input: chunk.input ?? {},
+          toolUseId: chunk.id,
+        });
       }
     }
+    // With --include-partial-messages the text already arrived as stream deltas.
+    if (!state.streamedText) {
+      for (const chunk of chunks) {
+        if (chunk.type === "text" && typeof chunk.text === "string" && chunk.text.length > 0) {
+          state.text += chunk.text;
+          hooks.emit({ type: "text_delta", text: chunk.text });
+        }
+      }
+    }
+    state.streamedText = false;
     if (line.error === "authentication_failed") {
       state.authFailure = true;
       state.isError = true;
@@ -54,12 +80,39 @@ export function handleClaudeLine(
     return;
   }
 
+  if (type === "user") {
+    // Tool results come back to the model as a user message.
+    const message = line.message as
+      | {
+          content?: Array<{
+            type?: string;
+            tool_use_id?: string;
+            content?: unknown;
+            is_error?: boolean;
+          }>;
+        }
+      | undefined;
+    const chunks = Array.isArray(message?.content) ? message.content : [];
+    for (const chunk of chunks) {
+      if (chunk.type === "tool_result" && chunk.tool_use_id) {
+        hooks.emit({
+          type: "tool_completed",
+          toolUseId: chunk.tool_use_id,
+          output: chunk.content ?? null,
+          isError: Boolean(chunk.is_error),
+        });
+      }
+    }
+    return;
+  }
+
   if (type === "stream_event") {
     const event = line.event as
       { type?: string; delta?: { type?: string; text?: string } } | undefined;
     if (event?.type === "content_block_delta" && event.delta?.type === "text_delta") {
       const text = event.delta.text ?? "";
       if (text) {
+        state.streamedText = true;
         state.text += text;
         hooks.emit({ type: "text_delta", text });
       }

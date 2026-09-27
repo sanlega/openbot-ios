@@ -46,6 +46,10 @@ export class HttpTransport implements Transport {
     return this.request<T>("PATCH", path, body, init);
   }
 
+  async delete<T>(path: string, init?: RequestInit): Promise<T> {
+    return this.request<T>("DELETE", path, undefined, init);
+  }
+
   private async request<T>(
     method: string,
     path: string,

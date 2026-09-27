@@ -26,21 +26,28 @@ Key paths:
   approvals, routines, events, `EngineDriver`, `DecisionService`, `Computer`,
   `ConnectorProvider` SPIs) plus fixtures. Changing this needs a coordinator-reviewed
   PR (see `.ai/memory/plans/openbot-v1.md` §4).
-- `packages/store` — SQLite schema, Drizzle migrations (`0001` = all v1 tables),
+- `packages/store` — SQLite schema, Drizzle migrations (`migrations/0000_init.sql` = all v1 tables),
   repositories.
 - `packages/core` — config, event bus, Client API (HTTP+WS), setup validators,
   devices, vault, module host.
 - `packages/runtime` — mailbox, chains, delivery, permission broker (incl. dry-run
   simulation), loop guards, caps, usage.
-- `packages/engines` — `ClaudeDriver`/`CodexDriver` (`claude/`, `codex/`), `auth.ts`,
-  `detect.ts`, `conformance.ts`; `fake/` (WS0) implements the same `EngineDriver`
-  interface for CI without credentials.
+- `packages/engines/*` — separate workspace packages: `claude/`, `codex/`
+  (`@openbot/engines-claude|codex`), `common/`, `conformance/` (shared driver
+  test suite), and `fake/` (WS0), which implements `EngineDriver` for CI without
+  credentials. Fakes sit one level deep (`packages/*/*` is a workspace glob).
 - `packages/decisions` — `DecisionService`: Jev client, purpose budgets, fallbacks,
   question builders, decision log.
 - `packages/cos` — Chief of Staff prompt, `SpawnGate`, `NotifyGate`, caps S1–S10,
   daily digest.
-- `packages/computer` — `Computer` SPI, `docker/`/`local/` providers, the fast
-  observe→decide→act loop, takeover; `fake/` (WS0) for CI.
+- `packages/computer` — broker, the fast observe→decide→act loop, takeover;
+  providers are their own packages: `docker/`, `local/`, `fake/`
+  (`@openbot/computer-docker|local|fake`).
+- `packages/mcp` — the OpenBot MCP server that is injected into every engine turn:
+  stdio shim (`shim/stdio.ts`) → internal HTTP tool routes on the harness, session
+  tokens per turn, tool definitions (base vs CoS-only tools), per-turn MCP config
+  composer.
+- `packages/testkit` — fake clock, fake trigger source, conformance helpers.
 - `packages/connectors` — `ConnectorProvider` SPI: raw MCP + MCP Registry, Composio.
 - `packages/remote` — pairing, device crypto, E2E framing, Tailscale/Cloudflare
   managers.
@@ -51,6 +58,27 @@ Key paths:
 - `apps/server` — headless `openbot serve|doctor|pair`.
 - `apps/pwa` — PWA build of `packages/ui`.
 - `e2e/` — cross-package Playwright scenarios.
+
+### How it is wired at runtime
+
+`apps/server/src/bootstrap.ts` (`bootstrapHarness`) is the composition root. Both
+`openbot serve` and the Electron main process call it: it takes a `CoreContext`
+(from `@openbot/core`: store repos, event bus, vault, config, Fastify HTTP+WS API)
+and plugs in the runtime, CoS gates/caps, MCP services, connectors, routines,
+remote, and the digest. A chat turn goes UI → Client API → `turn-mailbox.ts`
+(`createTurnMailbox`/`createTurnBuilder`: Jev routing, engine auth, session resume
+from `engine_sessions`, CoS system prompt) → runtime mailbox → `EngineDriver`. The
+engine calls back into OpenBot only through the injected MCP server; tool calls
+that need a human go through the runtime permission broker, which parks the turn
+until an approval card is resolved over HTTP/WS (`ctx.onApprovalResolved`). All
+state changes are published as events on the bus and streamed to UI clients after a
+WS `subscribe` (ordering is not guaranteed; see LESSONS.md).
+
+The UI (`packages/ui`) talks only to the Client API; `packages/ui/src/api/adapters.ts`
+maps harness responses to UI shapes, and the UI's mock server must speak the same
+protocol as the real one (the browser E2E in `e2e/tests/` runs the UI against the
+real server). The fake engine understands directives in messages for tests:
+`@tool <name> <json>` and `@approve <tool> <json>`.
 
 Full plan (decisions, contracts, workstream scopes/acceptance criteria, milestones):
 `.ai/memory/plans/openbot-v1.md`. Decisions are logged incrementally in

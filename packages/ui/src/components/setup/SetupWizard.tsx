@@ -1,13 +1,15 @@
 import { useState } from "react";
 import type { Transport } from "../../transport/index.js";
 import type { SetupValidateRequest } from "../../api/types.js";
+import { useOpenBot } from "../../state/context.js";
 
 const LOGIN_STEPS = new Set<SetupValidateRequest["kind"]>(["claude_login", "codex_login"]);
 
+// Claude and Codex are each optional, but at least one engine must validate.
 const STEPS: Array<{ key: SetupValidateRequest["kind"]; label: string; required: boolean }> = [
   { key: "typesafe", label: "TypeSafe API key", required: true },
-  { key: "claude_login", label: "Claude login or API key", required: true },
-  { key: "codex_login", label: "Codex login or API key", required: true },
+  { key: "claude_login", label: "Claude login or API key", required: false },
+  { key: "codex_login", label: "Codex login or API key", required: false },
   { key: "composio", label: "Composio (optional)", required: false },
   { key: "tailscale", label: "Tailscale (optional)", required: false },
 ];
@@ -21,17 +23,27 @@ export function SetupWizard({ transport, onComplete }: SetupWizardProps) {
   const [step, setStep] = useState(0);
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [engineOk, setEngineOk] = useState(false);
+  const { refresh } = useOpenBot();
   const current = STEPS[step]!;
   const isLoginStep = LOGIN_STEPS.has(current.key);
 
-  const advance = async () => {
+  const advance = async (validated: boolean) => {
+    const anyEngine = engineOk || (validated && isLoginStep);
+    if (validated && isLoginStep) setEngineOk(true);
+    if (current.key === "codex_login" && !anyEngine) {
+      setError("Connect Claude or Codex: OpenBot needs at least one engine.");
+      return;
+    }
     if (step + 1 >= STEPS.length) {
       await transport.post("/api/setup/complete");
+      await refresh();
       onComplete();
       return;
     }
     setStep(step + 1);
     setValue("");
+    setError(null);
   };
 
   const validate = async () => {
@@ -47,12 +59,12 @@ export function SetupWizard({ transport, onComplete }: SetupWizardProps) {
       setError(res.result.reason ?? "Validation failed");
       return;
     }
-    await advance();
+    await advance(true);
   };
 
   const skipOptional = async () => {
     if (current.required) return;
-    await advance();
+    await advance(false);
   };
 
   return (

@@ -18,6 +18,7 @@ export function registerThreadRoutes(app: FastifyInstance, ctx: CoreContext): vo
           participantIds: [bot.id, "user"],
           title: bot.name,
           lastMessagePreview: last?.text.slice(0, 80),
+          lastMessageAt: last?.createdAt,
         },
       ];
     });

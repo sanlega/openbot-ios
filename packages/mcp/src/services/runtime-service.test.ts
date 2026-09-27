@@ -79,8 +79,8 @@ describe("McpRuntimeServiceAdapter.permissionPrompt", () => {
       const { runtime, service, session } = await setup();
 
       const result = service.permissionPrompt(session, {
-        tool_name: "Write",
-        input: { path: "notes/todo.md", content: "hi" },
+        tool_name: "Bash",
+        input: { command: "curl -X POST https://example.com/publish" },
       });
       const approvalId = await pendingApprovalId(runtime);
       runtime.broker.resolveApproval(approvalId, resolution);
@@ -88,4 +88,32 @@ describe("McpRuntimeServiceAdapter.permissionPrompt", () => {
       expect(await result).toEqual({ allowed: true, behavior: resolution });
     },
   );
+
+  it("allows OpenBot's own tools without a card: their handlers carry the gates", async () => {
+    const { runtime, service, session } = await setup();
+
+    const result = await service.permissionPrompt(session, {
+      tool_name: "mcp__openbot__send_message",
+      input: { bot: "writer", body: "first task" },
+    });
+
+    expect(result).toEqual({ allowed: true, behavior: "allow" });
+    expect(runtime.approvals.listPending()).toHaveLength(0);
+  });
+
+  it("never asks about reads or file edits inside the workspace", async () => {
+    const { runtime, service, session } = await setup();
+
+    for (const [tool_name, input] of [
+      ["Bash", { command: "ls -la ~/.openbot | head" }],
+      ["Read", { file_path: "/etc/hosts" }],
+      ["Write", { file_path: "notes/todo.md", content: "hi" }],
+    ] as const) {
+      expect(await service.permissionPrompt(session, { tool_name, input })).toEqual({
+        allowed: true,
+        behavior: "allow",
+      });
+    }
+    expect(runtime.approvals.listPending()).toHaveLength(0);
+  });
 });

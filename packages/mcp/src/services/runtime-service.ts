@@ -1,6 +1,6 @@
 import type { Bot } from "@openbot/contracts";
 import type { CoreContext } from "@openbot/core";
-import type { Runtime } from "@openbot/runtime";
+import { classifyToolCall, type Runtime } from "@openbot/runtime";
 import type {
   ReportDoneInput,
   RequestApprovalInput,
@@ -10,6 +10,8 @@ import type {
 } from "../types.js";
 import { allowed, refused } from "../types.js";
 import type { McpRuntimeService } from "./interfaces.js";
+
+const OPENBOT_TOOL_PREFIX = "mcp__openbot__";
 
 export class McpRuntimeServiceAdapter implements McpRuntimeService {
   constructor(
@@ -90,6 +92,11 @@ export class McpRuntimeServiceAdapter implements McpRuntimeService {
     session: SessionContext,
     input: { tool_name: string; input: unknown },
   ): Promise<ToolResult<{ behavior: "allow" | "deny" }>> {
+    // OpenBot's own tools are gated inside their handlers (spawn/notify gates,
+    // caps, dry-run simulation), so an engine asking about them never needs the user.
+    if (input.tool_name.startsWith(OPENBOT_TOOL_PREFIX)) {
+      return allowed({ behavior: "allow" as const });
+    }
     const decision = await this.runtime.broker.evaluate(
       {
         botId: session.botId,
@@ -97,6 +104,7 @@ export class McpRuntimeServiceAdapter implements McpRuntimeService {
         kind: "tool",
         action: input.tool_name,
         args: (input.input ?? {}) as Record<string, unknown>,
+        ...classifyToolCall(input.tool_name, input.input, this.ctx.config.workspaceDir),
         summary: `Permission prompt: ${input.tool_name}`,
         detail: JSON.stringify(input.input ?? {}),
       },
@@ -119,6 +127,11 @@ export class McpRuntimeServiceAdapter implements McpRuntimeService {
   }
 
   private resolveBot(ref: string): Bot | undefined {
-    return this.ctx.repos.bots.getById(ref) ?? this.ctx.repos.bots.getBySlug(ref);
+    const byKey = this.ctx.repos.bots.getById(ref) ?? this.ctx.repos.bots.getBySlug(ref);
+    if (byKey) return byKey;
+    // Engines often address a Bot by the name the user sees.
+    const name = ref.trim().toLowerCase();
+    const byName = this.ctx.repos.bots.list().filter((b) => b.name.toLowerCase() === name);
+    return byName.length === 1 ? byName[0] : undefined;
   }
 }

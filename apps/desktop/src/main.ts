@@ -2,8 +2,10 @@ import {
   app,
   BrowserWindow,
   ipcMain,
+  nativeTheme,
   Notification,
   safeStorage,
+  shell,
   systemPreferences,
   Tray,
   Menu,
@@ -41,6 +43,11 @@ import type { DeepLinkTarget } from "./types.js";
 const here = dirname(fileURLToPath(import.meta.url));
 const rendererDir = join(here, "../renderer");
 const iconPath = join(rendererDir, "icon.png");
+// macOS menu bar icons are monochrome "template" images the system tints.
+const trayIconPath = join(
+  rendererDir,
+  process.platform === "darwin" ? "trayTemplate.png" : "icon.png",
+);
 
 let harnessHost: HarnessHost | undefined;
 let eventStream: HarnessEventStream | undefined;
@@ -53,17 +60,34 @@ const openbotHome = defaultOpenbotHome();
 const vault = new Vault(join(openbotHome, "vault.bin"), safeStorage);
 
 function createBrowserWindow(): BrowserWindow {
-  return new BrowserWindow({
+  const win = new BrowserWindow({
     width: 1100,
     height: 760,
     show: false,
     title: APP_NAME,
+    icon: iconPath,
+    backgroundColor: nativeTheme.shouldUseDarkColors ? "#0e0f11" : "#ffffff",
     webPreferences: {
       preload: join(here, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
+  // Links in Bot messages open in the system browser; the app window never navigates away.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    openExternalLink(url);
+    return { action: "deny" };
+  });
+  win.webContents.on("will-navigate", (event, url) => {
+    if (url.startsWith(harnessBaseUrl(port)) || url.startsWith("file:")) return;
+    event.preventDefault();
+    openExternalLink(url);
+  });
+  return win;
+}
+
+function openExternalLink(url: string): void {
+  if (/^https?:\/\//i.test(url) || url.startsWith("mailto:")) void shell.openExternal(url);
 }
 
 async function loadUi(win: BrowserWindow): Promise<void> {
@@ -172,7 +196,12 @@ function setupIpc(): void {
 }
 
 function setupTray(): void {
-  const icon = loadTrayIcon(iconPath);
+  const loaded = loadTrayIcon(trayIconPath);
+  if (process.platform === "darwin") loaded.setTemplateImage(true);
+  const icon =
+    process.platform === "darwin" || loaded.isEmpty()
+      ? loaded
+      : loaded.resize({ width: 16, height: 16 });
   trayController = createAppTray(
     {
       create: (image) => new Tray(image),
@@ -199,6 +228,8 @@ function setupWindowManager(): void {
 
 async function onReady(): Promise<void> {
   try {
+    // The packaged app gets its Dock icon from the bundle; dev runs need it set.
+    if (process.platform === "darwin" && !app.isPackaged) app.dock?.setIcon(iconPath);
     registerProtocol();
     setupIpc();
     setupWindowManager();
@@ -232,6 +263,9 @@ app.on("open-url", (event, url) => {
   if (app.isReady()) handleDeepLink(url);
   else pendingDeepLink = url;
 });
+
+// Dev runs inherit "Electron" from the bundle; the packaged app is named by electron-builder.
+app.setName(APP_NAME);
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {

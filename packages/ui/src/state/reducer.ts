@@ -1,5 +1,24 @@
-import type { Approval, Bot, Message, OBEvent } from "@openbot/contracts";
+import type { Approval, Bot, InputRequest, Message, OBEvent } from "@openbot/contracts";
 import type { RoutePreview, ThreadView } from "../api/types.js";
+
+export interface TurnStep {
+  id: string;
+  tool: string;
+  input: unknown;
+  status: "running" | "done" | "error";
+}
+
+/** What a Bot did during one turn: shown folded above its reply, like a "thinking" block. */
+export interface TurnActivity {
+  id: string;
+  botId: string;
+  startedAt: string;
+  endedAt?: string;
+  status: "running" | "done" | "failed";
+  steps: TurnStep[];
+  /** Text streamed so far (the reply arrives as a message when the turn ends). */
+  text: string;
+}
 
 export interface UiState {
   lastSeq: number;
@@ -11,6 +30,10 @@ export interface UiState {
   approvals: Map<string, Approval>;
   routes: Map<string, RoutePreview>;
   activeChainId?: string;
+  turns: Map<string, TurnActivity>;
+  turnByMessage: Map<string, string>;
+  /** `ask_user` forms by id. */
+  inputs: Map<string, InputRequest>;
   connected: boolean;
   replayDone: boolean;
 }
@@ -29,6 +52,9 @@ export function createInitialState(
     streamingDeltas: new Map(),
     approvals: new Map(),
     routes: new Map(),
+    turns: new Map(),
+    turnByMessage: new Map(),
+    inputs: new Map(),
     connected: false,
     replayDone: false,
   };
@@ -36,6 +62,10 @@ export function createInitialState(
     const list = state.messagesByThread.get(msg.threadId) ?? [];
     list.push(msg);
     state.messagesByThread.set(msg.threadId, list);
+  }
+  // The API lists newest first; a chat reads oldest to newest.
+  for (const list of state.messagesByThread.values()) {
+    list.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
   return state;
 }
@@ -50,6 +80,7 @@ export type UiAction =
       messages: Message[];
       approvals: Approval[];
       routes: Record<string, RoutePreview>;
+      inputs?: InputRequest[];
     }
   | { type: "event"; event: OBEvent };
 
@@ -64,6 +95,9 @@ function upsertMessage(state: UiState, message: Message): void {
   const thread = state.threads.get(message.threadId);
   if (thread) {
     thread.lastMessagePreview = message.text.slice(0, 80);
+    if (!thread.lastMessageAt || message.createdAt > thread.lastMessageAt) {
+      thread.lastMessageAt = message.createdAt;
+    }
   }
 }
 
@@ -78,6 +112,12 @@ export function uiReducer(state: UiState, action: UiAction): UiState {
       const next = createInitialState(action.bots, action.threads, action.messages);
       next.approvals = new Map(action.approvals.map((a) => [a.id, a]));
       next.routes = new Map(Object.entries(action.routes));
+      next.inputs = new Map((action.inputs ?? []).map((i) => [i.id, i]));
+      // Turn activity comes only from events; a re-hydrate must not drop it.
+      next.turns = state.turns;
+      next.turnByMessage = state.turnByMessage;
+      next.lastSeq = state.lastSeq;
+      next.seenEventIds = state.seenEventIds;
       return next;
     }
     case "event": {
@@ -135,11 +175,17 @@ function applyEvent(state: UiState, event: OBEvent): void {
         delivery: (p.delivery as Message["delivery"]) ?? "delivered",
         pushed: Boolean(p.pushed),
         dedupeKey: typeof p.dedupeKey === "string" ? p.dedupeKey : undefined,
+        inputRequestId: typeof p.inputRequestId === "string" ? p.inputRequestId : undefined,
       };
       upsertMessage(state, msg);
+      if (event.turnId && msg.author.type === "bot") state.turnByMessage.set(msg.id, event.turnId);
       break;
     }
     case "message.delta": {
+      const turn = turnFor(state, event);
+      if (turn) {
+        state.turns.set(turn.id, { ...turn, text: turn.text + String(p.text ?? p.delta ?? "") });
+      }
       const messageId = String(p.messageId ?? "");
       const delta = String(p.delta ?? p.text ?? "");
       state.streamingDeltas.set(messageId, (state.streamingDeltas.get(messageId) ?? "") + delta);
@@ -221,6 +267,12 @@ function applyEvent(state: UiState, event: OBEvent): void {
     }
     case "turn.started": {
       state.activeChainId = event.chainId;
+      // Events can arrive out of order: keep anything already recorded for this turn.
+      const turn = turnFor(state, event);
+      if (turn) {
+        const startedAt = turn.startedAt < event.ts ? turn.startedAt : event.ts;
+        state.turns.set(turn.id, { ...turn, startedAt });
+      }
       // The engine and model a turn actually runs on is the route chip's truth.
       const botId = String(event.botId ?? "");
       if (botId && p.engine) {
@@ -235,12 +287,83 @@ function applyEvent(state: UiState, event: OBEvent): void {
     }
     case "turn.completed":
     case "turn.failed":
-    case "turn.interrupted":
+    case "turn.interrupted": {
       if (state.activeChainId === event.chainId) state.activeChainId = undefined;
+      const turn = turnFor(state, event);
+      if (turn) {
+        state.turns.set(turn.id, {
+          ...turn,
+          endedAt: event.ts,
+          status: event.type === "turn.completed" ? "done" : "failed",
+          steps: turn.steps.map((s) => (s.status === "running" ? { ...s, status: "done" } : s)),
+        });
+      }
       break;
+    }
+    case "input.requested": {
+      const request = p.request as InputRequest | undefined;
+      if (request) state.inputs.set(request.id, request);
+      break;
+    }
+    case "input.answered":
+    case "input.dismissed":
+    case "input.cancelled": {
+      const request = state.inputs.get(String(p.requestId ?? ""));
+      if (request) {
+        const status =
+          event.type === "input.answered"
+            ? "answered"
+            : event.type === "input.dismissed"
+              ? "dismissed"
+              : "cancelled";
+        state.inputs.set(request.id, { ...request, status, resolvedAt: event.ts });
+      }
+      break;
+    }
+    case "tool.started": {
+      const turn = turnFor(state, event);
+      if (turn) {
+        const step: TurnStep = {
+          id: String(p.toolUseId ?? `${turn.id}_${turn.steps.length}`),
+          tool: String(p.toolName ?? "tool"),
+          input: p.input,
+          status: turn.status === "running" ? "running" : "done",
+        };
+        state.turns.set(turn.id, { ...turn, steps: [...turn.steps, step] });
+      }
+      break;
+    }
+    case "tool.completed": {
+      const turn = turnFor(state, event);
+      if (turn) {
+        const status = p.isError ? "error" : "done";
+        state.turns.set(turn.id, {
+          ...turn,
+          steps: turn.steps.map((s) => (s.id === p.toolUseId ? { ...s, status } : s)),
+        });
+      }
+      break;
+    }
     default:
       break;
   }
+}
+
+/** The activity record for an event's turn, created on first sight (bus order is not guaranteed). */
+function turnFor(state: UiState, event: OBEvent): TurnActivity | undefined {
+  if (!event.turnId || !event.botId) return undefined;
+  const existing = state.turns.get(event.turnId);
+  if (existing) return existing;
+  const turn: TurnActivity = {
+    id: event.turnId,
+    botId: event.botId,
+    startedAt: event.ts,
+    status: "running",
+    steps: [],
+    text: "",
+  };
+  state.turns.set(turn.id, turn);
+  return turn;
 }
 
 export function pendingApprovals(state: UiState): Approval[] {

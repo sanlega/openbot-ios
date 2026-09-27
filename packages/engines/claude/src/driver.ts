@@ -7,7 +7,7 @@ import type {
   TurnHooks,
   TurnInput,
 } from "@openbot/contracts";
-import { loadFixture, validateAnthropicKey } from "@openbot/engines-common";
+import { loadFixture, validateAnthropicKey, waitForTurnComplete } from "@openbot/engines-common";
 import { detectClaude } from "./detect.js";
 import { CLAUDE_MODELS } from "./models.js";
 import { createClaudeParseState, handleClaudeLine, toTurnResult } from "./parse-stream-json.js";
@@ -70,8 +70,10 @@ export class ClaudeDriver implements EngineDriver {
       const session = await this.ensureSession(sessionKey, input);
       const state = createClaudeParseState();
       let settled = false;
+      let lastActivityAt = Date.now();
 
       const unsubscribe = session.handle.onLine((line) => {
+        lastActivityAt = Date.now();
         handleClaudeLine(line, state, hooks);
         if (state.turnComplete && !settled) {
           settled = true;
@@ -84,7 +86,11 @@ export class ClaudeDriver implements EngineDriver {
       }
       steerQueue = [];
 
-      await waitForTurnComplete(state, () => interrupted);
+      await waitForTurnComplete(
+        state,
+        () => interrupted,
+        () => lastActivityAt,
+      );
       unsubscribe();
 
       if (interrupted) {
@@ -140,23 +146,6 @@ export class ClaudeDriver implements EngineDriver {
 
   get isDisposed(): boolean {
     return this.disposed;
-  }
-}
-
-async function waitForTurnComplete(
-  state: ReturnType<typeof createClaudeParseState>,
-  interrupted: () => boolean,
-  timeoutMs = 30_000,
-): Promise<void> {
-  const start = Date.now();
-  while (!state.turnComplete && !interrupted()) {
-    if (Date.now() - start > timeoutMs) {
-      state.turnComplete = true;
-      state.isError = true;
-      state.errorMessage = "turn timed out";
-      break;
-    }
-    await new Promise((r) => setTimeout(r, 5));
   }
 }
 

@@ -1,17 +1,26 @@
-import { useState, type FormEvent } from "react";
-import type { Approval } from "@openbot/contracts";
+import { Fragment, useLayoutEffect, useRef, useState } from "react";
+import type { Approval, Bot, Message } from "@openbot/contracts";
+import { ChevronLeft } from "lucide-react";
 import type { ThreadPanel } from "../../api/types.js";
 import { useOpenBot } from "../../state/context.js";
 import { ApprovalCard } from "../cards/ApprovalCard.js";
+import { BotAvatar, type BotStatus } from "../common/BotAvatar.js";
+import { dayLabel, sameDay } from "../common/time.js";
 import { ComputerPanel } from "../computer/ComputerPanel.js";
 import { DigestMessage } from "../digest/DigestMessage.js";
+import { BotProfileEditor } from "../profile/BotProfileEditor.js";
 import { BotWhyPanel } from "../profile/BotWhyPanel.js";
-import { MessageBubble } from "../roster/BotList.js";
+import { Composer } from "./Composer.js";
+import { InputRequestCard } from "./InputRequestCard.js";
+import { MessageItem } from "./MessageItem.js";
 import { RouteChip } from "./RouteChip.js";
+import { TurnSteps } from "./TurnSteps.js";
 
 interface ThreadViewProps {
   onBack?: () => void;
 }
+
+const GROUP_WINDOW_MS = 5 * 60_000;
 
 export function ThreadViewPanel({ onBack }: ThreadViewProps) {
   const {
@@ -23,8 +32,9 @@ export function ThreadViewPanel({ onBack }: ThreadViewProps) {
     sendMessage,
     resolveApproval,
     routeForBot,
+    state,
+    transport,
   } = useOpenBot();
-  const [draft, setDraft] = useState("");
   const [panel, setPanel] = useState<ThreadPanel>("chat");
 
   const thread = threads.find((t) => t.id === selectedThreadId);
@@ -32,43 +42,85 @@ export function ThreadViewPanel({ onBack }: ThreadViewProps) {
   const messages = thread ? messagesForThread(thread.id) : [];
   const route = thread ? routeForBot(thread.botId) : undefined;
   const threadApprovals = pendingApprovals.filter((a) => a.botId === thread?.botId);
+  const runningTurn = [...state.turns.values()].find(
+    (t) => t.botId === thread?.botId && t.status === "running",
+  );
+  const waiting =
+    threadApprovals.length > 0 ||
+    [...state.inputs.values()].some((i) => i.botId === bot?.id && i.status === "pending");
+  const status: BotStatus = waiting ? "needs-you" : runningTurn ? "working" : "idle";
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const stickToBottom = useRef(true);
+  const lastMessage = messages[messages.length - 1];
+
+  // Like any chat: open at the newest message, and follow new ones unless the
+  // user has scrolled up to read.
+  const openedView = useRef("");
+  useLayoutEffect(() => {
+    const view = `${selectedThreadId}:${panel}`;
+    if (openedView.current !== view) {
+      openedView.current = view;
+      stickToBottom.current = true;
+    }
+    const el = scrollRef.current;
+    if (el && stickToBottom.current) el.scrollTop = el.scrollHeight;
+  }, [
+    selectedThreadId,
+    panel,
+    messages.length,
+    lastMessage?.text,
+    threadApprovals.length,
+    runningTurn?.steps.length,
+    runningTurn?.text.length,
+  ]);
 
   if (!thread || !bot) {
-    return <div className="empty-state">Select a bot to start chatting</div>;
+    return (
+      <div className="empty-state">
+        <p className="empty-title">Pick a bot to start</p>
+        <p className="empty-text">Your Chief of Staff is a good place to begin.</p>
+      </div>
+    );
   }
 
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    const text = draft.trim();
-    if (!text) return;
-    setDraft("");
-    await sendMessage(text);
-  };
-
   const showComputer = bot.computer !== "none";
+  const stop = () => void transport.post(`/api/threads/${thread.id}/stop`).catch(() => undefined);
+  const subtitle =
+    status === "working"
+      ? "Working…"
+      : status === "needs-you"
+        ? "Waiting for you"
+        : (bot.label ?? (bot.isChiefOfStaff ? "Chief of Staff" : oneLine(bot.description)));
 
   return (
-    <>
+    <div className="thread">
       <header className="thread-header">
         {onBack ? (
-          <button type="button" className="icon-button" onClick={onBack} aria-label="Back">
-            ←
+          <button type="button" className="icon-btn thread-back" onClick={onBack} aria-label="Back">
+            <ChevronLeft size={18} />
           </button>
         ) : null}
-        <span className="bot-avatar" style={{ width: 36, height: 36, fontSize: "1rem" }}>
-          {bot.avatar ?? bot.name.slice(0, 1)}
-        </span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="bot-name">{thread.title}</div>
-          <Participants participantIds={thread.participantIds} bots={bots} />
-        </div>
-        {route ? <RouteChip route={route} /> : null}
-      </header>
-
-      <div className="thread-subnav">
         <button
           type="button"
-          className="nav-tab"
+          className="thread-identity"
+          onClick={() => setPanel("profile")}
+          title="Open profile"
+        >
+          <BotAvatar bot={bot} size={32} status={status} />
+          <span className="thread-identity-text">
+            <span className="thread-title">{thread.title || bot.name}</span>
+            <span className="thread-subtitle" data-status={status}>
+              {subtitle}
+            </span>
+          </span>
+        </button>
+        <div className="thread-header-actions">{route ? <RouteChip route={route} /> : null}</div>
+      </header>
+
+      <nav className="thread-tabs" aria-label="Bot views">
+        <button
+          type="button"
+          className="tab"
           data-active={panel === "chat"}
           onClick={() => setPanel("chat")}
         >
@@ -77,7 +129,7 @@ export function ThreadViewPanel({ onBack }: ThreadViewProps) {
         {showComputer ? (
           <button
             type="button"
-            className="nav-tab"
+            className="tab"
             data-active={panel === "computer"}
             onClick={() => setPanel("computer")}
           >
@@ -86,80 +138,166 @@ export function ThreadViewPanel({ onBack }: ThreadViewProps) {
         ) : null}
         <button
           type="button"
-          className="nav-tab"
+          className="tab"
           data-active={panel === "profile"}
           onClick={() => setPanel("profile")}
         >
           Profile
         </button>
-      </div>
+      </nav>
 
       {panel === "chat" ? (
         <>
-          <div className="thread-messages" data-testid="thread-messages">
-            {threadApprovals.map((a: Approval) => (
-              <ApprovalCard key={a.id} approval={a} onResolve={(r) => resolveApproval(a.id, r)} />
-            ))}
-            {messages.map((m) =>
-              m.text === "__digest__" || m.dedupeKey?.startsWith("digest:") ? (
-                <div key={m.id} className="message-row" data-author="bot">
-                  <DigestMessage
-                    postedAt={m.createdAt}
-                    text={m.text === "__digest__" ? undefined : m.text}
-                  />
-                  <span className="message-meta">{bot.name}</span>
-                </div>
-              ) : (
-                <MessageBubble key={m.id} message={m} bot={bot} />
-              ),
-            )}
+          <div
+            className="thread-scroll"
+            ref={scrollRef}
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+            }}
+          >
+            <div className="thread-messages" data-testid="thread-messages">
+              {messages.length === 0 && !runningTurn ? (
+                <ThreadIntro bot={bot} onPick={(text) => void sendMessage(text)} />
+              ) : null}
+              {messages.map((m, i) => {
+                const prev = messages[i - 1];
+                const newDay = !prev || !sameDay(prev.createdAt, m.createdAt);
+                const grouped =
+                  !newDay &&
+                  !!prev &&
+                  prev.author.type === m.author.type &&
+                  prev.author.id === m.author.id &&
+                  !prev.inputRequestId &&
+                  Date.parse(m.createdAt) - Date.parse(prev.createdAt) < GROUP_WINDOW_MS;
+                return (
+                  <Fragment key={m.id}>
+                    {newDay ? (
+                      <div className="day-separator" role="separator">
+                        <span>{dayLabel(m.createdAt)}</span>
+                      </div>
+                    ) : null}
+                    {m.text === "__digest__" || m.dedupeKey?.startsWith("digest:") ? (
+                      <div className="msg msg-digest" data-author="bot">
+                        <DigestMessage
+                          postedAt={m.createdAt}
+                          text={m.text === "__digest__" ? undefined : m.text}
+                        />
+                      </div>
+                    ) : (
+                      <MessageWithSteps
+                        message={m}
+                        bot={bot}
+                        bots={bots}
+                        grouped={grouped}
+                        onQuickReply={(text) => void sendMessage(text)}
+                      />
+                    )}
+                  </Fragment>
+                );
+              })}
+              {runningTurn ? <TurnSteps turn={runningTurn} /> : null}
+              {/* What needs the user now sits at the bottom, next to the composer. */}
+              {threadApprovals.map((a: Approval) => (
+                <ApprovalCard key={a.id} approval={a} onResolve={(r) => resolveApproval(a.id, r)} />
+              ))}
+            </div>
           </div>
-          <form className="composer" onSubmit={(e) => void onSubmit(e)}>
-            <input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder={`Message ${bot.name}…`}
-              aria-label="Message"
-            />
-            <button type="submit" disabled={!draft.trim()}>
-              Send
-            </button>
-          </form>
+          <Composer
+            botName={bot.name}
+            running={Boolean(runningTurn)}
+            onSend={(text) => sendMessage(text)}
+            onStop={stop}
+          />
         </>
       ) : null}
 
       {panel === "computer" && showComputer ? (
-        <div className="thread-messages">
-          <ComputerPanel botId={bot.id} />
+        <div className="thread-scroll">
+          <div className="panel-page">
+            <ComputerPanel botId={bot.id} />
+          </div>
         </div>
       ) : null}
 
       {panel === "profile" ? (
-        <div className="thread-messages">
-          <BotWhyPanel botId={bot.id} />
+        <div className="thread-scroll">
+          <div className="panel-page">
+            <BotProfileEditor bot={bot} />
+            <BotWhyPanel botId={bot.id} />
+          </div>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }
 
-function Participants({
-  participantIds,
-  bots,
-}: {
-  participantIds: string[];
-  bots: { id: string; name: string }[];
-}) {
+function oneLine(text: string): string {
+  const line = text.split("\n")[0] ?? "";
+  return line.length > 90 ? `${line.slice(0, 87)}…` : line;
+}
+
+const COS_SUGGESTIONS = [
+  "Ask me a few questions to get to know me",
+  "What can you and your team do for me?",
+  "Set up a bot that tracks news in my field",
+];
+
+function ThreadIntro({ bot, onPick }: { bot: Bot; onPick: (text: string) => void }) {
+  const suggestions = bot.isChiefOfStaff
+    ? COS_SUGGESTIONS
+    : ["What can you do?", "Here's your first task:"];
   return (
-    <div className="participants" aria-label="Participants">
-      {participantIds.map((id) => {
-        const label = id === "user" ? "You" : (bots.find((b) => b.id === id)?.name ?? id);
-        return (
-          <span key={id} className="participant-chip">
-            {label}
-          </span>
-        );
-      })}
+    <div className="thread-intro">
+      <BotAvatar bot={bot} size={56} />
+      <h2>{bot.isChiefOfStaff ? "Hi, I'm your Chief of Staff" : `Hi, I'm ${bot.name}`}</h2>
+      <p>
+        {bot.isChiefOfStaff
+          ? "Tell me what you need. I handle it myself or bring in the right bot, and only come back when it's done or I need you."
+          : oneLine(bot.description) || "Tell me what you need."}
+      </p>
+      <div className="thread-intro-suggestions">
+        {suggestions.map((s) => (
+          <button key={s} type="button" className="chip" onClick={() => onPick(s)}>
+            {s}
+          </button>
+        ))}
+      </div>
     </div>
+  );
+}
+
+function MessageWithSteps({
+  message,
+  bot,
+  bots,
+  grouped,
+  onQuickReply,
+}: {
+  message: Message;
+  bot: Bot;
+  bots: Bot[];
+  grouped: boolean;
+  onQuickReply: (text: string) => void;
+}) {
+  const { state } = useOpenBot();
+  const turnId = state.turnByMessage.get(message.id);
+  const turn = turnId ? state.turns.get(turnId) : undefined;
+  const request = message.inputRequestId ? state.inputs.get(message.inputRequestId) : undefined;
+  return (
+    <>
+      {turn && turn.status !== "running" ? <TurnSteps turn={turn} /> : null}
+      {request ? (
+        <InputRequestCard request={request} />
+      ) : (
+        <MessageItem
+          message={message}
+          bot={bot}
+          bots={bots}
+          grouped={grouped && !turn}
+          onQuickReply={onQuickReply}
+        />
+      )}
+    </>
   );
 }

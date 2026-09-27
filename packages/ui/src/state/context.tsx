@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Approval, Bot, Message } from "@openbot/contracts";
+import type { Approval, Bot, InputRequest, Message } from "@openbot/contracts";
 import type { RoutePreview, ThreadView } from "../api/types.js";
 import { createTransport, type Transport } from "../transport/index.js";
 import { createInitialState, pendingApprovals, uiReducer, type UiState } from "./reducer.js";
@@ -55,10 +55,13 @@ export function OpenBotProvider({ transport, children }: OpenBotProviderProps) {
   const lastSeqRef = useRef(0);
 
   const hydrate = useCallback(async () => {
-    const [botsRes, threadsRes, apprRes] = await Promise.all([
+    const [botsRes, threadsRes, apprRes, inputsRes] = await Promise.all([
       transport.get<{ bots: Bot[] }>("/api/bots"),
       transport.get<{ threads: ThreadView[] }>("/api/threads"),
       transport.get<{ approvals: Approval[] }>("/api/approvals"),
+      transport
+        .get<{ inputs: InputRequest[] }>("/api/inputs")
+        .catch(() => ({ inputs: [] as InputRequest[] })),
     ]);
 
     const messages: Message[] = [];
@@ -79,6 +82,7 @@ export function OpenBotProvider({ transport, children }: OpenBotProviderProps) {
       messages,
       approvals: apprRes.approvals,
       routes,
+      inputs: inputsRes.inputs,
     });
 
     setSelectedThreadId((current) => current ?? threadsRes.threads[0]?.id ?? null);
@@ -98,6 +102,8 @@ export function OpenBotProvider({ transport, children }: OpenBotProviderProps) {
       if (cancelled) return;
       if (msg.type === "event" && msg.event) {
         dispatch({ type: "event", event: msg.event });
+        // The roster lists threads, and a new Bot's DM thread has no event of its own.
+        if (msg.event.type === "bot.created") void hydrate();
       }
       if (msg.type === "replay.done") {
         dispatch({ type: "ws.replay.done" });
@@ -112,7 +118,7 @@ export function OpenBotProvider({ transport, children }: OpenBotProviderProps) {
       conn.close();
       wsRef.current = null;
     };
-  }, [transport]);
+  }, [transport, hydrate]);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -165,6 +171,11 @@ export function useOpenBot(): OpenBotContextValue {
   const ctx = useContext(OpenBotContext);
   if (!ctx) throw new Error("useOpenBot must be used within OpenBotProvider");
   return ctx;
+}
+
+/** For components that also render outside the provider (e.g. in isolation tests). */
+export function useOptionalOpenBot(): OpenBotContextValue | null {
+  return useContext(OpenBotContext);
 }
 
 export function useLocalTransport(baseUrl: string): Transport {

@@ -76,7 +76,7 @@ export function registerBotRoutes(app: FastifyInstance, ctx: CoreContext): void 
 
     ctx.repos.bots.update(id, patch);
     const bot = ctx.repos.bots.getById(id);
-    await ctx.eventBus.publish({ type: "bot.updated", botId: id, payload: { patch } });
+    await ctx.eventBus.publish({ type: "bot.updated", botId: id, payload: { patch, bot } });
     return { bot };
   });
 

@@ -6,7 +6,7 @@ import type {
   TurnHooks,
   TurnInput,
 } from "@openbot/contracts";
-import { loadFixture, validateOpenAiKey } from "@openbot/engines-common";
+import { loadFixture, validateOpenAiKey, waitForTurnComplete } from "@openbot/engines-common";
 import { CodexAppServer, FixtureCodexAppServer } from "./app-server.js";
 import { detectCodex } from "./detect.js";
 import { CODEX_MODELS } from "./models.js";
@@ -72,11 +72,22 @@ export class CodexDriver implements EngineDriver {
       state.sessionId = threadId;
       hooks.emit({ type: "session_started", sessionId: threadId });
 
-      const unsubscribe = this.appServer.watchTurn(state, hooks);
+      let lastActivityAt = Date.now();
+      const unsubscribe = this.appServer.watchTurn(state, {
+        ...hooks,
+        emit: (event) => {
+          lastActivityAt = Date.now();
+          hooks.emit(event);
+        },
+      });
       const turnId = await this.appServer.turnStart(threadId, input.text);
       state.turnId = turnId;
 
-      await waitForTurnComplete(state, () => interrupted);
+      await waitForTurnComplete(
+        state,
+        () => interrupted,
+        () => lastActivityAt,
+      );
       unsubscribe();
 
       if (interrupted) {
@@ -125,23 +136,6 @@ export class CodexDriver implements EngineDriver {
   /** Exposed for MCP isolation tests. */
   get server(): CodexAppServer | FixtureCodexAppServer {
     return this.appServer;
-  }
-}
-
-async function waitForTurnComplete(
-  state: ReturnType<typeof createCodexParseState>,
-  interrupted: () => boolean,
-  timeoutMs = 30_000,
-): Promise<void> {
-  const start = Date.now();
-  while (!state.turnComplete && !interrupted()) {
-    if (Date.now() - start > timeoutMs) {
-      state.turnComplete = true;
-      state.isError = true;
-      state.errorMessage = "turn timed out";
-      break;
-    }
-    await new Promise((r) => setTimeout(r, 5));
   }
 }
 

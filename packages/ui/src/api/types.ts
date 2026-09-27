@@ -33,6 +33,7 @@ export interface ThreadView extends Thread {
   /** Display title — bot name for DM, custom for future groups. */
   title: string;
   lastMessagePreview?: string;
+  lastMessageAt?: string;
   unreadCount?: number;
 }
 

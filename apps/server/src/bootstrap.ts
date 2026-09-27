@@ -37,9 +37,17 @@ import {
   type TurnStore,
 } from "@openbot/runtime";
 import type { FastifyInstance } from "fastify";
+import { ensureChiefOfStaff } from "./chief-of-staff.js";
 import { postDigestIfDue } from "./digest.js";
 import { bootstrapProviders } from "./providers.js";
-import { createTurnBuilder, createTurnMailbox, RepoSessionStore } from "./turn-mailbox.js";
+import { modelLister, pinModelOnSpawn } from "./bot-models.js";
+import {
+  createEngineChooser,
+  createTurnBuilder,
+  createTurnMailbox,
+  RepoSessionStore,
+  wakeOnBotMessages,
+} from "./turn-mailbox.js";
 
 export interface BootstrapOptions {
   computerProvider?: ComputerProvider;
@@ -65,8 +73,12 @@ export async function bootstrapHarness(
   // refreshed in place when the user changes settings, so no restart is needed.
   const autonomyCaps = loadAutonomyCaps(ctx);
   ctx.eventBus.subscribe((event) => {
-    if (event.type === "setup.changed") Object.assign(autonomyCaps, loadAutonomyCaps(ctx));
+    if (event.type !== "setup.changed") return;
+    Object.assign(autonomyCaps, loadAutonomyCaps(ctx));
+    ensureChiefOfStaff(ctx);
   });
+  // Installs that finished setup before the CoS was seeded get one now.
+  ensureChiefOfStaff(ctx);
   const caps = new CapCounterService(ctx.clock);
   // S2/S3 hold across restarts: replay the CoS's past spawns (a spawned Bot's
   // DM thread is created with it).
@@ -107,6 +119,9 @@ export async function bootstrapHarness(
   };
   const buildTurn = createTurnBuilder(ctx, turnDeps);
   ctx.mailbox = createTurnMailbox(ctx, turnDeps, buildTurn);
+  wakeOnBotMessages(ctx, turnDeps, buildTurn);
+  pinModelOnSpawn(ctx, createEngineChooser(ctx, turnDeps));
+  ctx.listModels = modelLister(turnDeps);
   ctx.onApprovalResolved = (approvalId, resolution) => {
     runtime.broker.settleResolved(approvalId, resolution);
     applyRoutineLiveApproval(ctx, approvalId, resolution);
