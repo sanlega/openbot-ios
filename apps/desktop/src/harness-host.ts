@@ -32,17 +32,27 @@ export interface HarnessHostOptions {
 
 const require = createRequire(import.meta.url);
 
+/** @deprecated Use {@link resolveHarnessLaunch} — workspace packages export TypeScript sources. */
 export function resolveServerEntryPath(): string {
   const indexPath = require.resolve("@openbot/server");
   return join(dirname(indexPath), "main.js");
 }
 
-/** Node child_process fork for CI/tests where Electron's utilityProcess ABI breaks native modules. */
+/** Resolve `tsx` + server entry so the harness can load workspace `.ts` packages. */
+export function resolveHarnessLaunch(cliArgs: string[] = []): { program: string; args: string[] } {
+  const indexPath = require.resolve("@openbot/server");
+  const serverRoot = dirname(dirname(indexPath));
+  const tsxCli = join(serverRoot, "node_modules", "tsx", "dist", "cli.mjs");
+  const serverMain = join(serverRoot, "src", "main.ts");
+  return { program: tsxCli, args: [serverMain, ...cliArgs] };
+}
+
+/** Node child_process spawn (used instead of Electron utilityProcess for native-module ABI + tsx). */
 export function createNodeForkFactory(): UtilityProcessFactory {
   return {
-    fork(modulePath, args, options) {
+    fork(program, args, options) {
       const nodeBin = process.env.npm_node_execpath ?? "node";
-      const child = spawn(nodeBin, [modulePath, ...(args ?? [])], {
+      const child = spawn(nodeBin, [program, ...(args ?? [])], {
         env: options?.env as NodeJS.ProcessEnv,
         stdio: "inherit",
       });
@@ -91,9 +101,11 @@ export class HarnessHost extends EventEmitter<HarnessHostEvents> {
   }
 
   private spawn(): void {
-    const entryPath = this.options.serverEntryPath ?? resolveServerEntryPath();
+    const launch = this.options.serverEntryPath
+      ? { program: this.options.serverEntryPath, args: ["serve"] }
+      : resolveHarnessLaunch(["serve"]);
 
-    this.child = this.options.fork.fork(entryPath, ["serve"], {
+    this.child = this.options.fork.fork(launch.program, launch.args, {
       serviceName: "openbot-harness",
       env: {
         ...process.env,

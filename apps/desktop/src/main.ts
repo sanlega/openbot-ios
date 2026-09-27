@@ -7,7 +7,6 @@ import {
   systemPreferences,
   Tray,
   Menu,
-  utilityProcess,
 } from "electron";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -102,7 +101,7 @@ function startHarness(): void {
   harnessHost = new HarnessHost({
     port,
     openbotHome,
-    fork: process.env.OPENBOT_HARNESS_NODE === "1" ? createNodeForkFactory() : utilityProcess,
+    fork: createNodeForkFactory(),
   });
   harnessHost.start();
 }
