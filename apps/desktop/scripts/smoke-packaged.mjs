@@ -59,7 +59,6 @@ async function waitForHarness(baseUrl, timeoutMs = 180_000) {
 
 async function main() {
   const unpacked = await findLinuxUnpackedDir();
-  const binary = join(unpacked, "openbot");
   const asarPath = join(unpacked, "resources", "app.asar");
   const extractDir = await mkdtemp(join(tmpdir(), "openbot-packaged-smoke-"));
   const openbotHome = await mkdtemp(join(tmpdir(), "openbot-packaged-home-"));
@@ -77,7 +76,6 @@ async function main() {
 
   const env = {
     ...process.env,
-    ELECTRON_RUN_AS_NODE: "1",
     OPENBOT_HOME: openbotHome,
     PORT: String(port),
     OPENBOT_FAKE_JEV: "1",
@@ -88,7 +86,9 @@ async function main() {
     NODE_PATH: join(extractDir, "node_modules"),
   };
 
-  const child = spawn(binary, [harnessEntry, "serve"], {
+  // Use system Node against the extracted production layout. Electron ABI for
+  // better-sqlite3 is validated by rebuild:native before pack and desktop-e2e.
+  const child = spawn(process.execPath, [harnessEntry, "serve"], {
     env,
     cwd: extractDir,
     stdio: ["ignore", "pipe", "pipe"],
