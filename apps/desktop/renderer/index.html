@@ -3,22 +3,59 @@
   <head>
     <meta charset="utf-8" />
     <title>OpenBot</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, sans-serif;
+      }
+      body {
+        margin: 2rem;
+      }
+      #harness-status[data-connected="true"] {
+        color: #0a7f2e;
+      }
+      #harness-status[data-connected="false"] {
+        color: #b00020;
+      }
+    </style>
   </head>
   <body>
     <main>
       <h1>OpenBot</h1>
-      <p id="harness-status">Checking harness…</p>
+      <p id="harness-status" data-connected="false">Checking harness…</p>
+      <p id="nav-hint" hidden></p>
     </main>
     <script>
+      function setHarnessStatus(text) {
+        const el = document.getElementById("harness-status");
+        el.textContent = text;
+        el.dataset.connected = String(text.includes("connected") && !text.includes("disconnected"));
+      }
+
+      async function refreshHarnessStatus() {
+        try {
+          const text = await window.openbot.getHarnessStatus();
+          setHarnessStatus(text);
+        } catch {
+          setHarnessStatus("Harness disconnected");
+        }
+      }
+
       window.addEventListener("DOMContentLoaded", () => {
-        window.openbot
-          .getHarnessStatus()
-          .then((text) => {
-            document.getElementById("harness-status").textContent = text;
-          })
-          .catch(() => {
-            document.getElementById("harness-status").textContent = "Harness disconnected";
-          });
+        void refreshHarnessStatus();
+        setInterval(refreshHarnessStatus, 5000);
+
+        window.openbot.onNavigate((target) => {
+          const hint = document.getElementById("nav-hint");
+          hint.hidden = false;
+          if (target.kind === "thread" && target.threadId) {
+            hint.textContent = `Deep link: thread ${target.threadId}`;
+          } else if (target.kind === "setup") {
+            hint.textContent = "Deep link: setup wizard";
+          } else {
+            hint.textContent = "Deep link: home";
+          }
+        });
       });
     </script>
   </body>

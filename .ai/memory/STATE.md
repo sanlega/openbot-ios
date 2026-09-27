@@ -1,19 +1,20 @@
 # Estado actual
 
-_Última actualización: 2026-09-27 por cursor (WS5 builder)_
+_Última actualización: 2026-09-27 por cursor (WS6)_
 
 ## En curso
-- Rama `cursor/ws5-chat-ui-c33e` (apilada sobre `cursor/ws0-contracts-store-fakes-8d1e`), WS5:
-  - `packages/ui` ✅ (plan §WS5): React 19 messenger UI + remaining screens:
-    computer panel (noVNC iframe, takeover, step timeline), routines editor
-    with dry-run → Enable live + run history, settings (engines, Jev key,
-    caps S1–S10, budgets), devices/remote (QR, Tailscale toggle), daily digest
-    in CoS thread, bot "why" profile panel. Thread `participantIds` kept
-    group-ready. 20 tests in `@openbot/ui`.
-  - `apps/pwa` ✅: Vite build mounting `@openbot/ui`.
-  - 157 tests in 21 files; `lint`/`typecheck`/`build`/`test`/`mh check` en verde.
-  - **WS5 functionally complete** for plan §WS5 MVP; Playwright E2E (WS13)
-    and Electron shell wiring (WS6) remain follow-ups.
+- Rama `cursor/ws6-desktop-shell-dffb` (PR apilada sobre WS0; ver Bloqueos):
+  WS6 desktop shell ✅ en esta rama:
+  - `apps/desktop`: Electron real (D-016 cumplido — eliminado `electron-shim.d.ts`).
+    Harness en `utilityProcess` con reinicio automático; preload CJS (`preload.cjs`);
+    bandeja del sistema + arranque al iniciar sesión; notificaciones OS solo para
+    `notify.requested` con `pushed:true`; deep links `openbot://`; vault con
+    `safeStorage`; guía de permisos macOS/Wayland; `electron-builder` (DMG universal,
+    NSIS x64/arm64, AppImage+deb).
+  - CI: jobs `desktop-e2e` (Playwright `_electron`, 3 SO) y `desktop-package`
+    (`electron-builder --dir`, sin firmar).
+  - 160 tests Vitest + 1 smoke Playwright `_electron` en verde localmente (Linux).
+  - Pendiente: verificar CI en GitHub Actions (3 SO) y abrir PR (ver Bloqueos).
 - Rama `cursor/metaharness-bootstrap-8d1e` (PR 1 aún sin abrir, ver Bloqueos):
   bootstrap de metaharness (`ADAPTERS="agents claude"`, contexto en inglés) +
   herramientas del monorepo (pnpm 10 + Node 22, TypeScript 6.0.3, ESLint flat
@@ -81,10 +82,7 @@ _Última actualización: 2026-09-27 por cursor (WS5 builder)_
     `pnpm install --frozen-lockfile` se verificó localmente en Linux).
 
 ## Próximos pasos
-1. Abrir PR WS5 (`cursor/ws5-chat-ui-c33e` → `cursor/ws0-contracts-store-fakes-8d1e`).
-2. WS1: sustituir `MockClientApiServer` por Client API real; mover tipos HTTP a contracts si procede.
-3. Completar pantallas WS5 restantes (computer, routines, settings) cuando WS9/WS12 aterricen.
-4. En cuanto el bloqueo de permisos del PAT se resuelva, abrir PR 1
+1. En cuanto el bloqueo de permisos del PAT se resuelva, abrir PR 1
    (`cursor/metaharness-bootstrap-8d1e` → `main`) y PR 2
    (`cursor/ws0-contracts-store-fakes-8d1e` → PR 1, apilada), y verificar el
    pipeline de CI en una corrida real de GitHub Actions (3 SO).

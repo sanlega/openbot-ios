@@ -54,3 +54,69 @@ jobs:
       - name: mh check
         shell: bash
         run: bash .ai/bin/mh check
+
+  desktop-e2e:
+    name: desktop e2e (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace
+        run: pnpm build
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @openbot/desktop exec playwright install
+
+      - name: Desktop Playwright smoke (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run pnpm --filter @openbot/desktop test:e2e
+
+      - name: Desktop Playwright smoke
+        if: runner.os != 'Linux'
+        run: pnpm --filter @openbot/desktop test:e2e
+
+  desktop-package:
+    name: desktop package (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace
+        run: pnpm build
+
+      - name: Package desktop (unsigned)
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: pnpm --filter @openbot/desktop run pack

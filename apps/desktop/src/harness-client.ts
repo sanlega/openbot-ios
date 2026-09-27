@@ -24,3 +24,21 @@ export async function fetchHarnessStatus(baseUrl: string): Promise<string> {
     return "Harness disconnected";
   }
 }
+
+/** Polls until the harness reports connected or `timeoutMs` elapses. */
+export async function waitForHarnessReady(baseUrl: string, timeoutMs = 30_000): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = await fetch(`${baseUrl}/api/harness/status`);
+      if (res.ok) {
+        const body = (await res.json()) as HarnessStatus;
+        if (body.connected) return;
+      }
+    } catch {
+      // utilityProcess may still be booting
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  throw new Error("Harness did not become ready in time");
+}

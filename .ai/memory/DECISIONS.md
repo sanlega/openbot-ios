@@ -135,11 +135,11 @@ Formato: fecha, contexto, decisión, consecuencias.
 - **Alternativas descartadas**: adding the real `electron` devDependency now, which would make `pnpm install`/CI depend on a large binary download (repeated across the 3-OS CI matrix) for a skeleton WS6 will rewrite anyway, with no way to verify the display output in this environment either way.
 - **Consecuencias**: WS6 adds the real `electron` dependency and deletes `electron-shim.d.ts` when it lands; until then, `apps/desktop`'s build/typecheck/test are fast and 100% reliable in CI, but the GUI itself is unverified end-to-end.
 
-## D-017 · WS3 engine packages as siblings under packages/engines/*
+## D-017 · WS6 harness host forks `@openbot/server` dist/main.js; preload is CommonJS
 
 - **Fecha**: 2026-09-27
 
-- **Contexto**: plan §3/§5 WS3; D-015 estableció `packages/engines/fake` como paquete hermano.
-- **Decisión**: WS3 añade `@openbot/engines-common`, `@openbot/engines-claude`, `@openbot/engines-codex`, y `@openbot/engines-conformance` como paquetes hermanos. Decisiones de implementación en `packages/engines/DECISIONS.md` (E-WS3-001..003).
-- **Alternativas descartadas**: un solo paquete `@openbot/engines` con subcarpetas `claude/`/`codex/`.
-- **Consecuencias**: WS2 importa drivers desde `@openbot/engines-claude`/`@openbot/engines-codex`; CI usa fixture replay sin credenciales; conformidad CLI real es opt-in (`OPENBOT_E2E_REAL=1`).
+- **Contexto**: plan §5 WS6 requires the harness in an Electron `utilityProcess` with auto-restart. WS0's desktop skeleton used a local `electron-shim.d.ts` (D-016). Electron preload scripts cannot reliably use ESM `import` under `contextIsolation` when the app package is `"type": "module"`.
+- **Decisión**: `HarnessHost` forks `@openbot/server/dist/main.js` via `utilityProcess.fork` (not a separate worker shim). Preload compiles to `dist/preload.cjs` (CommonJS) via `tsconfig.preload.json`. Main waits on `waitForHarnessReady()` before showing the window.
+- **Alternativas descartadas**: bundling the whole harness into the main process (violates E3); keeping preload as ESM (broke IPC bridge in Playwright `_electron` smoke tests).
+- **Consecuencias**: `apps/server/package.json` exports must include `require`/`default` conditions so `createRequire` can resolve the entry at runtime; desktop `build` runs two `tsc` passes.

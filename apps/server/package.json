@@ -3,9 +3,21 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+<<<<<<< HEAD
   "main": "./src/index.ts",
   "bin": {
     "openbot": "./dist/main.js"
+=======
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+>>>>>>> origin/cursor/ws6-desktop-shell-dffb
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

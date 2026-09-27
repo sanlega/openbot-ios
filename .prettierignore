@@ -6,6 +6,8 @@ AGENTS.md
 CLAUDE.md
 **/dist/**
 **/build/**
+**/release/**
+**/test-results/**
 **/coverage/**
 **/fixtures/**
 **/migrations/**
