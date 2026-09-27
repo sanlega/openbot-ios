@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-2022, macos-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -31,6 +31,8 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        env:
+          npm_config_msvs_version: "2022"
 
       - name: Lint
         run: pnpm lint
