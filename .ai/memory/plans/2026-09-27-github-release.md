@@ -49,10 +49,9 @@ Integrate the current OpenBot work into `main` and give users a clear way to dow
 | 5 | Make repo public, merge PR, tag and verify release assets | GitHub repository, main, release tag | default branch head, visible Release, every expected asset downloadable/checksum verified | 4 | no |
 
 Progress:
-- [x] T1 reconnaissance: branch `claude/product-polish` is at `960771b`; `main` is `40d8a23`; no PRs, tags, or Releases exist; manifests all say `0.1.0`; branch CI has not run yet.
-- [x] T1 code review and final scope: installers split by native architecture; memory diaries/local deployment notes removed from current tree; history still requires a reviewed rewrite before public visibility.
+- [x] T1 reconnaissance and review: product/release state verified; all 18 branch histories scrubbed of private notes, session links, local paths, and personal metadata; PR #17 metadata cleaned. GitHub read-only PR refs 1–16 still retain historical commits and require Support purge before public visibility.
 - [x] T2: README, contributor/privacy guidance, issue/PR templates, changelog, and tagged release workflow added. Local lint, format, `mh check`, build, typecheck, and tests pass; workflow YAML parses.
-- [ ] T3
+- [x] T3: PR #18 is open; rewritten head/base hashes are current. CI runs 62/63 failed all jobs and logs were unavailable. Check the new head's CI and diagnose before merge.
 - [ ] T4
 - [ ] T5
 
@@ -67,4 +66,4 @@ Progress:
 
 ## Open questions
 
-- None. User chose to make the repository public; final publication still awaits the concrete release approval required by `release-manager`.
+- GitHub Support must purge old closed-PR refs/cached views before repository visibility changes. User requested public visibility; final merge/tag/release still needs the concrete release approval required by `release-manager`.

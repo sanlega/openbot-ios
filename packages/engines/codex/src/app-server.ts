@@ -109,6 +109,20 @@ export class CodexAppServer {
     return (await this.request("mcpServerStatus/list", { threadId })) as McpServerStatusListResult;
   }
 
+  async listModels(): Promise<unknown[]> {
+    const models: unknown[] = [];
+    let cursor: string | undefined;
+    do {
+      const result = (await this.request("model/list", {
+        includeHidden: false,
+        ...(cursor ? { cursor } : {}),
+      })) as { data?: unknown[]; nextCursor?: string | null };
+      if (Array.isArray(result.data)) models.push(...result.data);
+      cursor = result.nextCursor ?? undefined;
+    } while (cursor);
+    return models;
+  }
+
   async turnStart(threadId: string, text: string): Promise<string> {
     const result = (await this.request("turn/start", {
       threadId,
@@ -316,6 +330,16 @@ export class FixtureCodexAppServer {
       }
     }
     return { data: [] };
+  }
+
+  async listModels(): Promise<unknown[]> {
+    await this.ensureStarted();
+    for (const line of this.fixtureLines) {
+      if (line.method !== "model/list") continue;
+      const result = line.result as { data?: unknown[] } | undefined;
+      if (Array.isArray(result?.data)) return result.data;
+    }
+    return [];
   }
 
   async turnStart(_threadId: string, _text: string): Promise<string> {

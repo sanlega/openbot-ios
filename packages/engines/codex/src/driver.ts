@@ -51,7 +51,20 @@ export class CodexDriver implements EngineDriver {
   }
 
   async listModels(): Promise<ModelInfo[]> {
-    return CODEX_MODELS;
+    try {
+      const models = await this.appServer.listModels();
+      const visible = models.flatMap((entry): ModelInfo[] => {
+        if (!entry || typeof entry !== "object") return [];
+        const model = entry as { id?: unknown; model?: unknown; displayName?: unknown };
+        const id = typeof model.id === "string" ? model.id : model.model;
+        if (typeof id !== "string" || id.length === 0) return [];
+        return [{ id, label: typeof model.displayName === "string" ? model.displayName : id }];
+      });
+      return visible.length > 0 ? visible : CODEX_MODELS;
+    } catch {
+      // Older app-server versions may not expose the experimental model/list method.
+      return CODEX_MODELS;
+    }
   }
 
   startTurn(input: TurnInput, hooks: TurnHooks): TurnHandle {
