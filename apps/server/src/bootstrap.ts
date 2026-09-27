@@ -5,7 +5,6 @@ import type { CoreContext } from "@openbot/core";
 import {
   CapCounterService,
   DEFAULT_AUTONOMY_CAPS,
-  DigestService,
   NotifyGate as CosNotifyGate,
   SpawnGate,
   type AutonomyCaps,
@@ -38,6 +37,7 @@ import {
   type TurnStore,
 } from "@openbot/runtime";
 import type { FastifyInstance } from "fastify";
+import { postDigestIfDue } from "./digest.js";
 import { bootstrapProviders } from "./providers.js";
 import { createTurnBuilder, createTurnMailbox, RepoSessionStore } from "./turn-mailbox.js";
 
@@ -49,7 +49,7 @@ export interface BootstrapResult {
   runtime: Runtime;
   orchestrator: Awaited<ReturnType<typeof integrateRoutines>>["orchestrator"];
   mcpServices: ReturnType<typeof createMcpServices>;
-  digest: DigestService;
+  digest: { stop: () => void };
   availableEngines: string[];
 }
 
@@ -117,13 +117,6 @@ export async function bootstrapHarness(
   await attachRemoteServices(ctx);
   await registerRemoteIntegration(app, ctx, getPwaStaticRoot());
 
-  const digest = new DigestService({
-    clock: ctx.clock,
-    onDigest: (body) => {
-      void ctx.eventBus.publish({ type: "digest.posted", payload: { body } });
-    },
-  });
-
   const { orchestrator } = await integrateRoutines(app, ctx, {
     runtime: new RoutineRuntimeAdapter(runtime, ctx, buildTurn),
   });
@@ -138,7 +131,12 @@ export async function bootstrapHarness(
   const { tokens } = await integrateMcp(app, ctx, { services: mcpServices });
   mcp.current = { tokens, connectors: mcpServices.connectors };
 
-  digest.start();
+  // Checked every minute; posts at most once a day, at the digest hour.
+  const digestTimer = setInterval(() => {
+    void postDigestIfDue(ctx, autonomyCaps).catch(() => undefined);
+  }, 60_000);
+  digestTimer.unref?.();
+  const digest = { stop: () => clearInterval(digestTimer) };
   return {
     runtime,
     orchestrator,
