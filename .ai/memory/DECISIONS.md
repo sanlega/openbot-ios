@@ -134,3 +134,38 @@ Formato: fecha, contexto, decisión, consecuencias.
 - **Decisión**: `apps/desktop` ships real, structurally-correct main/preload/renderer code (one window, one IPC handler) typechecked against a local ambient `electron-shim.d.ts` instead of depending on the real `electron` package. The actual "is the harness connected" logic is extracted into `harness-client.ts` and unit-tested with Vitest; the Electron window itself cannot be driven headlessly in this sandboxed environment. See `apps/desktop/README.md`.
 - **Alternativas descartadas**: adding the real `electron` devDependency now, which would make `pnpm install`/CI depend on a large binary download (repeated across the 3-OS CI matrix) for a skeleton WS6 will rewrite anyway, with no way to verify the display output in this environment either way.
 - **Consecuencias**: WS6 adds the real `electron` dependency and deletes `electron-shim.d.ts` when it lands; until then, `apps/desktop`'s build/typecheck/test are fast and 100% reliable in CI, but the GUI itself is unverified end-to-end.
+
+## D-017 · Root typecheck script must build before per-package tsc --noEmit (composite project refs)
+
+- **Fecha**: 2026-09-27
+
+- **Context**: found while starting WS2. On a fresh checkout, `pnpm typecheck` (root
+  `pnpm -r --if-present run typecheck`, and the CI "Typecheck" step which runs
+  before "Build") fails for any package whose code actually imports a symbol from
+  a `references`d package (e.g. `@openbot/decisions` importing from
+  `@openbot/contracts`) with `TS6305: Output file '.../dist/index.d.ts' has not
+  been built`. Root cause: `tsc -p tsconfig.json --noEmit` on a `composite`
+  project with TS project `references` still requires the referenced project's
+  `.d.ts` output to already exist on disk — it does not build it on demand, and
+  `tsc -b` (build mode, which does build it on demand) rejects `--noEmit` outright
+  (`TS6310: may not disable emit`). `@openbot/decisions` was the first package to
+  actually hit this (its `answer-synthesis.ts`/`fake-jev-server.ts` import
+  `JevAnswer`/`JevQuestion` etc. from contracts); `@openbot/store` and
+  `@openbot/runtime` didn't trip it only because, at the time WS0 landed, nothing
+  in their `src/` yet imported a contracts symbol that forced the check.
+- **Decision**: root `package.json`'s `typecheck` script now runs `pnpm run build`
+  first: `"typecheck": "pnpm run build && pnpm -r --if-present run typecheck"`.
+  This makes every referenced project's `dist/*.d.ts` exist before any package's
+  `--noEmit` typecheck runs, with no change to CI step order, no per-package
+  script changes, and no change to the documented local command
+  (`pnpm lint typecheck build test`) — `pnpm typecheck` alone is now
+  self-sufficient.
+- **Alternatives discarded**: switching every package's `typecheck` script to
+  `tsc -b` (build mode) — works, but always emits (fine, `dist/` is gitignored,
+  but it's a bigger diff across every package and duplicates what `pnpm build`
+  already does); reordering the CI workflow to run Build before Typecheck —
+  fixes CI but not the identical local footgun (`pnpm typecheck` alone, or any
+  future package that imports contracts before its own `dist` is warm).
+- **Consequences**: `pnpm typecheck` is slightly slower (it now always builds
+  first) but correct from a clean checkout every time. Any future package that
+  adds a `references` entry to another workspace package is automatically safe.
