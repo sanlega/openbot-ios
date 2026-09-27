@@ -1,5 +1,8 @@
 packages:
   - "packages/*"
+  # Fakes live one level deeper (e.g. `packages/engines/fake`, `packages/computer/fake`)
+  # so their real (WS3/WS9) siblings can land later without moving anything.
+  - "packages/*/*"
   - "apps/*"
   - "e2e"
 
