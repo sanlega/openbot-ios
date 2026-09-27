@@ -1,5 +1,5 @@
 import { describe, expect, it, afterEach, vi } from "vitest";
-import { formatHarnessStatus, fetchHarnessStatus } from "./harness-client.js";
+import { formatHarnessStatus, fetchHarnessStatus, waitForHarnessReady } from "./harness-client.js";
 
 describe("formatHarnessStatus", () => {
   it("shows a connected message with version when connected", () => {
@@ -46,5 +46,25 @@ describe("fetchHarnessStatus", () => {
     }) as typeof fetch;
     const text = await fetchHarnessStatus("http://127.0.0.1:4577");
     expect(text).toBe("Harness disconnected");
+  });
+});
+
+describe("waitForHarnessReady", () => {
+  const originalFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it("resolves when the harness connects", async () => {
+    let calls = 0;
+    global.fetch = vi.fn(async () => {
+      calls += 1;
+      if (calls < 2) throw new Error("booting");
+      return new Response(JSON.stringify({ connected: true }), { status: 200 });
+    }) as typeof fetch;
+
+    await waitForHarnessReady("http://127.0.0.1:4577", 1000);
+    expect(calls).toBeGreaterThanOrEqual(2);
   });
 });

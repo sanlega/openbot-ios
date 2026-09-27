@@ -1,8 +1,20 @@
 # Estado actual
 
-_Última actualización: 2026-09-27 por cursor_
+_Última actualización: 2026-09-27 por cursor (WS6)_
 
 ## En curso
+- Rama `cursor/ws6-desktop-shell-dffb` (PR apilada sobre WS0; ver Bloqueos):
+  WS6 desktop shell ✅ en esta rama:
+  - `apps/desktop`: Electron real (D-016 cumplido — eliminado `electron-shim.d.ts`).
+    Harness en `utilityProcess` con reinicio automático; preload CJS (`preload.cjs`);
+    bandeja del sistema + arranque al iniciar sesión; notificaciones OS solo para
+    `notify.requested` con `pushed:true`; deep links `openbot://`; vault con
+    `safeStorage`; guía de permisos macOS/Wayland; `electron-builder` (DMG universal,
+    NSIS x64/arm64, AppImage+deb).
+  - CI: jobs `desktop-e2e` (Playwright `_electron`, 3 SO) y `desktop-package`
+    (`electron-builder --dir`, sin firmar).
+  - 160 tests Vitest + 1 smoke Playwright `_electron` en verde localmente (Linux).
+  - Pendiente: verificar CI en GitHub Actions (3 SO) y abrir PR (ver Bloqueos).
 - Rama `cursor/metaharness-bootstrap-8d1e` (PR 1 aún sin abrir, ver Bloqueos):
   bootstrap de metaharness (`ADAPTERS="agents claude"`, contexto en inglés) +
   herramientas del monorepo (pnpm 10 + Node 22, TypeScript 6.0.3, ESLint flat

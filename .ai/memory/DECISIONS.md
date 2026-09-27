@@ -134,3 +134,12 @@ Formato: fecha, contexto, decisión, consecuencias.
 - **Decisión**: `apps/desktop` ships real, structurally-correct main/preload/renderer code (one window, one IPC handler) typechecked against a local ambient `electron-shim.d.ts` instead of depending on the real `electron` package. The actual "is the harness connected" logic is extracted into `harness-client.ts` and unit-tested with Vitest; the Electron window itself cannot be driven headlessly in this sandboxed environment. See `apps/desktop/README.md`.
 - **Alternativas descartadas**: adding the real `electron` devDependency now, which would make `pnpm install`/CI depend on a large binary download (repeated across the 3-OS CI matrix) for a skeleton WS6 will rewrite anyway, with no way to verify the display output in this environment either way.
 - **Consecuencias**: WS6 adds the real `electron` dependency and deletes `electron-shim.d.ts` when it lands; until then, `apps/desktop`'s build/typecheck/test are fast and 100% reliable in CI, but the GUI itself is unverified end-to-end.
+
+## D-017 · WS6 harness host forks `@openbot/server` dist/main.js; preload is CommonJS
+
+- **Fecha**: 2026-09-27
+
+- **Contexto**: plan §5 WS6 requires the harness in an Electron `utilityProcess` with auto-restart. WS0's desktop skeleton used a local `electron-shim.d.ts` (D-016). Electron preload scripts cannot reliably use ESM `import` under `contextIsolation` when the app package is `"type": "module"`.
+- **Decisión**: `HarnessHost` forks `@openbot/server/dist/main.js` via `utilityProcess.fork` (not a separate worker shim). Preload compiles to `dist/preload.cjs` (CommonJS) via `tsconfig.preload.json`. Main waits on `waitForHarnessReady()` before showing the window.
+- **Alternativas descartadas**: bundling the whole harness into the main process (violates E3); keeping preload as ESM (broke IPC bridge in Playwright `_electron` smoke tests).
+- **Consecuencias**: `apps/server/package.json` exports must include `require`/`default` conditions so `createRequire` can resolve the entry at runtime; desktop `build` runs two `tsc` passes.
