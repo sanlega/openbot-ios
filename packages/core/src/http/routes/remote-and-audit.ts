@@ -1,29 +1,46 @@
-import type { FastifyInstance, FastifyReply } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { computeBindHostFlags, type CoreContext } from "../../context.js";
 import { requireAuth, requireOwner } from "../auth.js";
 import { parseOrReject } from "../validation.js";
 import { CloudflareTunnelBody, DecisionsQuery } from "../schemas.js";
 
 /**
- * Remote status (WS1 reports the live bind-host flags it derives; enabling a
- * transport is WS11's job), plus usage/audit/decisions read endpoints (plan
- * §4.7). All owner-only where the action changes machine-wide exposure.
+ * Remote status (WS11 enables Tailscale serve / Cloudflare tunnel), plus
+ * usage/audit/decisions read endpoints (plan §4.7).
  */
 export function registerRemoteAndAuditRoutes(app: FastifyInstance, ctx: CoreContext): void {
   app.get("/api/remote/status", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
     const flags = computeBindHostFlags(ctx);
-    return { ...flags, setup: ctx.repos.setupState.get() };
+    const tailscale = ctx.remote ? await ctx.remote.tailscale.status() : undefined;
+    const cloudflare = ctx.remote ? ctx.remote.cloudflare.status() : undefined;
+    return { ...flags, setup: ctx.repos.setupState.get(), tailscale, cloudflare };
   });
 
   app.post("/api/remote/tailscale/enable", async (request, reply) => {
     if (!requireOwner(request, reply)) return;
-    return delegateOrNotImplemented(ctx, "tailscale", undefined, reply);
+    if (!ctx.remote) {
+      return reply.code(501).send({ error: "not_implemented", reason: "remote module not wired" });
+    }
+    const result = await ctx.remote.tailscale.enable(ctx.config.port);
+    ctx.repos.setupState.patch({ tailscale: { ok: result.ok } });
+    if (result.ok) {
+      await ctx.eventBus.publish({
+        type: "remote.status",
+        payload: { tailscale: { enabled: true, urls: result.urls }, cloudflare: { enabled: false } },
+      });
+    }
+    return { result };
   });
 
   app.post("/api/remote/tailscale/disable", async (request, reply) => {
     if (!requireOwner(request, reply)) return;
+    if (ctx.remote) await ctx.remote.tailscale.disable();
     ctx.repos.setupState.patch({ tailscale: { ok: false } });
+    await ctx.eventBus.publish({
+      type: "remote.status",
+      payload: { tailscale: { enabled: false }, cloudflare: { enabled: false } },
+    });
     return { ok: true };
   });
 
@@ -31,7 +48,21 @@ export function registerRemoteAndAuditRoutes(app: FastifyInstance, ctx: CoreCont
     if (!requireOwner(request, reply)) return;
     const body = parseOrReject(CloudflareTunnelBody, request.body, reply);
     if (!body) return;
-    return delegateOrNotImplemented(ctx, "cloudflare", body.token, reply);
+    if (!ctx.remote) {
+      return reply.code(501).send({ error: "not_implemented", reason: "remote module not wired" });
+    }
+    const result = await ctx.remote.cloudflare.start(body.token);
+    ctx.repos.setupState.patch({ cloudflare: { ok: result.ok } });
+    if (result.ok) {
+      await ctx.eventBus.publish({
+        type: "remote.status",
+        payload: {
+          tailscale: { enabled: false },
+          cloudflare: { enabled: true, hostname: result.hostname, accessWarning: result.accessWarning },
+        },
+      });
+    }
+    return { result };
   });
 
   app.get("/api/usage", async (request, reply) => {
@@ -61,21 +92,4 @@ export function registerRemoteAndAuditRoutes(app: FastifyInstance, ctx: CoreCont
     if (!query) return;
     return { decisions: ctx.repos.decisions.list({ purpose: query.purpose }) };
   });
-}
-
-async function delegateOrNotImplemented(
-  ctx: CoreContext,
-  kind: "tailscale" | "cloudflare",
-  value: string | undefined,
-  reply: FastifyReply,
-): Promise<unknown> {
-  const validator = ctx.validators[kind];
-  if (!validator) {
-    return reply
-      .code(501)
-      .send({ error: "not_implemented", reason: `${kind} manager not wired yet (WS11)` });
-  }
-  const result = await validator(value);
-  ctx.repos.setupState.patch({ [kind]: { ok: result.ok } });
-  return { result };
 }

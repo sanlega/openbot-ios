@@ -1,5 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import type { Clock, ComputerProvider, DecisionService } from "@openbot/contracts";
+import type { RemoteServices } from "@openbot/remote";
 import { systemClock } from "@openbot/contracts";
 import {
   ApprovalsRepo,
@@ -89,6 +90,8 @@ export interface CoreContext {
   computerProvider?: ComputerProvider;
   /** Setup-wizard validators for engine/connector/remote kinds; WS3/WS10/WS11 register theirs at boot. */
   validators: Partial<Record<SetupValidatorKind, SetupValidator>>;
+  /** Wired in by WS11; pairing, E2E framing, Tailscale/Cloudflare managers. */
+  remote?: RemoteServices;
 }
 
 export interface CreateCoreContextOptions {

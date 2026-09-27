@@ -3,6 +3,7 @@ import type { OBEvent } from "@openbot/contracts";
 import type { WebSocket } from "ws";
 import type { CoreContext } from "./context.js";
 import { resolveDeviceIdentity } from "./http/auth.js";
+import { shouldUseE2E } from "@openbot/remote";
 
 interface SubscribeCommand {
   type: "subscribe";
@@ -42,41 +43,78 @@ export function registerWebSocketRoute(app: FastifyInstance, ctx: CoreContext): 
     let replayedUpTo = -1;
     const unsubscribe = ctx.eventBus.subscribe((event: OBEvent) => {
       if (event.seq <= replayedUpTo) return;
-      safeSend(socket, { type: "event", event });
+      void sendToClient(socket, ctx, request, device.deviceId, { type: "event", event });
     });
 
     socket.on("close", () => unsubscribe());
     socket.on("error", () => unsubscribe());
 
     socket.on("message", (raw: Buffer | string) => {
-      let command: ClientCommand;
-      try {
-        command = JSON.parse(raw.toString()) as ClientCommand;
-      } catch {
-        safeSend(socket, { type: "error", error: "invalid_json" });
-        return;
-      }
-
-      if (command.type === "subscribe") {
-        const since = command.since ?? -1;
-        const backlog = ctx.eventBus.replaySince(since);
-        for (const event of backlog) {
-          safeSend(socket, { type: "event", event });
+      void (async () => {
+        let text = raw.toString();
+        const deviceRecord = ctx.repos.devices.getById(device.deviceId);
+        if (shouldUseE2E(request, deviceRecord?.publicKey) && ctx.remote && deviceRecord?.publicKey) {
+          const framingKey = ctx.remote.framing.deriveKey(
+            ctx.remote.hostKeys.privateKey,
+            deviceRecord.publicKey,
+          );
+          const session = await ctx.remote.framing.ensureSession(device.deviceId, framingKey);
+          text = await session.decryptWs(text);
         }
-        replayedUpTo = backlog.length > 0 ? backlog[backlog.length - 1]!.seq : since;
-        return;
-      }
 
-      if (command.type === "command") {
-        void handleCommand(ctx, command, device.role).then((result) => {
-          safeSend(socket, { type: "command.result", command: command.command, ...result });
-        });
-        return;
-      }
+        let command: ClientCommand;
+        try {
+          command = JSON.parse(text) as ClientCommand;
+        } catch {
+          safeSend(socket, { type: "error", error: "invalid_json" });
+          return;
+        }
 
-      safeSend(socket, { type: "error", error: "unknown_message_type" });
+        if (command.type === "subscribe") {
+          const since = command.since ?? -1;
+          const backlog = ctx.eventBus.replaySince(since);
+          for (const event of backlog) {
+            await sendToClient(socket, ctx, request, device.deviceId, { type: "event", event });
+          }
+          replayedUpTo = backlog.length > 0 ? backlog[backlog.length - 1]!.seq : since;
+          return;
+        }
+
+        if (command.type === "command") {
+          const result = await handleCommand(ctx, command, device.role);
+          await sendToClient(socket, ctx, request, device.deviceId, {
+            type: "command.result",
+            command: command.command,
+            ...result,
+          });
+          return;
+        }
+
+        await sendToClient(socket, ctx, request, device.deviceId, { type: "error", error: "unknown_message_type" });
+      })();
     });
   });
+}
+
+async function sendToClient(
+  socket: WebSocket,
+  ctx: CoreContext,
+  request: FastifyRequest,
+  deviceId: string,
+  payload: unknown,
+): Promise<void> {
+  const deviceRecord = ctx.repos.devices.getById(deviceId);
+  if (shouldUseE2E(request, deviceRecord?.publicKey) && ctx.remote && deviceRecord?.publicKey) {
+      const framingKey = ctx.remote.framing.deriveKey(
+        ctx.remote.hostKeys.privateKey,
+        deviceRecord.publicKey,
+      );
+      const session = await ctx.remote.framing.ensureSession(deviceId, framingKey);
+      const encrypted = await session.encryptWs(JSON.stringify(payload));
+      safeSend(socket, encrypted);
+      return;
+  }
+  safeSend(socket, payload);
 }
 
 async function handleCommand(

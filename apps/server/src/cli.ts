@@ -68,7 +68,7 @@ async function pair(args: string[]): Promise<void> {
     const response = await app.inject({
       method: "POST",
       url: "/api/devices/pair",
-      payload: { name, role, via: "cli" },
+      payload: { name, role, via: "lan" },
     });
     if (response.statusCode !== 201) {
       console.error(`Pairing failed (${response.statusCode}): ${response.body}`);

@@ -1,5 +1,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import fastifyWebsocket from "@fastify/websocket";
+import { getPwaStaticRoot } from "@openbot/pwa";
+import { attachRemoteServices, E2E_CONTENT_TYPE, registerRemoteIntegration } from "@openbot/remote";
 import type { CoreContext } from "../context.js";
 import { resolveDeviceIdentity } from "./auth.js";
 import { registerHealthRoutes } from "./routes/health.js";
@@ -14,6 +16,12 @@ import { registerRoutineRoutes } from "./routes/routines.js";
 import { registerRemoteAndAuditRoutes } from "./routes/remote-and-audit.js";
 import { registerWebSocketRoute } from "../ws.js";
 
+export interface BuildServerOptions {
+  /** When false, skips WS11 remote wiring (legacy unit tests that mock pairing directly). */
+  wireRemote?: boolean;
+  pwaRoot?: string;
+}
+
 /**
  * Assembles the Client API (plan §4.7) into one Fastify instance: every WS1
  * HTTP route module plus the `/api/ws` WebSocket route, sharing the same
@@ -21,7 +29,10 @@ import { registerWebSocketRoute } from "../ws.js";
  * serve`) and `apps/desktop` (Electron `utilityProcess`) both call into, so
  * neither has to know how the route modules are wired together.
  */
-export async function buildServer(ctx: CoreContext): Promise<FastifyInstance> {
+export async function buildServer(
+  ctx: CoreContext,
+  options: BuildServerOptions = {},
+): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
 
   await app.register(fastifyWebsocket);
@@ -32,6 +43,11 @@ export async function buildServer(ctx: CoreContext): Promise<FastifyInstance> {
   app.addContentTypeParser(
     "application/octet-stream",
     { parseAs: "buffer" },
+    (_request, payload, done) => done(null, payload),
+  );
+  app.addContentTypeParser(
+    E2E_CONTENT_TYPE,
+    { parseAs: "string" },
     (_request, payload, done) => done(null, payload),
   );
   app.addContentTypeParser("*", { parseAs: "buffer" }, (request, payload, done) => {
@@ -69,6 +85,11 @@ export async function buildServer(ctx: CoreContext): Promise<FastifyInstance> {
   registerRoutineRoutes(app, ctx);
   registerRemoteAndAuditRoutes(app, ctx);
   registerWebSocketRoute(app, ctx);
+
+  if (options.wireRemote !== false) {
+    await attachRemoteServices(ctx);
+    await registerRemoteIntegration(app, ctx, options.pwaRoot ?? getPwaStaticRoot());
+  }
 
   return app;
 }
