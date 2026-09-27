@@ -48,9 +48,10 @@ export class CapCounterService {
     return this.clock.now();
   }
 
-  /** Records a bot the CoS actually created; refused attempts are never recorded. */
-  recordSpawn(): void {
-    this.spawnTimesMs.push(this.nowMs());
+  /** Records a bot the CoS actually created (now, or `at` when replaying history); refused attempts are never recorded. */
+  recordSpawn(at?: Date): void {
+    this.spawnTimesMs.push(at ? at.getTime() : this.nowMs());
+    this.spawnTimesMs.sort((a, b) => a - b);
   }
 
   /** S2 input: successful spawns in the rolling 24 h before now. */

@@ -61,15 +61,23 @@ export async function bootstrapHarness(
   const providers = await bootstrapProviders(ctx);
   ctx.decisionService = providers.decisionService;
 
+  // One shared object: the gates and prompts read it on every call, and it is
+  // refreshed in place when the user changes settings, so no restart is needed.
   const autonomyCaps = loadAutonomyCaps(ctx);
+  ctx.eventBus.subscribe((event) => {
+    if (event.type === "setup.changed") Object.assign(autonomyCaps, loadAutonomyCaps(ctx));
+  });
   const caps = new CapCounterService(ctx.clock);
+  // S2/S3 hold across restarts: replay the CoS's past spawns (a spawned Bot's
+  // DM thread is created with it).
+  for (const at of cosSpawnTimes(ctx)) caps.recordSpawn(at);
   const spawnGate = new SpawnGate({ decisions: providers.decisionService, caps, autonomyCaps });
   const cosNotifyGate = new CosNotifyGate({
     decisions: providers.decisionService,
     caps,
     autonomyCaps,
   });
-  const runtimeNotify = new CosNotifyGateAdapter(ctx, cosNotifyGate, caps, autonomyCaps);
+  const runtimeNotify = new CosNotifyGateAdapter(ctx, cosNotifyGate, autonomyCaps);
 
   const events = createCoreEventSink(ctx);
   const runtime = createRuntime({
@@ -140,6 +148,16 @@ export async function bootstrapHarness(
   };
 }
 
+function cosSpawnTimes(ctx: CoreContext): Date[] {
+  return ctx.repos.bots
+    .list({ includeHidden: true, includeArchived: true })
+    .filter((bot) => bot.createdBy !== "user")
+    .map((bot) => ctx.repos.threads.getByBotId(bot.id)?.createdAt)
+    .filter((at): at is string => Boolean(at))
+    .map((at) => new Date(at))
+    .sort((a, b) => a.getTime() - b.getTime());
+}
+
 function loadAutonomyCaps(ctx: CoreContext): AutonomyCaps {
   const settings = ctx.repos.settings.get();
   if (!settings) return DEFAULT_AUTONOMY_CAPS;
@@ -195,24 +213,26 @@ class CosNotifyGateAdapter implements RuntimeNotifyGate {
   constructor(
     private readonly ctx: CoreContext,
     private readonly gate: CosNotifyGate,
-    private readonly caps: CapCounterService,
     private readonly autonomyCaps: AutonomyCaps,
   ) {}
 
   async notify(req: NotifyRequest): Promise<NotifyResult> {
     const now = this.ctx.clock.now();
     const settings = this.ctx.repos.settings.get();
+    // S4/S5 and dedupe are counted from what was actually delivered, in rolling
+    // windows, so they hold across restarts.
+    const windowHours = Math.max(24, this.autonomyCaps.dedupeWindowHours);
     const recentDelivered = this.ctx.repos.messages
-      .list({ delivery: "delivered", limit: 50 })
-      .filter((message) => message.proactive)
+      .listProactiveDeliveredSince(new Date(now.getTime() - windowHours * 3_600_000))
       .map((message) => ({
         dedupeKey: message.dedupeKey,
         body: message.text,
         botId: message.author.id ?? req.botId,
         at: new Date(message.createdAt),
       }));
+    const since = (ms: number) => (m: { at: Date }) => now.getTime() - m.at.getTime() < ms;
+    const fromBot = recentDelivered.filter((m) => m.botId === req.botId);
 
-    const lastFromBot = recentDelivered.find((message) => message.botId === req.botId);
     const result = await this.gate.evaluate({
       botId: req.botId,
       message: {
@@ -223,10 +243,10 @@ class CosNotifyGateAdapter implements RuntimeNotifyGate {
         dedupeKey: req.dedupeKey ?? `${req.botId}:${req.kind}:${req.body.slice(0, 32)}`,
       },
       recentDelivered,
-      proactiveCountBotHour: this.caps.peek("notify", `${req.botId}:hour`, 3600),
-      proactiveCountBotDay: this.caps.peek("notify", `${req.botId}:day`, 86_400),
-      proactiveCountGlobalHour: this.caps.peek("notify", "global:hour", 3600),
-      lastMessageFromBotAt: lastFromBot?.at,
+      proactiveCountBotHour: fromBot.filter(since(3_600_000)).length,
+      proactiveCountBotDay: fromBot.filter(since(86_400_000)).length,
+      proactiveCountGlobalHour: recentDelivered.filter(since(3_600_000)).length,
+      lastMessageFromBotAt: fromBot[0]?.at,
       quietHours: settings?.quietHours ?? this.autonomyCaps.quietHours,
       now,
     });
@@ -234,33 +254,9 @@ class CosNotifyGateAdapter implements RuntimeNotifyGate {
     if (!result.allowed) {
       return { delivery: "held", pushed: false };
     }
-
-    const outcome = result.details?.outcome ?? "delivered";
-    const push = result.details?.push ?? false;
-    if (outcome === "delivered") {
-      this.caps.checkAndIncrement(
-        "notify",
-        `${req.botId}:hour`,
-        3600,
-        this.autonomyCaps.proactivePerBotHour,
-      );
-      this.caps.checkAndIncrement(
-        "notify",
-        `${req.botId}:day`,
-        86_400,
-        this.autonomyCaps.proactivePerBotDay,
-      );
-      this.caps.checkAndIncrement(
-        "notify",
-        "global:hour",
-        3600,
-        this.autonomyCaps.proactiveGlobalHour,
-      );
-    }
-
     return {
-      delivery: outcome,
-      pushed: push,
+      delivery: result.details?.outcome ?? "delivered",
+      pushed: result.details?.push ?? false,
       notifyDecisionId: result.decisionId,
     };
   }

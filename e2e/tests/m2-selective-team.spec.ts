@@ -63,12 +63,11 @@ async function withScriptedJev(
 test.describe("M2 Selective team (real gates, scripted Jev)", () => {
   test("the CoS spawns only when justified, and the third spawn in 24 h is refused", async () => {
     await withScriptedJev(async (jev, harness, restart) => {
-      // Caps are read at startup: allow back-to-back spawns so S2 is what refuses.
+      // Settings apply without a restart: allow back-to-back spawns so S2 is what refuses.
       await api(harness(), "/api/settings", {
         method: "PUT",
         body: { caps: { s3_spawnCooldownMin: 0 } },
       });
-      await restart();
 
       const { bot: cos } = await createBot(harness(), {
         name: "Chief of Staff",
@@ -121,11 +120,22 @@ test.describe("M2 Selective team (real gates, scripted Jev)", () => {
       );
       expect(third).toMatchObject({ allowed: false, suggestion: "cos_itself" });
       expect(third.reason).toContain("daily spawn cap");
+
+      // The cap is not reset by restarting the app.
+      await restart();
+      const afterRestart = await callTool<ToolOutcome>(
+        harness(),
+        token,
+        "create_bot",
+        spawnRequest("Garden", true),
+      );
+      expect(afterRestart.allowed).toBe(false);
+      expect(afterRestart.reason).toContain("daily spawn cap");
     });
   });
 
-  test("progress chatter is held; a final result is delivered", async () => {
-    await withScriptedJev(async (jev, harness) => {
+  test("progress chatter is held; a final result is delivered; S4 holds the rest", async () => {
+    await withScriptedJev(async (jev, harness, restart) => {
       const { bot, thread } = await createBot(harness(), {
         name: "Researcher",
         description: "researches things",
@@ -168,6 +178,24 @@ test.describe("M2 Selective team (real gates, scripted Jev)", () => {
         `/api/threads/${thread.id}/messages?delivery=held`,
       );
       expect(held.body.messages.map((m) => m.text)).toEqual(["still looking at options..."]);
+
+      // One proactive message per hour for this Bot (and no merging): even a result
+      // Jev would deliver is held now, and still after a restart.
+      await api(harness(), "/api/settings", {
+        method: "PUT",
+        body: { caps: { s4_proactivePerBotPerHour: 1, s10_mergeWindowMin: 0 } },
+      });
+      const overCap = await callTool<ToolOutcome>(harness(), token, "message_user", {
+        kind: "result",
+        body: "Also found: Ryanair, 8 Oct, 75 EUR",
+      });
+      expect(overCap).toMatchObject({ allowed: true, delivery: "held" });
+      await restart();
+      const afterRestart = await callTool<ToolOutcome>(harness(), token, "message_user", {
+        kind: "result",
+        body: "Last one: easyJet, 9 Oct, 70 EUR",
+      });
+      expect(afterRestart).toMatchObject({ allowed: true, delivery: "held" });
     });
   });
 });
