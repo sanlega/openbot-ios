@@ -8,9 +8,13 @@ _Last updated: 2026-09-27 by Codex_
 - Current tree cleanup, contributor documentation, README download link, release notes,
   and tagged release workflow are prepared. Local lint, format, `mh check`, build,
   typecheck, and tests pass.
-- Remaining: review/scan the complete branch diff, push/open PR and await CI, then prepare
-  a cleaned-history rewrite. Historical versions of local session notes still exist in
-  Git; do not make the repository public until the rewrite is reviewed and approved.
+- PR #18 is open at `c8d8b58` against `main`. GitHub Actions runs 62 and 63 both failed
+  across all ten jobs; the GitHub connector returns no job logs (BlobNotFound), so the
+  cause is unknown and CI is not verified. Do not merge until this is diagnosed and green.
+- Historical privacy audit: personal/local notes remain in historical commits and old
+  remote branches. PR #17 also has a Claude session URL in its commit metadata. Do not
+  make the repository public until all exposed refs and PR metadata are cleaned, reviewed,
+  and approved.
 - A credential-pattern scan found no real credentials; the few credential-shaped matches
   were synthetic test fixtures. This is not a guarantee against every possible leak.
 
