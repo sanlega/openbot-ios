@@ -1,10 +1,15 @@
 import type { Decision } from "@openbot/contracts";
+<<<<<<< HEAD
 import { and, desc, eq } from "drizzle-orm";
+=======
+import { eq } from "drizzle-orm";
+>>>>>>> origin/cursor/ws7-decision-service-43da
 import type { Db } from "./db.js";
 import { decisions } from "./schema.js";
 
 type DecisionRow = typeof decisions.$inferSelect;
 
+<<<<<<< HEAD
 export interface DecisionListFilter {
   purpose?: string;
   limit?: number;
@@ -16,6 +21,13 @@ export class DecisionsRepo {
   constructor(private readonly db: Db) {}
 
   create(decision: Decision): void {
+=======
+/** Persists `Decision` rows written by WS7's `DecisionLog`. */
+export class DecisionsRepo {
+  constructor(private readonly db: Db) {}
+
+  insert(decision: Decision): void {
+>>>>>>> origin/cursor/ws7-decision-service-43da
     this.db
       .insert(decisions)
       .values({
@@ -40,6 +52,7 @@ export class DecisionsRepo {
     return row ? toDecision(row) : undefined;
   }
 
+<<<<<<< HEAD
   setFeedback(id: string, feedback: "promote" | "mute"): void {
     this.db.update(decisions).set({ feedback }).where(eq(decisions.id, id)).run();
   }
@@ -55,6 +68,16 @@ export class DecisionsRepo {
       .limit(filter.limit ?? 100)
       .all();
     return rows.map(toDecision);
+=======
+  listByPurpose(purpose: string, limit = 100): Decision[] {
+    return this.db
+      .select()
+      .from(decisions)
+      .where(eq(decisions.purpose, purpose))
+      .limit(limit)
+      .all()
+      .map(toDecision);
+>>>>>>> origin/cursor/ws7-decision-service-43da
   }
 }
 

@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { JevAnswer, JevQuestion } from "./jev.js";
+import type { Bot } from "./entities.js";
+import { EngineId } from "./entities.js";
 
 /** Plan §4.4. `purpose -> budget` is a fixed mapping in code, not configurable per call. */
 export const Purpose = z.enum([
@@ -65,6 +67,35 @@ export const BudgetStatus = z.object({
 });
 export type BudgetStatus = z.infer<typeof BudgetStatus>;
 
+/** Plan O4 default RPM ceilings (of the 1,000 req/min budget sized from the key limit). */
+export const DEFAULT_BUDGET_LIMITS: Record<Budget, number> = {
+  gates: 250,
+  interactive: 200,
+  computer: 450,
+  background: 100,
+};
+
+/** Total RPM budget sized from the documented 1,200 req/min key limit (plan O4). */
+export const DEFAULT_TOTAL_RPM_LIMIT = 1000;
+
+export const RouteContext = z.object({
+  availableEngines: z.array(EngineId),
+  /** Engine id → model ids from `models.json`. */
+  modelsCatalog: z.record(z.string(), z.array(z.string())),
+});
+export type RouteContext = z.infer<typeof RouteContext>;
+
+export const RouteDecision = z.object({
+  engine: EngineId,
+  model: z.string(),
+  effort: z.enum(["low", "medium", "high"]).optional(),
+  complexity: z.number().optional(),
+  needsComputer: z.boolean().optional(),
+  band: Band,
+  decisionId: z.string(),
+});
+export type RouteDecision = z.infer<typeof RouteDecision>;
+
 /**
  * `DecisionService` (WS7 implements; WS2/WS8/WS9/WS12 call). Drivers/fakes never
  * import each other — everything routes through this interface so a fake-jev
@@ -72,6 +103,7 @@ export type BudgetStatus = z.infer<typeof BudgetStatus>;
  */
 export interface DecisionService {
   decide(req: DecideRequest): Promise<DecideResult>;
+  route(bot: Bot, task: string, ctx: RouteContext): Promise<RouteDecision>;
   band(confidence: number, purpose: Purpose): Band;
   budgets(): Record<Budget, BudgetStatus>;
   validateKey(key: string): Promise<{ ok: boolean; rpmLimit?: number }>;
