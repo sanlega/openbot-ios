@@ -3,9 +3,11 @@
 ## Can Jev itself observe and operate the computer?
 
 ### Takeaway
+
 Jev is not a computer-use agent and cannot directly see screenshots, call MCP tools, generate text, or execute actions. It can make fast typed judgments over text/JSON state; OpenBot must observe the screen, present a text/structured observation and finite action choices to Jev, validate the answer, and perform the selected action through its own Computer SPI and policy code.
 
 ### Cited Findings
+
 - TypeSafe describes Jev as a System One model that takes application state and typed questions and returns typed decisions/probabilities, rather than generated text; it does not write code or replies. The API accepts text/JSON state, but does not support image, audio, or video input. [System One](https://docs.typesafe.ai/concepts/system-one), [Jev with coding agents](https://docs.typesafe.ai/introduction/coding-agents)
 - The official HTTP surface is `POST https://api.typesafe.ai/v1/systemone`, authenticated by `Authorization: Bearer <API_KEY>`, with a body shaped `{ model, state, questions }`. `state` may be a string, object, or array; question IDs map to typed `choice`, `score`, or `noul` questions. The response is `{ model, answers, usage }`, answers keyed by the supplied IDs, and usage has input/output token counts. [API reference](https://docs.typesafe.ai/api)
 - `choice` returns the selected option, probabilities over the options, and confidence; `score` returns a rubric position and distribution; `noul` returns a 0–1 probability for a yes/no judgment. Questions in one request are evaluated independently in parallel against the same state. [Primitives](https://docs.typesafe.ai/primitives)
@@ -15,21 +17,25 @@ Jev is not a computer-use agent and cannot directly see screenshots, call MCP to
 - Official docs list HTTP error classes including 401, 422, 429, and 529 and recommend exponential backoff for rate/overload errors. The published API is a request/response evaluation endpoint, with no streaming endpoint described; coding-agent docs explicitly contrast Jev with streaming LLMs. [API reference](https://docs.typesafe.ai/api), [Jev with coding agents](https://docs.typesafe.ai/introduction/coding-agents)
 
 ### Inferences
+
 - Jev cannot itself receive a screenshot. A computer provider should turn screen state into accessible, compact text/JSON (URL/title/DOM or accessibility nodes, OCR text if needed) and avoid sending images. This is a product-side preprocessing responsibility.
 - “Tool calling through Jev” should mean code-side dispatch after a closed-set Jev decision, not direct MCP support. A useful architecture is: any configured Claude/Codex engine chooses to invoke one OpenBot `computer_task`/steering MCP tool; OpenBot's computer orchestrator observes the current screen, calls Jev for the next action from enumerated choices, runs policy checks, and executes via `ComputerProvider`; results/events flow back to the initiating engine so it can interpret, provide free text, or steer/cancel.
 - For controls requiring arbitrary text (search boxes, forms), Jev can select `type`, but cannot synthesize the string. The initiating engine should provide text via an explicit input/steer channel, or a second typed extraction over a bounded set; OpenBot should preserve the distinction between action selection and text authorship.
 - Jev's calibrated probability/confidence is evidence for policy, not authorization. High-impact side effects still need deterministic broker rules and, where configured, human approval; low confidence/unavailable Jev should stop/escalate rather than execute. TypeSafe's own confidence-routing example routes below-threshold or high-stakes uncertain decisions to a human. [Confidence-gated routing](https://docs.typesafe.ai/patterns/confidence-routing)
 
 ### Gaps
+
 - I found no official Jev tool-execution API, MCP server endpoint, screenshot/vision input, streaming protocol, or asynchronous job/polling surface in the current official documentation. This is bounded to the public official docs/API reference checked on 2026-09-27; private/undocumented facilities cannot be ruled out.
 - The official docs do not state a vendor-guaranteed per-request latency SLA on the reviewed pages. OpenBot's own 400 ms timeout for `computer` is a local engineering budget, not a TypeSafe latency guarantee.
 
 ## What OpenBot already implements, and where the bridge is incomplete
 
 ### Takeaway
+
 The architecture already follows the right division of responsibilities: Computer SPI owns screen observation/actions, Jev chooses a typed next step, and Claude/Codex can call an MCP task tool. However, the current fast loop does not pass an engine-backed `textForType` callback, so a Jev-selected `type` action escalates instead of typing; and the MCP task is a one-shot request, not a general interactive steering protocol.
 
 ### Cited Findings
+
 - `packages/contracts/src/computer.ts` defines `Screen.observe()` returning `Observation` with URL/title/screenshot path and indexed `ObservedElement`s, plus `Screen.act(Action)`; `ComputerProvider.screen(botId)` produces a screen. `Action.target` is constrained to an observed element index, not a raw coordinate or guess. (Local source: `packages/contracts/src/computer.ts`.)
 - `packages/computer/src/fast-loop.ts` builds structured state from goal, page URL/title and observed element index/role/name/value; calls `DecisionService.decide({ purpose: "computer", state, questions })`; then validates confidence bands, checks destructive/sensitive intent with a broker, performs `screen.act`, detects repeated-observation stalls, and escalates/takes over where needed. (Local source: `packages/computer/src/fast-loop.ts`.)
 - The computer questions are finite: operation is a Choice among click/type/select/wait/done, target is a Choice among observed element indices plus `none`, and side-effect severity is a Noul. They currently omit some SPI actions (`key`, `scroll`, `navigate`, `blocked`) from Jev's action choices. (Local source: `packages/decisions/src/questions/computer.ts`; compare `ActionOp` in `packages/contracts/src/computer.ts`.)
@@ -39,6 +45,7 @@ The architecture already follows the right division of responsibilities: Compute
 - The project plan budgets computer decisions separately (per-task max 120 requests/minute and up to three concurrent computer tasks); it calls for per-step feedback/timeline. (Local source: `.ai/memory/plans/openbot-v1.md`, O4.)
 
 ### Inferences
+
 - To allow every implemented model to steer the computer, keep model identity out of the actual action executor. Expose the same authenticated MCP task/steer/cancel/result protocol to both Claude and Codex, and let the engine pass intent and free-text payloads. The computer agent remains the sole path for observe → Jev choice → broker → act. This is more portable than provider-specific computer-use APIs.
 - The existing `computer_task` is potentially callable by all engines because it is a shared injected OpenBot MCP tool; verify MCP composition/allowlist for both engine adapters. “Steer while running” needs explicit API state/turn correlation and control messages; current call accepts an entire goal and blocks until `runTask` completes.
 - To fix text typing, either pass a callback from the MCP service that asks/receives the requesting engine's text or redesign the tool to accept explicit goal-scoped typed text from the requesting model. Validate the target remains an observed input, and do not send arbitrary input through Jev as free-form output (Jev has no generative answer type).
@@ -46,6 +53,7 @@ The architecture already follows the right division of responsibilities: Compute
 - Computer latency includes provider observation, network Jev round trip, policy checks and provider action, not just Jev inference. Stream progress events from OpenBot to UI/initiating engine; Jev itself supplies no token/event stream.
 
 ### Gaps
+
 - This review did not run an authenticated live Jev call (no key was requested or needed) and did not measure end-to-end computer-loop latency.
 - I inspected tool definitions and adapter implementation but did not trace every engine's MCP allowlist/configuration path to prove all current bot profiles receive the same tool set. That needs code/tests in an implementation task.
 - The local `DefaultComputerActionBroker` shown here is a minimal WS9 broker; production permissions may additionally be enforced by runtime permission rules. The exact guarantee should be verified in the computer-action integration path before claiming a security boundary.
@@ -53,9 +61,11 @@ The architecture already follows the right division of responsibilities: Compute
 ## Implementation direction and practical limits
 
 ### Takeaway
+
 Implement Jev-driven control as a shared OpenBot service, callable by any engine through a common OpenBot MCP interface. Jev should choose among code-defined actions from textual observations; it should never directly control a desktop or bypass broker/user approvals. Preserve an engine-mediated path for arbitrary text, interpretation, and mid-task steering.
 
 ### Cited Findings
+
 - TypeSafe recommends focused judgments, decomposing broad decisions into atomic questions, then composing outcomes in application code; all independent questions over a shared state can be batched in one call. [Primitives](https://docs.typesafe.ai/primitives)
 - TypeSafe's function-calling cookbook selects an ordinary typed function and closed-set arguments in a single decision request, then application code invokes the function. This is directly analogous to mapping `op` + `target` choices to an OpenBot `Action`, while keeping actual execution in OpenBot. [Function calling cookbook](https://docs.typesafe.ai/cookbooks/function_calling)
 - TypeSafe's model accepts text only. It reports finite typed outputs and probabilities; tool execution, browser state changes and free text remain outside Jev's documented API. [System One](https://docs.typesafe.ai/concepts/system-one), [API reference](https://docs.typesafe.ai/api)
@@ -63,11 +73,13 @@ Implement Jev-driven control as a shared OpenBot service, callable by any engine
 - The official model page lists dynamic rate limits, and the API docs require backoff for 429/529. OpenBot's shorter computer timeout and independent per-purpose rate budget are sensible fail-fast controls but must be reconciled with observed latency and current account limits. [Models](https://docs.typesafe.ai/models), [API reference](https://docs.typesafe.ai/api)
 
 ### Inferences
+
 - A good minimal protocol: `computer_task({goal, startUrl?, maxSteps?})` returns task ID; `computer_steer({taskId, instruction, text?})` updates current task; `computer_cancel({taskId})`; task emits `observed`, `decision`, `action`, `approval_required`, and terminal events. Every observation and action should carry task/step IDs so a model can reason/steer without racing the control loop.
 - Keep screenshots in Live View for the human, not Jev. Provide compact, redacted DOM/AX text to Jev. If DOM does not expose meaningful controls, an OCR-to-text provider can be added; image-based visual grounding is outside Jev itself.
 - Keep separate Jev decisions for selecting an action and marking it destructive if evidence shows this decomposition is more reliable; otherwise one batched request should contain enough predeclared questions to save a network round trip. Question batching is supported and officially encouraged, while combining output into a safe action is code-owned.
 - User's intended workflow can remain model-agnostic: whichever configured engine is chatting interprets the user's high-level ask, calls the shared OpenBot tool, and can steer ambiguous text/content; Jev handles the rapid repetitive action selection in the loop.
 
 ### Gaps
+
 - Exact operating thresholds for confidence bands, task/step budget, safety confirmation and Spanish accuracy must be established using OpenBot's existing synthetic fixtures and opt-in live evaluations. Do not infer these from the API schema alone.
 - TypeSafe's rate/latency limits can vary during early access; recheck current account-visible behavior and latest official docs at implementation/release time.

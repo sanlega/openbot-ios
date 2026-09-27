@@ -116,7 +116,7 @@ test.describe("M1 One bot on desktop (fake engine and Jev)", () => {
         // The engine's permission prompt blocks until the user answers the card.
         const prompt = callTool<{ behavior: string }>(harness, token, "permission_prompt", {
           tool_name: "Write",
-          input: { file_path: "[local machine path removed]", content: "- buy milk" },
+          input: { file_path: "/opt/outside-workspace/todo.md", content: "- buy milk" },
         });
         const card = await eventually(async () => {
           const res = await api<{ approvals: Array<{ id: string; botId: string }> }>(

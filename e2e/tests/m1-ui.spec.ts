@@ -32,7 +32,7 @@ test.describe("M1 in the real UI (PWA served by the harness)", () => {
       });
       const prompt = callTool<{ behavior: string }>(harness, token, "permission_prompt", {
         tool_name: "Write",
-        input: { file_path: "[local machine path removed]", content: "..." },
+        input: { file_path: "/opt/outside-workspace/todo.md", content: "..." },
       });
 
       // The card sits at the bottom of the chat, after the messages.
