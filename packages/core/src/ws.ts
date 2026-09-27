@@ -40,10 +40,19 @@ export function registerWebSocketRoute(app: FastifyInstance, ctx: CoreContext): 
       return;
     }
 
+    // Events flow only after `subscribe`, through one ordered queue per socket.
+    // Live events already covered by the replayed backlog are skipped; live
+    // notifications themselves may arrive out of seq order, so nothing else is.
+    let subscribed = false;
     let replayedUpTo = -1;
+    let queue: Promise<void> = Promise.resolve();
+    const sendEvent = (event: OBEvent) => {
+      queue = queue
+        .then(() => sendToClient(socket, ctx, request, device.deviceId, { type: "event", event }))
+        .catch(() => undefined);
+    };
     const unsubscribe = ctx.eventBus.subscribe((event: OBEvent) => {
-      if (event.seq <= replayedUpTo) return;
-      void sendToClient(socket, ctx, request, device.deviceId, { type: "event", event });
+      if (subscribed && event.seq > replayedUpTo) sendEvent(event);
     });
 
     socket.on("close", () => unsubscribe());
@@ -76,11 +85,13 @@ export function registerWebSocketRoute(app: FastifyInstance, ctx: CoreContext): 
 
         if (command.type === "subscribe") {
           const since = command.since ?? -1;
+          // Synchronously: read the backlog, start listening, and queue the
+          // backlog in one step, so later live events queue behind it.
           const backlog = ctx.eventBus.replaySince(since);
-          for (const event of backlog) {
-            await sendToClient(socket, ctx, request, device.deviceId, { type: "event", event });
-          }
           replayedUpTo = backlog.length > 0 ? backlog[backlog.length - 1]!.seq : since;
+          subscribed = true;
+          for (const event of backlog) sendEvent(event);
+          await queue;
           return;
         }
 
