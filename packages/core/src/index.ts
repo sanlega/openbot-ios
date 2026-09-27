@@ -34,5 +34,5 @@ export {
 export { createModuleHost, type ModuleHost } from "./module-host.js";
 export { runDoctor, type DoctorCheck, type DoctorReport } from "./doctor.js";
 export { buildServer } from "./http/server.js";
-export { requireAuth, requireOwner } from "./http/auth.js";
+export { requireAuth, requireOwner, isLoopback } from "./http/auth.js";
 export type { ConnectorService, ConnectorConnectInput } from "./connector-service.js";

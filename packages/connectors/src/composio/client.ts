@@ -34,8 +34,14 @@ export interface ComposioClient {
   searchToolkits(q: string, page?: number): Promise<ComposioToolkit[]>;
   connectToolkit(
     toolkit: string,
-    options?: { oauthClientId?: string; oauthClientSecret?: string },
+    options?: {
+      oauthClientId?: string;
+      oauthClientSecret?: string;
+      redirectUri?: string;
+      state?: string;
+    },
   ): Promise<ComposioConnectResult>;
+  waitForOAuthCompletion(composioConnectionId: string): Promise<{ ok: boolean }>;
   listToolMeta(connectionId: string): Promise<ComposioToolMeta[]>;
   listTriggers(connectionId: string): Promise<ComposioTrigger[]>;
   mcpEndpoint(connectionId: string): Promise<{ url: string; headers: Record<string, string> }>;

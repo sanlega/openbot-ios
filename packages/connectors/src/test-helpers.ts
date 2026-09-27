@@ -14,7 +14,9 @@ export interface ConnectorTestContext {
   cleanup: () => Promise<void>;
 }
 
-export async function createConnectorTestContext(): Promise<ConnectorTestContext> {
+export async function createConnectorTestContext(options?: {
+  composioClient?: MockComposioClient;
+}): Promise<ConnectorTestContext> {
   const openbotHome = await mkdtemp(join(tmpdir(), "openbot-connectors-test-"));
   const clock = new FakeClock(new Date("2026-01-01T00:00:00.000Z"));
   const composioKey = "composio_test_key_12345678";
@@ -35,12 +37,12 @@ export async function createConnectorTestContext(): Promise<ConnectorTestContext
       modelsPath: join(openbotHome, "models.json"),
       screensDir: join(openbotHome, "screens"),
       routinesDir: join(openbotHome, "routines"),
-      port: 0,
+      port: 4577,
     },
   });
 
   const { MockComposioClient } = await import("./composio/mock-client.js");
-  const composioClient = new MockComposioClient(composioKey);
+  const composioClient = options?.composioClient ?? new MockComposioClient(composioKey);
   const service = wireConnectors(ctx, { composioClient, composioApiKey: composioKey });
 
   return {

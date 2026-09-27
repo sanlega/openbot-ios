@@ -11,6 +11,11 @@ export const StoredMcpConfig = z.object({
 });
 export type StoredMcpConfig = z.infer<typeof StoredMcpConfig>;
 
+export type OAuthFinishParams = {
+  state?: string;
+  code?: string;
+};
+
 export const ConnectRequest = z.object({
   provider: z.enum(["mcp", "composio"]),
   appId: z.string().min(1),

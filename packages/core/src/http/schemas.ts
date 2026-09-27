@@ -152,6 +152,12 @@ export const ConnectConnectorBody = z.object({
 });
 export type ConnectConnectorBody = z.infer<typeof ConnectConnectorBody>;
 
+export const OAuthCompleteBody = z.object({
+  state: z.string().optional(),
+  code: z.string().optional(),
+});
+export type OAuthCompleteBody = z.infer<typeof OAuthCompleteBody>;
+
 export const TakeoverBody = z.object({
   on: z.boolean(),
 });

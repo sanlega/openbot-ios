@@ -11,7 +11,9 @@ export interface MockComposioState {
   toolkits?: ComposioToolkit[];
   toolMeta?: Record<string, ComposioToolMeta[]>;
   triggers?: Record<string, ComposioTrigger[]>;
-  /** connectionId -> pending OAuth URL */
+  /** Toolkit slugs that require OAuth even when a redirect URI is supplied. */
+  oauthToolkits?: string[];
+  /** toolkit -> external OAuth page URL (optional; callback is exercised directly in tests). */
   pendingAuth?: Record<string, string>;
 }
 
@@ -50,22 +52,40 @@ export class MockComposioClient implements ComposioClient {
 
   async connectToolkit(
     toolkit: string,
-    _options?: { oauthClientId?: string; oauthClientSecret?: string },
+    options?: {
+      oauthClientId?: string;
+      oauthClientSecret?: string;
+      redirectUri?: string;
+      state?: string;
+    },
   ): Promise<ComposioConnectResult> {
     const connectionId = `composio_conn_${++this.connectionSeq}`;
-    const authUrl = this.state.pendingAuth?.[toolkit];
-    if (authUrl) {
+    const needsOAuth = Boolean(
+      options?.redirectUri &&
+      (this.state.oauthToolkits?.includes(toolkit) || this.state.pendingAuth?.[toolkit]),
+    );
+
+    if (needsOAuth) {
       this.connections.set(connectionId, { toolkit, status: "pending" });
-      return { connectionId, authUrl, status: "pending" };
+      const external =
+        this.state.pendingAuth?.[toolkit] ??
+        `https://mock.composio.dev/oauth/${toolkit}?redirect_uri=${encodeURIComponent(options!.redirectUri!)}`;
+      return { connectionId, authUrl: external, status: "pending" };
     }
+
     this.connections.set(connectionId, { toolkit, status: "connected" });
     return { connectionId, status: "connected" };
   }
 
-  /** Test helper: mark a pending Composio OAuth connection as connected. */
+  /** Marks a pending Composio connected-account as active (simulates provider callback). */
   completeOAuth(composioConnectionId: string): void {
     const entry = this.connections.get(composioConnectionId);
     if (entry) entry.status = "connected";
+  }
+
+  async waitForOAuthCompletion(composioConnectionId: string): Promise<{ ok: boolean }> {
+    const entry = this.connections.get(composioConnectionId);
+    return { ok: entry?.status === "connected" };
   }
 
   async listToolMeta(connectionId: string): Promise<ComposioToolMeta[]> {

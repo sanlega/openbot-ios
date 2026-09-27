@@ -11,6 +11,10 @@ export function connectionSecretKey(connectionId: string): string {
   return `connection.${connectionId}.secret`;
 }
 
+export function connectionOAuthStateKey(connectionId: string): string {
+  return `connection.${connectionId}.oauthState`;
+}
+
 export function connectionMcpConfigKey(connectionId: string): string {
   return `connection.${connectionId}.mcpConfig`;
 }

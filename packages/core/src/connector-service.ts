@@ -1,6 +1,4 @@
 import type { CatalogApp, Connection, McpServerSpec, TriggerDef } from "@openbot/contracts";
-
-/** Client-facing connector operations (plan §4.7). Implemented by `@openbot/connectors` (WS10). */
 export interface ConnectorService {
   searchCatalog(q: string, page?: number, provider?: string): Promise<CatalogApp[]>;
   connect(input: ConnectorConnectInput): Promise<{ authUrl?: string; connectionId: string }>;
@@ -14,6 +12,10 @@ export interface ConnectorService {
     config: unknown,
     onEvent: (e: { id: string; payload: unknown }) => void,
   ): Promise<() => void>;
+  completeOAuth(
+    connectionId: string,
+    params?: { state?: string; code?: string },
+  ): Promise<Connection>;
 }
 
 export interface ConnectorConnectInput {

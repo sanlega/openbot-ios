@@ -49,6 +49,7 @@ export function wireConnectors(
     client: composioClient,
     now,
     newConnectionId,
+    oauthCallbackPort: ctx.config.port,
   });
 
   ctx.validators.composio = async (value) => {

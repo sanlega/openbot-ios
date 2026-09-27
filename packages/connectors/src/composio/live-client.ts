@@ -56,7 +56,12 @@ export class LiveComposioClient implements ComposioClient {
 
   async connectToolkit(
     toolkit: string,
-    options?: { oauthClientId?: string; oauthClientSecret?: string },
+    options?: {
+      oauthClientId?: string;
+      oauthClientSecret?: string;
+      redirectUri?: string;
+      state?: string;
+    },
   ): Promise<ComposioConnectResult> {
     const body = await this.request<{ id: string; redirect_url?: string; status?: string }>(
       "/connected-accounts",
@@ -64,6 +69,8 @@ export class LiveComposioClient implements ComposioClient {
         method: "POST",
         body: JSON.stringify({
           toolkit,
+          redirect_uri: options?.redirectUri,
+          state: options?.state,
           auth_config: options?.oauthClientId
             ? { client_id: options.oauthClientId, client_secret: options.oauthClientSecret }
             : undefined,
@@ -75,6 +82,17 @@ export class LiveComposioClient implements ComposioClient {
       authUrl: body.redirect_url,
       status: body.redirect_url ? "pending" : "connected",
     };
+  }
+
+  async waitForOAuthCompletion(composioConnectionId: string): Promise<{ ok: boolean }> {
+    try {
+      const body = await this.request<{ status?: string }>(
+        `/connected-accounts/${composioConnectionId}`,
+      );
+      return { ok: body.status === "ACTIVE" || body.status === "connected" };
+    } catch {
+      return { ok: false };
+    }
   }
 
   async listToolMeta(connectionId: string): Promise<ComposioToolMeta[]> {

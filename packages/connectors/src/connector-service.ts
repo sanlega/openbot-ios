@@ -8,14 +8,14 @@ import type {
 import { newId } from "@openbot/contracts";
 import type { CoreContext, ConnectorService as CoreConnectorService } from "@openbot/core";
 import type { EventBus } from "@openbot/core";
-import type { ConnectRequest } from "./types.js";
+import type { OAuthFinishParams, ConnectRequest } from "./types.js";
 import { catalogId, parseCatalogId } from "./types.js";
 import type { McpProvider } from "./mcp-provider.js";
 import type { ComposioProvider } from "./composio/provider.js";
 
 export interface ConnectorService extends CoreConnectorService {
   getProvider(id: string): ConnectorProvider | undefined;
-  finishOAuth?(connectionId: string): Promise<void>;
+  completeOAuth(connectionId: string, params?: OAuthFinishParams): Promise<Connection>;
 }
 
 export interface ConnectorServiceDeps {
@@ -60,10 +60,13 @@ export class DefaultConnectorService implements ConnectorService {
       result = await provider.connect(input.appId);
     }
 
-    await this.deps.eventBus.publish({
-      type: "connector.connected",
-      payload: { connectionId: result.connectionId, provider: input.provider },
-    });
+    const connection = this.deps.ctx.repos.connections.getById(result.connectionId);
+    if (connection?.status === "connected") {
+      await this.deps.eventBus.publish({
+        type: "connector.connected",
+        payload: { connectionId: result.connectionId, provider: input.provider },
+      });
+    }
 
     return result;
   }
@@ -110,8 +113,13 @@ export class DefaultConnectorService implements ConnectorService {
     return provider.subscribeTrigger(connectionId, slug, config, onEvent);
   }
 
-  async finishOAuth(connectionId: string): Promise<void> {
-    await this.deps.composio.finishOAuth(connectionId);
+  async completeOAuth(connectionId: string, params: OAuthFinishParams = {}): Promise<Connection> {
+    const connection = await this.deps.composio.finishOAuth(connectionId, params);
+    await this.deps.eventBus.publish({
+      type: "connector.connected",
+      payload: { connectionId, provider: "composio" },
+    });
+    return connection;
   }
 
   private providerForConnection(connectionId: string): ConnectorProvider {

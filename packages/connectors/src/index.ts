@@ -21,5 +21,12 @@ export {
   ConnectRequest,
   StoredMcpConfig,
   type ConnectRequest as ConnectRequestType,
+  type OAuthFinishParams,
 } from "./types.js";
+export {
+  buildOAuthCallbackUrl,
+  buildOpenBotOAuthDeepLink,
+  oauthCallbackSuccessHtml,
+  parseOAuthCallbackQuery,
+} from "./oauth.js";
 export * from "./vault-keys.js";

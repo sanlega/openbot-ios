@@ -16,8 +16,10 @@ _Última actualización: 2026-09-27 por cursor (WS10 connector catalog)_
     `apps/server` llama `wireConnectors` en `openbot serve`.
   - `packages/store`: `ConnectionsRepo.update()` para toolMeta/triggers tras OAuth.
   - Tests: mock Composio (herramientas + trigger stream), fixture MCP stdio,
-    grep de redacción sobre DB/vault/NDJSON; live Composio opt-in
+    grep de redacción sobre DB/vault/NDJSON, OAuth loopback callback +
+    deep-link completion API; live Composio opt-in
     (`OPENBOT_COMPOSIO_LIVE=1` + `COMPOSIO_API_KEY`).
+  - PR https://github.com/sanlega/OpenBot/pull/12 (ready for review, apilada sobre WS1).
   - 212 tests workspace en verde (`format:check`/`lint`/`typecheck`/`build`/`test`/`mh check`).
   - Sin cambios a `@openbot/contracts`.
 - Rama `cursor/ws1-core-harness-09d8` (apilada sobre WS0; PR
