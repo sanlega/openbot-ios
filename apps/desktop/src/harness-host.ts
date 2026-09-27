@@ -1,4 +1,4 @@
-import { fork as nodeFork } from "node:child_process";
+import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
@@ -41,17 +41,20 @@ export function resolveServerEntryPath(): string {
 export function createNodeForkFactory(): UtilityProcessFactory {
   return {
     fork(modulePath, args, options) {
-      const child = nodeFork(modulePath, args ?? [], {
+      const child = spawn(process.execPath, [modulePath, ...(args ?? [])], {
         env: options?.env as NodeJS.ProcessEnv,
         stdio: "inherit",
       });
       return {
         on(event, listener) {
-          if (event === "spawn") child.on("spawn", () => listener());
+          if (event === "spawn") {
+            if (child.pid !== undefined) queueMicrotask(() => listener());
+            else child.on("spawn", () => listener());
+          }
           if (event === "exit") child.on("exit", (code) => listener(code));
         },
         kill: () => {
-          child.kill();
+          child.kill("SIGTERM");
         },
         pid: child.pid,
       };
