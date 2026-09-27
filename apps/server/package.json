@@ -29,12 +29,17 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@openbot/computer-docker": "workspace:*",
     "@openbot/computer-fake": "workspace:*",
+    "@openbot/computer-local": "workspace:*",
     "@openbot/connectors": "workspace:*",
     "@openbot/contracts": "workspace:*",
     "@openbot/core": "workspace:*",
     "@openbot/cos": "workspace:*",
     "@openbot/decisions": "workspace:*",
+    "@openbot/engines-claude": "workspace:*",
+    "@openbot/engines-codex": "workspace:*",
+    "@openbot/engines-common": "workspace:*",
     "@openbot/engines-fake": "workspace:*",
     "@openbot/mcp": "workspace:*",
     "@openbot/pwa": "workspace:*",
@@ -44,6 +49,7 @@
     "fastify": "5.12.5"
   },
   "devDependencies": {
+    "@openbot/testkit": "workspace:*",
     "@types/node": "22.20.4",
     "tsx": "4.23.15",
     "typescript": "6.0.3",

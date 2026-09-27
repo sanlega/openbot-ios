@@ -1,6 +1,5 @@
-import type { Approval, Chain, ComputerProvider, DecisionService, Message, Rule, Turn } from "@openbot/contracts";
+import type { Approval, Chain, ComputerProvider, Message, Rule, Turn } from "@openbot/contracts";
 import { newId, type Clock } from "@openbot/contracts";
-import { FakeComputerProvider } from "@openbot/computer-fake";
 import { wireConnectors } from "@openbot/connectors";
 import type { CoreContext, TurnMailbox } from "@openbot/core";
 import {
@@ -11,8 +10,6 @@ import {
   SpawnGate,
   type AutonomyCaps,
 } from "@openbot/cos";
-import { createDecisionService, FakeDecisionService } from "@openbot/decisions";
-import { FakeEngineDriver } from "@openbot/engines-fake";
 import { createMcpServices, integrateMcp } from "@openbot/mcp";
 import { getPwaStaticRoot } from "@openbot/pwa";
 import { attachRemoteServices, registerRemoteIntegration } from "@openbot/remote";
@@ -32,8 +29,7 @@ import {
   type TurnStore,
 } from "@openbot/runtime";
 import type { FastifyInstance } from "fastify";
-
-const TYPESAFE_VAULT_KEY = "typesafe.apiKey";
+import { bootstrapProviders } from "./providers.js";
 
 export interface BootstrapOptions {
   computerProvider?: ComputerProvider;
@@ -44,6 +40,7 @@ export interface BootstrapResult {
   orchestrator: Awaited<ReturnType<typeof integrateRoutines>>["orchestrator"];
   mcpServices: ReturnType<typeof createMcpServices>;
   digest: DigestService;
+  availableEngines: string[];
 }
 
 export async function bootstrapHarness(
@@ -51,23 +48,19 @@ export async function bootstrapHarness(
   app: FastifyInstance,
   options: BootstrapOptions = {},
 ): Promise<BootstrapResult> {
-  const decisionService = await createHarnessDecisionService(ctx);
-  ctx.decisionService = decisionService;
-  ctx.validators.typesafe = async (value) => {
-    const result = await decisionService.validateKey(value ?? "");
-    return result.ok ? { ok: true } : { ok: false, reason: "invalid Typesafe API key" };
-  };
+  const providers = await bootstrapProviders(ctx);
+  ctx.decisionService = providers.decisionService;
 
   const autonomyCaps = loadAutonomyCaps(ctx);
   const caps = new CapCounterService(ctx.clock);
-  const spawnGate = new SpawnGate({ decisions: decisionService, caps, autonomyCaps });
-  const cosNotifyGate = new CosNotifyGate({ decisions: decisionService, caps, autonomyCaps });
+  const spawnGate = new SpawnGate({ decisions: providers.decisionService, caps, autonomyCaps });
+  const cosNotifyGate = new CosNotifyGate({ decisions: providers.decisionService, caps, autonomyCaps });
   const runtimeNotify = new CosNotifyGateAdapter(ctx, cosNotifyGate, caps, autonomyCaps);
 
   const events = createCoreEventSink(ctx);
   const runtime = createRuntime({
-    decisions: decisionService,
-    drivers: { fake: new FakeEngineDriver() },
+    decisions: providers.decisionService,
+    drivers: providers.drivers,
     notify: runtimeNotify,
     clock: schedulingClock(ctx.clock),
     events,
@@ -79,9 +72,9 @@ export async function bootstrapHarness(
   });
 
   ctx.mailbox = createTurnMailbox(ctx, runtime);
-  ctx.computerProvider = options.computerProvider ?? new FakeComputerProvider();
+  ctx.computerProvider = options.computerProvider ?? providers.computerProvider;
 
-  wireConnectors(ctx);
+  await wireConnectors(ctx);
   await attachRemoteServices(ctx);
   await registerRemoteIntegration(app, ctx, getPwaStaticRoot());
 
@@ -106,17 +99,13 @@ export async function bootstrapHarness(
   await integrateMcp(app, ctx, { services: mcpServices });
 
   digest.start();
-  return { runtime, orchestrator, mcpServices, digest };
-}
-
-async function createHarnessDecisionService(ctx: CoreContext): Promise<DecisionService> {
-  if (process.env.OPENBOT_FAKE_JEV === "1") {
-    return new FakeDecisionService();
-  }
-  const vaultKey = await ctx.vault.get(TYPESAFE_VAULT_KEY);
-  const apiKey = process.env.JEV_API_KEY ?? vaultKey;
-  if (!apiKey) return new FakeDecisionService();
-  return createDecisionService({ apiKey });
+  return {
+    runtime,
+    orchestrator,
+    mcpServices,
+    digest,
+    availableEngines: providers.availableEngines,
+  };
 }
 
 function loadAutonomyCaps(ctx: CoreContext): AutonomyCaps {

@@ -3,6 +3,8 @@ import type {
   Clock,
   ComputerProvider,
   DecisionService,
+  EngineId,
+  EngineStatus,
   RoutineRun,
   RoutineRunCause,
 } from "@openbot/contracts";
@@ -118,6 +120,9 @@ export interface CoreContext {
   routineOrchestrator?: RoutineOrchestratorLike;
   /** Wired in by WS13; turn enqueue/stop/steer for Client API WebSocket. */
   mailbox?: TurnMailbox;
+  /** Wired in by WS13 bootstrap; populated for `/api/engines` and routing. */
+  availableEngines?: EngineId[];
+  engineStatuses?: Partial<Record<EngineId, EngineStatus>>;
 }
 
 /** Minimal WS12 surface exposed on CoreContext to avoid a core↔routines import cycle. */
