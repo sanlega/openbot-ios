@@ -153,4 +153,38 @@ describe("/api/ws", () => {
     expect(test.ctx.repos.approvals.getById(approval.id)?.status).toBe("resolved");
     socket.close();
   });
+
+  /** WS1 acceptance: "p95 latency from publish to client is under 50 ms." */
+  it("p95 publish -> WebSocket delivery latency is under 50ms", async () => {
+    const { test, url } = await bootListening();
+    const socket = await connect(url);
+    socket.send(JSON.stringify({ type: "subscribe", since: -1 }));
+    await new Promise((resolve) => setTimeout(resolve, 20)); // let the subscribe ack settle
+
+    const SAMPLE_SIZE = 50;
+    const latencies: number[] = [];
+    const seenAt = new Map<number, number>();
+    socket.on("message", (raw) => {
+      const msg = JSON.parse(raw.toString()) as WsEnvelope;
+      if (msg.type === "event" && msg.event) seenAt.set(msg.event.seq, performance.now());
+    });
+
+    for (let i = 0; i < SAMPLE_SIZE; i++) {
+      const publishedAt = performance.now();
+      const event = await test.ctx.eventBus.publish({ type: "bot.updated", payload: { i } });
+      await new Promise<void>((resolve) => {
+        const check = (): void => {
+          if (seenAt.has(event.seq)) resolve();
+          else setImmediate(check);
+        };
+        check();
+      });
+      latencies.push(seenAt.get(event.seq)! - publishedAt);
+    }
+
+    latencies.sort((a, b) => a - b);
+    const p95 = latencies[Math.floor(latencies.length * 0.95)]!;
+    expect(p95).toBeLessThan(50);
+    socket.close();
+  });
 });
