@@ -95,6 +95,8 @@ export interface TurnMailbox {
     model?: string;
   }>;
   stop(turnId: string): Promise<{ ok: boolean; reason?: string }>;
+  /** Stops the Bot's active turn, if any, and drops its queued turns. */
+  stopBot(botId: string): Promise<{ ok: boolean; reason?: string }>;
   steer(turnId: string, text: string): Promise<{ ok: boolean; reason?: string }>;
 }
 

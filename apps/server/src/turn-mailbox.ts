@@ -230,6 +230,11 @@ export function createTurnMailbox(
       await deps.runtime.mailbox.stop(turn.botId);
       return { ok: true };
     },
+    stopBot: async (botId: string) => {
+      if (!ctx.repos.bots.getById(botId)) return { ok: false, reason: "bot not found" };
+      await deps.runtime.mailbox.stop(botId);
+      return { ok: true };
+    },
     steer: async (turnId: string, text: string) => {
       const turn = ctx.repos.turns.getById(turnId);
       if (!turn) return { ok: false, reason: "turn not found" };

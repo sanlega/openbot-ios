@@ -29,7 +29,7 @@ export function registerSafetyRoutes(app: FastifyInstance, ctx: CoreContext): vo
       type: "approval.resolved",
       botId: approval.botId,
       chainId: approval.chainId,
-      payload: { id, resolution: body.resolution },
+      payload: { id, approvalId: id, resolution: body.resolution },
     });
     ctx.onApprovalResolved?.(id, body.resolution);
     return { approval: ctx.repos.approvals.getById(id) };

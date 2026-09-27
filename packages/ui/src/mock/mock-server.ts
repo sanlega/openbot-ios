@@ -39,7 +39,7 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
   });
   res.end(JSON.stringify(body));
@@ -75,20 +75,39 @@ export class MockClientApiServer {
       this.clients.add(ws);
       ws.on("close", () => this.clients.delete(ws));
       ws.on("message", (raw) => {
-        const frame = JSON.parse(String(raw)) as Record<string, unknown>;
-        if (frame.subscribe === true) {
-          const since = Number(frame.since ?? 0);
+        // Same frames as the harness (packages/core/src/ws.ts).
+        const frame = JSON.parse(String(raw)) as {
+          type?: string;
+          since?: number;
+          command?: string;
+          payload?: Record<string, unknown>;
+        };
+        if (frame.type === "subscribe") {
+          const since = Number(frame.since ?? -1);
           for (const event of this.events.filter((e) => e.seq > since)) {
             ws.send(JSON.stringify({ type: "event", event }));
           }
-          ws.send(JSON.stringify({ type: "replay.done" }));
-        } else if (frame.type === "message.send") {
-          void this.handleMessageSend(ws, frame as { threadId: string; text: string });
-        } else if (frame.type === "approval.resolve") {
-          void this.handleApprovalResolve(
-            frame as { approvalId: string; resolution: "allow" | "deny" },
-          );
+          return;
         }
+        if (frame.type !== "command") {
+          ws.send(JSON.stringify({ type: "error", error: "unknown_message_type" }));
+          return;
+        }
+        const payload = frame.payload ?? {};
+        if (frame.command === "message.send") {
+          void this.handleMessageSend(ws, {
+            threadId: String(
+              payload.threadId ?? SEED_THREADS.find((t) => t.botId === payload.botId)?.id ?? "",
+            ),
+            text: String(payload.text ?? ""),
+          });
+        } else if (frame.command === "approval.resolve") {
+          this.handleApprovalResolve({
+            approvalId: String(payload.id ?? ""),
+            resolution: payload.resolution === "allow" ? "allow" : "deny",
+          });
+        }
+        ws.send(JSON.stringify({ type: "command.result", command: frame.command, ok: true }));
       });
     });
 
@@ -142,7 +161,7 @@ export class MockClientApiServer {
       type: "message.created",
       botId: thread.botId,
       threadId: frame.threadId,
-      payload: { messageId: userMsg.id, text: userMsg.text },
+      payload: { messageId: userMsg.id, text: userMsg.text, author: "user" },
     });
   }
 
@@ -164,7 +183,7 @@ export class MockClientApiServer {
     if (req.method === "OPTIONS") {
       res.writeHead(204, {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
       });
       res.end();
@@ -356,7 +375,10 @@ export class MockClientApiServer {
     if (method === "GET" && path.match(/^\/api\/bots\/[^/]+\/route$/)) {
       const botId = path.split("/")[3]!;
       const route = SEED_ROUTES[botId] ?? { engine: "fake", model: "fake-1", confidence: 0.5 };
-      return sendJson(res, 200, route);
+      // The harness returns the Bot's routing setting.
+      return sendJson(res, 200, {
+        routing: { mode: "pinned", engine: route.engine, model: route.model },
+      });
     }
     if (method === "GET" && path.match(/^\/api\/bots\/[^/]+\/why$/)) {
       const botId = path.split("/")[3]!;

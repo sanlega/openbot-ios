@@ -10,22 +10,34 @@ export interface TransportOptions {
   deviceToken?: string;
 }
 
+/**
+ * Client API WebSocket commands (plan §4.7), as the harness accepts them:
+ * `{ type: "command", command, payload }`.
+ */
 export type WsCommand =
-  | { type: "message.send"; threadId: string; text: string; attachments?: string[] }
-  | { type: "approval.resolve"; approvalId: string; resolution: "allow" | "deny" }
-  | { type: "turn.stop"; threadId: string }
-  | { type: "routine.run"; routineId: string; dryRun?: boolean };
+  | {
+      command: "message.send";
+      payload: { botId: string; text: string; threadId?: string; chainId?: string };
+    }
+  | { command: "approval.resolve"; payload: { id: string; resolution: "allow" | "deny" } }
+  | { command: "turn.stop"; payload: { turnId: string } }
+  | { command: "routine.run"; payload: { routineId: string; dryRun?: boolean } };
 
+/** `{ type: "subscribe", since }`: replay after `since` (exclusive), then live events. */
 export interface WsSubscribeFrame {
-  subscribe: true;
+  type: "subscribe";
   since: number;
 }
 
-export type WsOutbound = WsSubscribeFrame | WsCommand;
+export type WsOutbound = WsSubscribeFrame | ({ type: "command" } & WsCommand);
 
 export interface WsInbound {
-  type: "event" | "replay.done" | "error";
+  type: "event" | "command.result" | "replay.done" | "error";
   event?: OBEvent;
+  command?: string;
+  ok?: boolean;
+  reason?: string;
+  error?: string;
   message?: string;
 }
 

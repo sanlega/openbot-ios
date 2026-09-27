@@ -164,7 +164,14 @@ export class PermissionBroker {
       type: "approval.requested",
       botId: req.botId,
       chainId: req.chainId,
-      payload: { approvalId: approval.id, kind: approval.kind, summary: approval.summary, reason },
+      payload: {
+        approvalId: approval.id,
+        kind: approval.kind,
+        summary: approval.summary,
+        detail: approval.detail,
+        expiresAt: approval.expiresAt,
+        reason,
+      },
     });
     return { outcome: "ask", reason, approvalId: approval.id };
   }

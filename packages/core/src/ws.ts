@@ -151,7 +151,7 @@ async function handleCommand(
       type: "approval.resolved",
       botId: approval.botId,
       chainId: approval.chainId,
-      payload: { id, resolution },
+      payload: { id, approvalId: id, resolution },
     });
     ctx.onApprovalResolved?.(id, resolution);
     return { ok: true };

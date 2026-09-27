@@ -1,4 +1,11 @@
-import type { Transport, TransportMode, TransportOptions, WsCommand, WsInbound } from "./types.js";
+import type {
+  Transport,
+  TransportMode,
+  TransportOptions,
+  WsCommand,
+  WsInbound,
+  WsOutbound,
+} from "./types.js";
 
 function joinUrl(base: string, path: string): string {
   const normalized = path.startsWith("/") ? path : `/${path}`;
@@ -72,17 +79,23 @@ export class HttpTransport implements Transport {
     });
     ws.addEventListener("close", () => onClose?.());
 
+    // Frames sent before the socket opens are queued, not dropped.
+    const pending: string[] = [];
+    const sendFrame = (frame: WsOutbound) => {
+      const text = JSON.stringify(frame);
+      if (ws.readyState === WebSocket.OPEN) ws.send(text);
+      else pending.push(text);
+    };
+    ws.addEventListener("open", () => {
+      for (const text of pending.splice(0)) ws.send(text);
+    });
+
     return {
       subscribe(since: number) {
-        ws.addEventListener("open", () => {
-          ws.send(JSON.stringify({ subscribe: true, since }));
-        });
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ subscribe: true, since }));
-        }
+        sendFrame({ type: "subscribe", since });
       },
       send(command: WsCommand) {
-        ws.send(JSON.stringify(command));
+        sendFrame({ type: "command", ...command });
       },
       close() {
         if (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN) {

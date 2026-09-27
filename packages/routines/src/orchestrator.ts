@@ -318,7 +318,14 @@ export class RoutineOrchestrator {
       type: "approval.requested",
       botId: routine.botId,
       chainId: run.chainId,
-      payload: { id: approvalId, kind: "routine_live", routineId: routine.id },
+      payload: {
+        id: approvalId,
+        approvalId,
+        kind: "routine_live",
+        routineId: routine.id,
+        summary: `Enable live runs for routine "${routine.name}"?`,
+        detail: `Dry run planned side-effect actions:\n${plannedActions.join("\n")}`,
+      },
     });
   }
 

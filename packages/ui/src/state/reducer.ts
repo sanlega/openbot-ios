@@ -123,7 +123,8 @@ function applyEvent(state: UiState, event: OBEvent): void {
       const msg: Message = {
         id: String(p.messageId ?? `msg_${event.id}`),
         threadId,
-        author: { type: "bot", id: event.botId },
+        author:
+          p.author === "user" ? { type: "user", id: "user" } : { type: "bot", id: event.botId },
         text: String(p.text ?? ""),
         attachments: [],
         chainId: event.chainId,
@@ -179,7 +180,7 @@ function applyEvent(state: UiState, event: OBEvent): void {
     }
     case "approval.requested": {
       const approval: Approval = {
-        id: String(p.approvalId ?? `apr_${event.id}`),
+        id: String(p.approvalId ?? p.id ?? `apr_${event.id}`),
         kind: (p.kind as Approval["kind"]) ?? "tool",
         botId: String(event.botId ?? p.botId ?? ""),
         chainId: event.chainId,
@@ -195,7 +196,7 @@ function applyEvent(state: UiState, event: OBEvent): void {
       break;
     }
     case "approval.resolved": {
-      const id = String(p.approvalId ?? "");
+      const id = String(p.approvalId ?? p.id ?? "");
       const existing = state.approvals.get(id);
       if (existing) {
         state.approvals.set(id, {
@@ -217,9 +218,20 @@ function applyEvent(state: UiState, event: OBEvent): void {
       });
       break;
     }
-    case "turn.started":
+    case "turn.started": {
       state.activeChainId = event.chainId;
+      // The engine and model a turn actually runs on is the route chip's truth.
+      const botId = String(event.botId ?? "");
+      if (botId && p.engine) {
+        state.routes.set(botId, {
+          ...state.routes.get(botId),
+          engine: String(p.engine),
+          model: String(p.model ?? "default"),
+          confidence: state.routes.get(botId)?.confidence ?? 1,
+        });
+      }
       break;
+    }
     case "turn.completed":
     case "turn.failed":
     case "turn.interrupted":
