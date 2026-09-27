@@ -37,7 +37,15 @@ _Last updated: 2026-09-28 by Claude_
 - Connectors: plan `.ai/memory/plans/2026-09-28-connectors.md`, decision D-019
   (open MCP only, Composio removed). UI done: Connectors screen (gallery,
   community, connected, connect dialog) and per-bot toggles in the profile.
-  Backend T1–T3 in progress in the same branch.
+  Backend T1–T3 (remove Composio, curated catalogue + routes, per-bot MCP
+  injection) is in progress as uncommitted changes in the working tree (CI
+  workflow, E2E harness, connectors, contracts, core, store). Do not commit them
+  until build, typecheck, lint, unit, and E2E pass.
+- Also done: command palette (bots, screens, actions), "Waiting for your
+  approval" turn state, Claude Models API listing for API-key mode
+  (`listClaudeModelsForKey`, not yet wired into `/api/models`).
+- Open question for the owner: should the harness listen on the LAN so a phone
+  can pair without Tailscale/Cloudflare? It binds 127.0.0.1 today.
 - Local commits on `claude/product-polish` are not pushed yet.
 
 ## Product status
