@@ -1,19 +1,28 @@
 # Estado actual
 
-_Última actualización: 2026-09-27 por WS13 integration builder_
+_Última actualización: 2026-09-27 por cursor (WS2 rebase onto WS0)_
 
 ## En curso
-- Rama `cursor/v1-integration` — merge de todos los workstreams WS0–WS12 +
-  cableado real en `openbot serve` / desktop / PWA.
-- PRs base: #1 bootstrap, #2 WS0, #3 WS1, #4 WS2, #5 WS7, #6 WS3, #7 WS4,
-  #8 WS9, #9 WS6, #10 WS5, #11 WS8, #12 WS10, #13 WS11, #14 WS12.
+- PR #1 (`cursor/metaharness-bootstrap-8d1e` → `main`): CI verde en las 3 SO.
+- PR #2 (`cursor/ws0-contracts-store-fakes-8d1e` → PR #1): CI verde en las 3 SO
+  (fix: build de `@openbot/contracts` antes de `typecheck`; matrix Windows
+  `windows-2022` + `npm_config_msvs_version=2022` para `better-sqlite3`).
+- Rama `cursor/ws2-runtime-safety-955e` (PR 4, draft, apuntando a
+  `cursor/ws0-contracts-store-fakes-8d1e`), WS2 (runtime y seguridad) **completo**
+  (criterios de aceptación del plan §5 + tests) contra los falsos de WS0 y SQLite
+  `:memory:`:
+  - `packages/runtime/src/`: mailbox, broker E6, dry-run simulation, chain limits,
+    loop guards, spend/turn caps S8, CapCounter (memoria + SQLite), delivery,
+    routing/sessions/prompt, `createRuntime()`.
+  - 127 tests nuevos en `packages/runtime` (274 en total en el workspace).
+  - D-018: brecha de contratos señalada (`capCounter` prefix) — PR separada.
+  - Rebaseada sobre WS0 con CI verde; **CI PR 4 verde en las 3 SO** (corrida
+    `36289870410` tras fix D-017: build antes de typecheck en CI).
 
 ## Próximos pasos
-1. Completar merges y resolver conflictos.
-2. Reemplazar fakes con cableado real (WS2/WS4/WS8/WS9/WS10/WS12).
-3. E2E Playwright M1–M4 con fakes en CI.
-4. Abrir PR `cursor/v1-integration` → `main`.
+1. Confirmar CI verde en PR 4 tras el rebase sobre WS0.
+2. Retarget PR 4 a `main` una vez mergeen PRs #1/#2.
 
 ## Bloqueos / preguntas abiertas
-- PAT puede push pero no `gh pr create` — usar GitHub MCP para abrir PR.
-- Spike WS3 con credenciales reales pendiente para M1 sign-off (no bloquea CI).
+- PAT puede push pero no crear PRs (permiso pull_requests=write pendiente).
+- WS3 follow-up spike con credenciales reales antes de M1 (no bloquea WS2).
