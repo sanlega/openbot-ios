@@ -1,15 +1,20 @@
 import { useEffect, useState } from "react";
+import type { AppScreen } from "../../api/types.js";
 
 interface CommandPaletteProps {
   onClose: () => void;
-  onNavigate: (view: "bots" | "activity" | "audit") => void;
+  onNavigate: (view: AppScreen) => void;
 }
 
-const COMMANDS = [
-  { id: "bots", label: "Go to bot list", view: "bots" as const },
-  { id: "activity", label: "Open activity log", view: "activity" as const },
-  { id: "held", label: "Not delivered filter", view: "activity" as const },
-  { id: "audit", label: "Open audit log", view: "audit" as const },
+const COMMANDS: Array<{ id: string; label: string; view: AppScreen }> = [
+  { id: "bots", label: "Go to bot list", view: "bots" },
+  { id: "activity", label: "Open activity log", view: "activity" },
+  { id: "held", label: "Not delivered filter", view: "activity" },
+  { id: "audit", label: "Open audit log", view: "audit" },
+  { id: "routines", label: "Routines editor", view: "routines" },
+  { id: "settings", label: "Settings and caps", view: "settings" },
+  { id: "devices", label: "Devices and remote", view: "devices" },
+  { id: "computer", label: "Computer panel (open bot thread)", view: "bots" },
 ];
 
 export function CommandPalette({ onClose, onNavigate }: CommandPaletteProps) {
