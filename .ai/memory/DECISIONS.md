@@ -134,3 +134,30 @@ Formato: fecha, contexto, decisión, consecuencias.
 - **Decisión**: `apps/desktop` ships real, structurally-correct main/preload/renderer code (one window, one IPC handler) typechecked against a local ambient `electron-shim.d.ts` instead of depending on the real `electron` package. The actual "is the harness connected" logic is extracted into `harness-client.ts` and unit-tested with Vitest; the Electron window itself cannot be driven headlessly in this sandboxed environment. See `apps/desktop/README.md`.
 - **Alternativas descartadas**: adding the real `electron` devDependency now, which would make `pnpm install`/CI depend on a large binary download (repeated across the 3-OS CI matrix) for a skeleton WS6 will rewrite anyway, with no way to verify the display output in this environment either way.
 - **Consecuencias**: WS6 adds the real `electron` dependency and deletes `electron-shim.d.ts` when it lands; until then, `apps/desktop`'s build/typecheck/test are fast and 100% reliable in CI, but the GUI itself is unverified end-to-end.
+
+## D-017 · CI runs Build before Typecheck
+
+- **Fecha**: 2026-09-27
+
+- **Contexto**: `.github/workflows/ci.yml` (from the bootstrap) ran the `Typecheck` step before `Build`. TS project references (`composite: true`) require a referenced project's `dist/*.d.ts` to already exist; on a fresh checkout with no `dist/` committed (gitignored), `tsc -p tsconfig.json --noEmit` on any package two-or-more hops from a leaf fails with `TS6305`. Reproduced by deleting every `dist/`/`*.tsbuildinfo` and running `pnpm typecheck` — fails; `pnpm build` first fixes it.
+- **Decisión**: swap the CI step order to `Build` then `Typecheck` (both still run on every PR; `build` alone doesn't run `--noEmit`-only checks, so `typecheck` stays a separate step for its own error output).
+- **Alternativas descartadas**: committing `dist/` (churns the diff on every build, defeats the point of a compiled-output gitignore); a single combined `pnpm build && pnpm typecheck` one-liner (loses the separate green checkmarks per step in the GitHub UI).
+- **Consecuencias**: any workstream relying on `pnpm typecheck` alone on a fresh clone must run `pnpm build` first (documented in this repo's `AGENTS.md`/README build steps already, via project references).
+
+## D-018 · Device tokens are stateless signed claims, not a DB-issued session
+
+- **Fecha**: 2026-09-27
+
+- **Contexto**: plan §5 WS1 ("device tokens and roles") and §4.8 (full pairing crypto — QR payload, X25519 handshake, `secretstream` framing — is WS11's job). WS1 needs *something* working now so every other Client API route can enforce owner-vs-approver without waiting on WS11, but must not require a `@openbot/store` schema change (which would need a separate coordinator-reviewed PR).
+- **Decisión**: `DeviceAuth` (`packages/core/src/device-auth.ts`) issues a bearer token that's just `${deviceId}.${HMAC-SHA256(deviceId, serverSecret)}` — no session table, no expiry, verified in O(1) with no DB round-trip for the signature itself. Revocation is still authoritative: every `verifyToken()` call re-checks `DevicesRepo.getById().revokedAt` live. The signing secret is a random 32-byte value generated once and persisted in the vault (`FileVault`), not in `@openbot/store`.
+- **Alternativas descartadas**: adding a `token`/`tokenHash` column + expiry to the `devices` table (a store schema/migration change, needs separate review); JWTs (no extra value over a plain HMAC claim for this single-signer, no-expiry use case, and pulls in a dependency).
+- **Consecuencias**: WS11 can layer real E2E pairing (QR/X25519/`secretstream`) on top of this without changing `packages/core`'s token format — it only needs to get a `Device` row created and call `issueToken()`, same as `POST /api/devices/pair` does today. If WS11 later wants token expiry/rotation, that's an additive change to `DeviceAuth`, not a store migration.
+
+## D-019 · CoreContext exposes other workstreams' dependencies as optional, pluggable fields
+
+- **Fecha**: 2026-09-27
+
+- **Contexto**: the §4.7 Client API WS1 must ship now references entities/behaviors owned by workstreams not yet built: `DecisionService.route()`-flavored routing (WS7 — and the plan's §4.4 pseudocode for a `route()` method doesn't actually exist on the real `packages/contracts` `DecisionService` interface, only `decide/band/budgets/validateKey`), `ComputerProvider` (WS9), `ConnectorProvider` (WS10), remote-transport managers (WS11), and the routine/turn orchestrator (WS2/WS12).
+- **Decisión**: `CoreContext` (`packages/core/src/context.ts`) declares these as optional fields — `decisionService?`, `computerProvider?`, `validators: Partial<Record<SetupValidatorKind, SetupValidator>>` — defaulting to `undefined`/`{}`. Every HTTP route that needs one checks for it and returns `501 { error: "not_implemented", reason }` with a specific, human-readable reason naming the workstream, instead of a generic 500 or a silent no-op. Pure DB-backed operations (CRUD, pause/resume, list history) work immediately with no gating.
+- **Alternativas descartadas**: adding a `route()` method to `@openbot/contracts`' `DecisionService` to match the plan's pseudocode (a contracts change needing separate coordinator review, for a method WS7 hasn't actually designed yet); blocking WS1 until WS7/WS9/WS10/WS11/WS12 land; a `remoteEnabled` field on the `Settings` entity (derived instead, live, from `SetupState.tailscale.ok`/`cloudflare.ok` via `computeBindHostFlags()`).
+- **Consecuencias**: WS7/WS9/WS10/WS11 wire themselves in by setting `ctx.decisionService`/`ctx.computerProvider`/`ctx.validators[kind]` after `createCoreContext()` returns (or via the module host, `createModuleHost`), with zero changes to `packages/core`'s HTTP route files. WS12's routine/turn orchestration needs an actual extension point on `CoreContext` (not present yet) before `POST /api/routines/:id/run`, `POST /threads/:id/stop`, and the WebSocket's `message.send`/`turn.stop`/`routine.run` commands can stop returning 501/"not implemented".

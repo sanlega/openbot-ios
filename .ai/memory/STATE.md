@@ -3,6 +3,53 @@
 _Última actualización: 2026-09-27 por cursor_
 
 ## En curso
+- Rama `cursor/ws1-core-harness-09d8` (apilada sobre WS0; PR aún sin abrir,
+  ver Bloqueos), **WS1 completo** según el plan §5:
+  - `packages/store`: 17 repos nuevos (uno por entidad del plan que faltaba)
+    + `BotsRepo` extendido (`getBySlug`/`list`/`update`/`archive`). 37 tests.
+  - `packages/core` (`@openbot/core`) ✅: `config.ts` (`loadConfig`,
+    `resolveBindHost` — loopback por defecto, sólo se abre si remoto+device
+    auth están ambos activos), `vault.ts` (`FileVault` AES-256-GCM+0600,
+    `InMemoryVault`), `device-auth.ts` (token firmado stateless, D-018),
+    `event-bus.ts` (persist → NDJSON → fan-out, un `publish()` por evento),
+    `context.ts` (`CoreContext`, registro de servicios con campos
+    opcionales/enchufables para WS2/WS7/WS9/WS10/WS11/WS12, D-019),
+    `module-host.ts` (para que otros workstreams registren rutas/
+    validadores), `doctor.ts` (`openbot doctor`: CLIs de motor, Docker/
+    Podman, tailscale/cloudflared, permisos del directorio de datos).
+  - Client API (plan §4.7) completo en `packages/core/src/http/`: 10
+    módulos de rutas (`health`/`bots`/`threads`/`safety`/`devices`/
+    `settings-setup`/`computer`/`connectors`/`routines`/
+    `remote-and-audit`) + `server.ts` que los ensambla con
+    `@fastify/websocket`. CRUD real para bots/threads/messages/approvals/
+    rules/devices/routines/settings; lo que depende de un workstream no
+    aterrizado (DecisionService de WS7, ComputerProvider de WS9,
+    ConnectorProvider de WS10, orquestador de WS12) devuelve
+    `501 {error, reason}` en vez de fingir o lanzar 500.
+  - WebSocket `/api/ws` (`ws.ts`): `{subscribe, since}` sin huecos (probado
+    con un socket real, no `.inject()`); comando `approval.resolve`
+    implementado, `message.send`/`turn.stop`/`routine.run` responden
+    "not implemented" estructurado hasta que WS2/WS12 aterricen.
+  - `apps/server` (`@openbot/server`) ✅: `openbot serve|doctor|pair` real
+    (`cli.ts`), reemplaza el esqueleto mínimo de WS0.
+  - Los 5 criterios de aceptación de WS1 verificados con tests: CRUD
+    (`http/server.test.ts`), replay del WS sin huecos (`ws.test.ts`,
+    `event-bus.test.ts`), el harness nunca escucha más allá de loopback sin
+    remoto+device-auth (`config.test.ts`), un approver no puede cambiar caps
+    (`http/server.test.ts`), p95 publish→WS < 50ms (`ws.test.ts`). Estado
+    sobrevive un restart real (`restart.test.ts`) y el vault hace
+    round-trip (`vault.test.ts`, corre en las 3 SO vía la matriz de CI).
+  - `.github/workflows/ci.yml`: `Build` antes de `Typecheck` (D-017, bug
+    real de TS6305 en checkout limpio, no específico de WS1 pero
+    descubierto y arreglado en esta rama).
+  - 204 tests en 25 archivos, todo el workspace en verde
+    (`format:check`/`lint`/`typecheck`/`build`/`test`/`mh check`).
+  - Sin cambios a `@openbot/contracts` (ver el handoff de esta sesión para
+    el detalle del `DecisionService.route()` del plan que no existe en el
+    contrato real).
+  - Pendiente: un hook en `CoreContext` para que WS12 conecte el
+    orquestador de rutinas/turnos (hoy 501); `apps/desktop` (WS6) todavía no
+    consume `buildServer`/`createCoreContext`.
 - Rama `cursor/metaharness-bootstrap-8d1e` (PR 1 aún sin abrir, ver Bloqueos):
   bootstrap de metaharness (`ADAPTERS="agents claude"`, contexto en inglés) +
   herramientas del monorepo (pnpm 10 + Node 22, TypeScript 6.0.3, ESLint flat
