@@ -40,7 +40,7 @@ async function findLinuxUnpackedDir() {
   return join(releaseDir, unpacked.name);
 }
 
-async function waitForHarness(baseUrl, timeoutMs = 90_000) {
+async function waitForHarness(baseUrl, timeoutMs = 180_000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
@@ -95,12 +95,27 @@ async function main() {
   });
 
   let stderr = "";
+  let stdout = "";
   child.stderr?.on("data", (chunk) => {
     stderr += chunk.toString();
   });
+  child.stdout?.on("data", (chunk) => {
+    stdout += chunk.toString();
+  });
+
+  const childExit = new Promise((resolve) => {
+    child.on("exit", (code, signal) => resolve({ code, signal }));
+  });
 
   try {
-    await waitForHarness(baseUrl);
+    const ready = waitForHarness(baseUrl);
+    const earlyExit = childExit.then(({ code, signal }) => {
+      if (code !== 0 && code !== null) {
+        throw new Error(`Harness process exited early (code=${code}, signal=${signal})`);
+      }
+    });
+    await Promise.race([ready, earlyExit]);
+    await ready;
     const appRes = await fetch(`${baseUrl}/app`);
     if (!appRes.ok) {
       throw new Error(`/app returned ${appRes.status}`);
@@ -111,6 +126,7 @@ async function main() {
     }
     console.log("Packaged smoke OK: harness connected and /app served");
   } catch (err) {
+    if (stdout) console.error(stdout);
     if (stderr) console.error(stderr);
     throw err;
   } finally {

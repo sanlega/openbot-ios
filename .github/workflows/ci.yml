@@ -173,7 +173,7 @@ jobs:
 
       - name: Smoke test packaged app (Linux)
         if: runner.os == 'Linux'
-        run: xvfb-run pnpm --filter @openbot/desktop run smoke:packaged
+        run: pnpm --filter @openbot/desktop run smoke:packaged
         env:
           OPENBOT_FAKE_JEV: "1"
           OPENBOT_FAKE_ENGINES: "1"
