@@ -91,7 +91,8 @@ async function handleCommand(
       return { ok: false, reason: "expected { id: string, resolution: 'allow'|'deny' }" };
     }
     const approval = ctx.repos.approvals.getById(id);
-    if (!approval || approval.status !== "pending") return { ok: false, reason: "no pending approval with that id" };
+    if (!approval || approval.status !== "pending")
+      return { ok: false, reason: "no pending approval with that id" };
     ctx.repos.approvals.resolve(id, resolution);
     await ctx.eventBus.publish({
       type: "approval.resolved",
@@ -103,5 +104,8 @@ async function handleCommand(
   }
 
   void role;
-  return { ok: false, reason: `${command.command} needs the runtime (WS2/WS12), not wired into CoreContext yet` };
+  return {
+    ok: false,
+    reason: `${command.command} needs the runtime (WS2/WS12), not wired into CoreContext yet`,
+  };
 }

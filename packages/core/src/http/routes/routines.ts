@@ -20,7 +20,8 @@ export function registerRoutineRoutes(app: FastifyInstance, ctx: CoreContext): v
     if (!requireAuth(request, reply)) return;
     const body = parseOrReject(CreateRoutineBody, request.body, reply);
     if (!body) return;
-    if (!ctx.repos.bots.getById(body.botId)) return reply.code(404).send({ error: "bot_not_found" });
+    if (!ctx.repos.bots.getById(body.botId))
+      return reply.code(404).send({ error: "bot_not_found" });
 
     const routine = {
       id: newId("routine"),
@@ -36,7 +37,11 @@ export function registerRoutineRoutes(app: FastifyInstance, ctx: CoreContext): v
       createdAt: ctx.clock.now().toISOString(),
     };
     ctx.repos.routines.create(routine);
-    await ctx.eventBus.publish({ type: "routine.created", botId: routine.botId, payload: { routine } });
+    await ctx.eventBus.publish({
+      type: "routine.created",
+      botId: routine.botId,
+      payload: { routine },
+    });
     reply.code(201);
     return { routine };
   });
@@ -57,7 +62,11 @@ export function registerRoutineRoutes(app: FastifyInstance, ctx: CoreContext): v
     if (!patch) return;
     ctx.repos.routines.update(id, patch);
     const routine = ctx.repos.routines.getById(id);
-    await ctx.eventBus.publish({ type: "routine.updated", botId: routine?.botId, payload: { id, patch } });
+    await ctx.eventBus.publish({
+      type: "routine.updated",
+      botId: routine?.botId,
+      payload: { id, patch },
+    });
     return { routine };
   });
 
@@ -109,7 +118,9 @@ export function registerRoutineRoutes(app: FastifyInstance, ctx: CoreContext): v
     }
     const body = parseOrReject(RunRoutineBody, request.body ?? {}, reply);
     if (!body) return;
-    return reply.code(501).send({ error: "not_implemented", reason: "routine orchestration not wired yet (WS12)" });
+    return reply
+      .code(501)
+      .send({ error: "not_implemented", reason: "routine orchestration not wired yet (WS12)" });
   });
 
   app.get("/api/routines/:id/runs", async (request, reply) => {

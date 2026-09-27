@@ -104,7 +104,9 @@ export interface CreateCoreContextOptions {
 const VAULT_DEVICE_SECRET_KEY = "core.deviceTokenSecret";
 
 /** Boots every WS1-owned piece against one `CoreConfig`: opens the DB, ensures the data dir, wires the event bus/vault/device auth. */
-export async function createCoreContext(options: CreateCoreContextOptions = {}): Promise<CoreContext> {
+export async function createCoreContext(
+  options: CreateCoreContextOptions = {},
+): Promise<CoreContext> {
   const config = options.config ?? loadConfig();
   const clock = options.clock ?? systemClock();
 

@@ -23,7 +23,10 @@ function isLoopback(ip: string): boolean {
  * request with no valid token is rejected — this is what lets the harness
  * safely bind beyond loopback once remote access + device auth are on.
  */
-export function resolveDeviceIdentity(ctx: CoreContext, request: FastifyRequest): DeviceIdentity | undefined {
+export function resolveDeviceIdentity(
+  ctx: CoreContext,
+  request: FastifyRequest,
+): DeviceIdentity | undefined {
   const authHeader = request.headers.authorization;
   if (authHeader?.startsWith("Bearer ")) {
     return ctx.deviceAuth.verifyToken(authHeader.slice("Bearer ".length));
@@ -36,7 +39,9 @@ export function resolveDeviceIdentity(ctx: CoreContext, request: FastifyRequest)
 
 export function requireAuth(request: FastifyRequest, reply: FastifyReply): boolean {
   if (!request.device) {
-    reply.code(401).send({ error: "unauthorized", reason: "missing or invalid device credentials" });
+    reply
+      .code(401)
+      .send({ error: "unauthorized", reason: "missing or invalid device credentials" });
     return false;
   }
   return true;

@@ -15,7 +15,10 @@ import type { CoreContext, SetupValidator, SetupValidatorKind } from "./context.
  */
 export interface ModuleHost {
   /** Thin wrapper over `FastifyInstance.register` — the plugin receives the same `CoreContext` this host was built from. */
-  registerRoutes(plugin: FastifyPluginAsync | FastifyPluginCallback, opts?: Record<string, unknown>): void;
+  registerRoutes(
+    plugin: FastifyPluginAsync | FastifyPluginCallback,
+    opts?: Record<string, unknown>,
+  ): void;
   registerValidator(kind: SetupValidatorKind, validator: SetupValidator): void;
   readonly app: FastifyInstance;
   readonly ctx: CoreContext;

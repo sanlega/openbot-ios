@@ -46,7 +46,12 @@ export function registerBotRoutes(app: FastifyInstance, ctx: CoreContext): void 
     };
     ctx.repos.bots.create(bot);
 
-    const thread = { id: newId("thread"), botId: bot.id, kind: "dm" as const, createdAt: ctx.clock.now().toISOString() };
+    const thread = {
+      id: newId("thread"),
+      botId: bot.id,
+      kind: "dm" as const,
+      createdAt: ctx.clock.now().toISOString(),
+    };
     ctx.repos.threads.create(thread);
 
     await ctx.eventBus.publish({ type: "bot.created", botId: bot.id, payload: { bot } });
@@ -108,7 +113,11 @@ export function registerBotRoutes(app: FastifyInstance, ctx: CoreContext): void 
       createdAt: ctx.clock.now().toISOString(),
     };
     ctx.repos.threads.create(thread);
-    await ctx.eventBus.publish({ type: "bot.created", botId: duplicate.id, payload: { bot: duplicate } });
+    await ctx.eventBus.publish({
+      type: "bot.created",
+      botId: duplicate.id,
+      payload: { bot: duplicate },
+    });
     reply.code(201);
     return { bot: duplicate, thread };
   });
@@ -126,7 +135,9 @@ export function registerBotRoutes(app: FastifyInstance, ctx: CoreContext): void 
       routing: bot.routing,
       preview: ctx.decisionService
         ? undefined
-        : { note: "DecisionService not wired yet (WS7); showing the Bot's configured routing only." },
+        : {
+            note: "DecisionService not wired yet (WS7); showing the Bot's configured routing only.",
+          },
     };
   });
 
@@ -137,7 +148,11 @@ export function registerBotRoutes(app: FastifyInstance, ctx: CoreContext): void 
     const routing = parseOrReject(RouteOverrideBody, request.body, reply);
     if (!routing) return;
     ctx.repos.bots.update(id, { routing });
-    await ctx.eventBus.publish({ type: "route.decided", botId: id, payload: { routing, override: true } });
+    await ctx.eventBus.publish({
+      type: "route.decided",
+      botId: id,
+      payload: { routing, override: true },
+    });
     return { routing };
   });
 

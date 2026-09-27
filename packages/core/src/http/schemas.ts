@@ -25,7 +25,10 @@ export const CreateBotBody = z.object({
   computer: ComputerAccess.default("none"),
   connectors: z.array(z.string()).default([]),
   limits: z
-    .object({ dailyUsd: z.number().nonnegative().optional(), dailyTokens: z.number().int().nonnegative().optional() })
+    .object({
+      dailyUsd: z.number().nonnegative().optional(),
+      dailyTokens: z.number().int().nonnegative().optional(),
+    })
     .default({}),
 });
 export type CreateBotBody = z.infer<typeof CreateBotBody>;
@@ -43,7 +46,10 @@ export const UpdateBotBody = z.object({
   computer: ComputerAccess.optional(),
   connectors: z.array(z.string()).optional(),
   limits: z
-    .object({ dailyUsd: z.number().nonnegative().optional(), dailyTokens: z.number().int().nonnegative().optional() })
+    .object({
+      dailyUsd: z.number().nonnegative().optional(),
+      dailyTokens: z.number().int().nonnegative().optional(),
+    })
     .optional(),
 });
 export type UpdateBotBody = z.infer<typeof UpdateBotBody>;

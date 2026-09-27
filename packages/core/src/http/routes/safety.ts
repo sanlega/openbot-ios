@@ -63,7 +63,12 @@ export function registerSafetyRoutes(app: FastifyInstance, ctx: CoreContext): vo
     if (!requireOwner(request, reply)) return;
     const body = parseOrReject(CreateRuleBody, request.body, reply);
     if (!body) return;
-    const rule = { id: newId("rule"), ...body, source: "user" as const, createdAt: ctx.clock.now().toISOString() };
+    const rule = {
+      id: newId("rule"),
+      ...body,
+      source: "user" as const,
+      createdAt: ctx.clock.now().toISOString(),
+    };
     ctx.repos.rules.create(rule);
     reply.code(201);
     return { rule };

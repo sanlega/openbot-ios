@@ -6,7 +6,13 @@
  * (headless `openbot serve|doctor|pair`) and `apps/desktop` both consume this
  * package rather than building any of the above themselves.
  */
-export { loadConfig, resolveBindHost, type CoreConfig, type BindHostFlags, type LoadConfigOptions } from "./config.js";
+export {
+  loadConfig,
+  resolveBindHost,
+  type CoreConfig,
+  type BindHostFlags,
+  type LoadConfigOptions,
+} from "./config.js";
 export {
   createCoreContext,
   computeBindHostFlags,
@@ -19,7 +25,12 @@ export {
 export { EventBus, type PublishInput } from "./event-bus.js";
 export { NdjsonWriter, NullNdjsonWriter } from "./ndjson-writer.js";
 export { FileVault, InMemoryVault, type Vault } from "./vault.js";
-export { DeviceAuth, generateDeviceSecret, requireOwner as isOwnerIdentity, type DeviceIdentity } from "./device-auth.js";
+export {
+  DeviceAuth,
+  generateDeviceSecret,
+  requireOwner as isOwnerIdentity,
+  type DeviceIdentity,
+} from "./device-auth.js";
 export { createModuleHost, type ModuleHost } from "./module-host.js";
 export { runDoctor, type DoctorCheck, type DoctorReport } from "./doctor.js";
 export { buildServer } from "./http/server.js";

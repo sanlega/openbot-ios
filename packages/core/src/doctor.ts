@@ -67,14 +67,17 @@ async function checkEngineCli(command: string, label: string): Promise<DoctorChe
 
 async function checkContainerRuntime(): Promise<DoctorCheck> {
   const docker = await commandExists("docker");
-  if (docker) return { name: "Container runtime", ok: true, required: false, detail: "docker found on PATH" };
+  if (docker)
+    return { name: "Container runtime", ok: true, required: false, detail: "docker found on PATH" };
   const podman = await commandExists("podman");
-  if (podman) return { name: "Container runtime", ok: true, required: false, detail: "podman found on PATH" };
+  if (podman)
+    return { name: "Container runtime", ok: true, required: false, detail: "podman found on PATH" };
   return {
     name: "Container runtime",
     ok: false,
     required: false,
-    detail: "neither docker nor podman found on PATH — the sandboxed Computer provider (WS9) needs one",
+    detail:
+      "neither docker nor podman found on PATH — the sandboxed Computer provider (WS9) needs one",
   };
 }
 
@@ -84,7 +87,9 @@ async function checkCommandOnPath(label: string, command: string): Promise<Docto
     name: label,
     ok: found,
     required: false,
-    detail: found ? `${command} found on PATH` : `${command} not found on PATH — only needed for remote access (WS11)`,
+    detail: found
+      ? `${command} found on PATH`
+      : `${command} not found on PATH — only needed for remote access (WS11)`,
   };
 }
 
@@ -95,7 +100,12 @@ async function checkDataDirWritable(config: CoreConfig): Promise<DoctorCheck> {
     const probePath = join(config.openbotHome, ".doctor-probe");
     await writeFile(probePath, "ok", "utf8");
     await unlink(probePath);
-    return { name: "Data directory", ok: true, required: true, detail: `${config.openbotHome} is writable` };
+    return {
+      name: "Data directory",
+      ok: true,
+      required: true,
+      detail: `${config.openbotHome} is writable`,
+    };
   } catch (error) {
     return {
       name: "Data directory",

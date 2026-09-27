@@ -10,12 +10,16 @@ import { requireAuth } from "../auth.js";
 export function registerConnectorRoutes(app: FastifyInstance, ctx: CoreContext): void {
   app.get("/api/connectors/catalog", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
-    return reply.code(501).send({ error: "not_implemented", reason: "ConnectorProvider not wired yet (WS10)" });
+    return reply
+      .code(501)
+      .send({ error: "not_implemented", reason: "ConnectorProvider not wired yet (WS10)" });
   });
 
   app.post("/api/connectors/connect", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
-    return reply.code(501).send({ error: "not_implemented", reason: "ConnectorProvider not wired yet (WS10)" });
+    return reply
+      .code(501)
+      .send({ error: "not_implemented", reason: "ConnectorProvider not wired yet (WS10)" });
   });
 
   app.get("/api/connectors/connections", async (request, reply) => {
@@ -25,6 +29,8 @@ export function registerConnectorRoutes(app: FastifyInstance, ctx: CoreContext):
 
   app.get("/api/connectors/:id/triggers", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
-    return reply.code(501).send({ error: "not_implemented", reason: "ConnectorProvider not wired yet (WS10)" });
+    return reply
+      .code(501)
+      .send({ error: "not_implemented", reason: "ConnectorProvider not wired yet (WS10)" });
   });
 }

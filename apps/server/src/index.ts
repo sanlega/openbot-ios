@@ -1,5 +1,10 @@
 import type { FastifyInstance } from "fastify";
-import { buildServer, createCoreContext, type CoreContext, type CreateCoreContextOptions } from "@openbot/core";
+import {
+  buildServer,
+  createCoreContext,
+  type CoreContext,
+  type CreateCoreContextOptions,
+} from "@openbot/core";
 
 export const SERVER_VERSION = "0.1.0";
 
@@ -11,7 +16,9 @@ export const SERVER_VERSION = "0.1.0";
  * this helper exists so tests and `apps/desktop` don't need their own
  * `@openbot/core` wiring.
  */
-export async function createServer(options?: CreateCoreContextOptions): Promise<{ app: FastifyInstance; ctx: CoreContext }> {
+export async function createServer(
+  options?: CreateCoreContextOptions,
+): Promise<{ app: FastifyInstance; ctx: CoreContext }> {
   const ctx = await createCoreContext(options);
   const app = await buildServer(ctx);
   return { app, ctx };

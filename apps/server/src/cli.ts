@@ -1,4 +1,11 @@
-import { buildServer, computeBindHostFlags, createCoreContext, loadConfig, resolveBindHost, runDoctor } from "@openbot/core";
+import {
+  buildServer,
+  computeBindHostFlags,
+  createCoreContext,
+  loadConfig,
+  resolveBindHost,
+  runDoctor,
+} from "@openbot/core";
 
 const USAGE = "Usage: openbot <serve|doctor|pair> [options]";
 
@@ -38,7 +45,9 @@ async function doctor(): Promise<void> {
     const icon = check.ok ? "✔" : check.required ? "✘" : "…";
     console.log(`${icon} ${check.name}: ${check.detail}`);
   }
-  console.log(report.ok ? "\nAll required checks passed." : "\nOne or more required checks failed.");
+  console.log(
+    report.ok ? "\nAll required checks passed." : "\nOne or more required checks failed.",
+  );
   process.exitCode = report.ok ? 0 : 1;
 }
 

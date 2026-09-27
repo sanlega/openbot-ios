@@ -15,7 +15,12 @@ const DEFAULT_CAPS: Settings["caps"] = {
   s6_dedupeWindowHours: 6,
   s10_mergeWindowMin: 10,
 };
-const DEFAULT_BUDGETS: Settings["budgets"] = { gates: 250, interactive: 200, computer: 450, background: 100 };
+const DEFAULT_BUDGETS: Settings["budgets"] = {
+  gates: 250,
+  interactive: 200,
+  computer: 450,
+  background: 100,
+};
 
 function defaultSettings(ctx: CoreContext): Settings {
   return {

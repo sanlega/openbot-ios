@@ -39,7 +39,10 @@ export function registerRemoteAndAuditRoutes(app: FastifyInstance, ctx: CoreCont
     const { botId } = request.query as { botId?: string };
     const turns = botId ? ctx.repos.turns.listByBot(botId) : [];
     const totalUsd = turns.reduce((sum, t) => sum + (t.usage.usd ?? 0), 0);
-    const totalTokens = turns.reduce((sum, t) => sum + t.usage.inputTokens + t.usage.outputTokens, 0);
+    const totalTokens = turns.reduce(
+      (sum, t) => sum + t.usage.inputTokens + t.usage.outputTokens,
+      0,
+    );
     return { turns, totalUsd, totalTokens };
   });
 
@@ -68,7 +71,9 @@ async function delegateOrNotImplemented(
 ): Promise<unknown> {
   const validator = ctx.validators[kind];
   if (!validator) {
-    return reply.code(501).send({ error: "not_implemented", reason: `${kind} manager not wired yet (WS11)` });
+    return reply
+      .code(501)
+      .send({ error: "not_implemented", reason: `${kind} manager not wired yet (WS11)` });
   }
   const result = await validator(value);
   ctx.repos.setupState.patch({ [kind]: { ok: result.ok } });

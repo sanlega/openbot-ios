@@ -13,20 +13,23 @@ import { TakeoverBody } from "../schemas.js";
 export function registerComputerRoutes(app: FastifyInstance, ctx: CoreContext): void {
   app.get("/api/computer/status", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
-    if (!ctx.computerProvider) return { ready: false, detail: "no ComputerProvider wired yet (WS9)" };
+    if (!ctx.computerProvider)
+      return { ready: false, detail: "no ComputerProvider wired yet (WS9)" };
     return ctx.computerProvider.status();
   });
 
   app.post("/api/computer/start", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
-    if (!ctx.computerProvider) return reply.code(501).send({ error: "not_implemented", reason: "WS9" });
+    if (!ctx.computerProvider)
+      return reply.code(501).send({ error: "not_implemented", reason: "WS9" });
     await ctx.computerProvider.ensureStarted();
     return ctx.computerProvider.status();
   });
 
   app.get("/api/computer/screens/:botId/live", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
-    if (!ctx.computerProvider) return reply.code(501).send({ error: "not_implemented", reason: "WS9" });
+    if (!ctx.computerProvider)
+      return reply.code(501).send({ error: "not_implemented", reason: "WS9" });
     const { botId } = request.params as { botId: string };
     const screen = await ctx.computerProvider.screen(botId);
     return screen.liveView();
@@ -34,7 +37,8 @@ export function registerComputerRoutes(app: FastifyInstance, ctx: CoreContext): 
 
   app.post("/api/computer/screens/:botId/takeover", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
-    if (!ctx.computerProvider) return reply.code(501).send({ error: "not_implemented", reason: "WS9" });
+    if (!ctx.computerProvider)
+      return reply.code(501).send({ error: "not_implemented", reason: "WS9" });
     const { botId } = request.params as { botId: string };
     const body = parseOrReject(TakeoverBody, request.body, reply);
     if (!body) return;
@@ -51,6 +55,8 @@ export function registerComputerRoutes(app: FastifyInstance, ctx: CoreContext): 
   app.get("/api/computer/tasks", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
     const { botId } = request.query as { botId?: string };
-    return { tasks: botId ? ctx.repos.computerTasks.listByBot(botId) : ctx.repos.computerTasks.list() };
+    return {
+      tasks: botId ? ctx.repos.computerTasks.listByBot(botId) : ctx.repos.computerTasks.list(),
+    };
   });
 }

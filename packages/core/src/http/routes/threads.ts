@@ -20,16 +20,20 @@ export function registerThreadRoutes(app: FastifyInstance, ctx: CoreContext): vo
     if (!requireAuth(request, reply)) return;
     return reply.code(501).send({
       error: "not_implemented",
-      reason: "stopping an active turn needs the runtime mailbox (WS2), not wired into CoreContext yet",
+      reason:
+        "stopping an active turn needs the runtime mailbox (WS2), not wired into CoreContext yet",
     });
   });
 
   app.get("/api/activity", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
     const query = ActivityQuery.safeParse(request.query);
-    if (!query.success) return reply.code(400).send({ error: "invalid_request", issues: query.error.issues });
+    if (!query.success)
+      return reply.code(400).send({ error: "invalid_request", issues: query.error.issues });
 
-    const threadId = query.data.botId ? ctx.repos.threads.getByBotId(query.data.botId)?.id : undefined;
+    const threadId = query.data.botId
+      ? ctx.repos.threads.getByBotId(query.data.botId)?.id
+      : undefined;
     if (query.data.botId && !threadId) return { messages: [] };
     return { messages: ctx.repos.messages.list({ threadId, delivery: query.data.delivery }) };
   });
@@ -41,8 +45,13 @@ export function registerThreadRoutes(app: FastifyInstance, ctx: CoreContext): vo
     if (!message) return reply.code(404).send({ error: "not_found" });
 
     ctx.repos.messages.updateDelivery(id, "delivered");
-    if (message.notifyDecisionId) ctx.repos.decisions.setFeedback(message.notifyDecisionId, "promote");
-    await ctx.eventBus.publish({ type: "message.completed", threadId: message.threadId, payload: { id, delivery: "delivered" } });
+    if (message.notifyDecisionId)
+      ctx.repos.decisions.setFeedback(message.notifyDecisionId, "promote");
+    await ctx.eventBus.publish({
+      type: "message.completed",
+      threadId: message.threadId,
+      payload: { id, delivery: "delivered" },
+    });
     return { message: ctx.repos.messages.getById(id) };
   });
 
@@ -63,7 +72,10 @@ export function registerThreadRoutes(app: FastifyInstance, ctx: CoreContext): vo
     if (!requireAuth(request, reply)) return;
     const filenameHeader = request.headers["x-filename"];
     const filename = Array.isArray(filenameHeader) ? filenameHeader[0] : filenameHeader;
-    if (!filename) return reply.code(400).send({ error: "invalid_request", reason: "missing X-Filename header" });
+    if (!filename)
+      return reply
+        .code(400)
+        .send({ error: "invalid_request", reason: "missing X-Filename header" });
 
     const { writeFile } = await import("node:fs/promises");
     const { join } = await import("node:path");
@@ -79,7 +91,9 @@ export function registerThreadRoutes(app: FastifyInstance, ctx: CoreContext): vo
   });
 }
 
-function ActivityQueryFromMessages(query: unknown): { delivery?: "delivered" | "held" | "merged" } | undefined {
+function ActivityQueryFromMessages(
+  query: unknown,
+): { delivery?: "delivered" | "held" | "merged" } | undefined {
   const result = MessagesQuery.safeParse(query);
   return result.success ? result.data : undefined;
 }
