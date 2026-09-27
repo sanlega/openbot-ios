@@ -4,6 +4,7 @@ import {
   CalendarClock,
   MonitorSmartphone,
   PenSquare,
+  Plug,
   Search,
   Settings,
   ShieldCheck,
@@ -12,9 +13,10 @@ import { BotList } from "../roster/BotList.js";
 import { ThreadViewPanel } from "../thread/ThreadView.js";
 import { ActivityView, AuditView } from "../activity/ActivityViews.js";
 import { RoutinesView } from "../routines/RoutinesView.js";
+import { ConnectorsView } from "../connectors/ConnectorsView.js";
 import { SettingsView } from "../settings/SettingsView.js";
 import { DevicesRemoteView } from "../devices/DevicesRemoteView.js";
-import { CommandPalette } from "./CommandPalette.js";
+import { CommandPalette, MOD_KEY } from "./CommandPalette.js";
 import { useOpenBot } from "../../state/context.js";
 import { ShellBackContext } from "../common/ScreenHeader.js";
 import { desktopApi } from "../../state/desktop.js";
@@ -27,6 +29,7 @@ interface AppShellProps {
 const NAV: Array<{ id: AppScreen; label: string; icon: ReactNode }> = [
   { id: "activity", label: "Activity", icon: <Activity size={16} /> },
   { id: "routines", label: "Routines", icon: <CalendarClock size={16} /> },
+  { id: "connectors", label: "Connectors", icon: <Plug size={16} /> },
   { id: "audit", label: "Audit", icon: <ShieldCheck size={16} /> },
   { id: "devices", label: "Devices", icon: <MonitorSmartphone size={16} /> },
   { id: "settings", label: "Settings", icon: <Settings size={16} /> },
@@ -90,6 +93,8 @@ export function AppShell({ showSetup = false }: AppShellProps) {
         return <AuditView />;
       case "routines":
         return <RoutinesView />;
+      case "connectors":
+        return <ConnectorsView />;
       case "settings":
         return <SettingsView />;
       case "devices":
@@ -111,7 +116,7 @@ export function AppShell({ showSetup = false }: AppShellProps) {
                 type="button"
                 className="icon-btn"
                 onClick={() => setPaletteOpen(true)}
-                title="Search (⌘K)"
+                title={`Search (${MOD_KEY}K)`}
                 aria-label="Search"
               >
                 <Search size={16} />
@@ -123,7 +128,7 @@ export function AppShell({ showSetup = false }: AppShellProps) {
                   setScreen("bots");
                   setCreating(true);
                 }}
-                title="New bot (⌘N)"
+                title={`New bot (${MOD_KEY}N)`}
                 aria-label="New bot"
               >
                 <PenSquare size={16} />
@@ -192,6 +197,16 @@ export function AppShell({ showSetup = false }: AppShellProps) {
             setScreen(view);
             setMobileView("thread");
             setPaletteOpen(false);
+          }}
+          onOpenThread={(threadId) => {
+            selectThread(threadId);
+            setScreen("bots");
+            setMobileView("thread");
+          }}
+          onNewBot={() => {
+            setScreen("bots");
+            setMobileView("list");
+            setCreating(true);
           }}
         />
       ) : null}

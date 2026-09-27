@@ -8,6 +8,7 @@ import { BotAvatar, type BotStatus } from "../common/BotAvatar.js";
 import { dayLabel, sameDay } from "../common/time.js";
 import { ComputerPanel } from "../computer/ComputerPanel.js";
 import { DigestMessage } from "../digest/DigestMessage.js";
+import { BotConnectorsCard } from "../profile/BotConnectorsCard.js";
 import { BotProfileEditor } from "../profile/BotProfileEditor.js";
 import { BotWhyPanel } from "../profile/BotWhyPanel.js";
 import { Composer } from "./Composer.js";
@@ -229,6 +230,7 @@ export function ThreadViewPanel({ onBack }: ThreadViewProps) {
         <div className="thread-scroll">
           <div className="panel-page">
             <BotProfileEditor bot={bot} />
+            <BotConnectorsCard bot={bot} />
             <BotWhyPanel botId={bot.id} />
           </div>
         </div>

@@ -1,0 +1,184 @@
+/* Connectors screen (.conn-*) */
+.conn-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.conn-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 32px;
+  padding: 0 10px;
+  min-width: 240px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--text-3);
+}
+
+.conn-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.conn-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-base);
+}
+
+.conn-banner,
+.conn-note {
+  border-radius: var(--radius-sm);
+}
+
+.conn-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.conn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-3);
+}
+
+.conn-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 172px;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  transition: border-color var(--fast) var(--ease);
+}
+
+.conn-card:hover {
+  border-color: var(--border-strong);
+}
+
+.conn-card-skeleton {
+  animation: pulse 1.4s var(--ease) infinite;
+}
+
+.conn-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.conn-card-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.conn-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--text-md);
+  font-weight: 650;
+  color: var(--text);
+}
+
+.conn-verified {
+  color: var(--accent);
+  flex: none;
+}
+
+.conn-publisher {
+  font-size: var(--text-sm);
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conn-desc {
+  margin: 0;
+  flex: 1;
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--text-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.conn-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.conn-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  text-decoration: none;
+}
+
+a.conn-kind:hover {
+  color: var(--accent);
+}
+
+.conn-card-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.conn-mark {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+}
+
+.conn-steps {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-2);
+  font-size: var(--text-base);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.conn-permissions {
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: var(--text-sm);
+  color: var(--text-2);
+}
+
+.conn-permissions p {
+  margin: 0;
+}
+
+.conn-permissions p + p {
+  margin-top: 4px;
+}
+
+.conn-permissions strong {
+  color: var(--text);
+  font-weight: 600;
+}

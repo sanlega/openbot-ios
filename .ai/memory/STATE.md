@@ -1,6 +1,6 @@
 # Project state
 
-_Last updated: 2026-09-27 by Codex_
+_Last updated: 2026-09-28 by Claude_
 
 ## In progress
 - Prepare the first downloadable GitHub release (`v0.1.0`) and polish the public repository.
@@ -21,6 +21,24 @@ _Last updated: 2026-09-27 by Codex_
   recovery notes are in ignored `.ai/local/history-cleanup.md`.
 - Credential-pattern scan found no real credentials. One synthetic credential-shaped
   match remains in the deliberately fake 401 fixture; this scan is not exhaustive.
+
+## Latest (Claude, after reviewing Codex's work)
+- CI blocker found and fixed locally: the history cleanup replaced the
+  outside-workspace path in two approval E2Es with a relative placeholder, which
+  the tool classifier correctly treats as an in-workspace write (no card). Tests
+  now use a neutral absolute path. Research notes were Prettier-formatted (they
+  failed `format:check`). Local: lint, format, build, typecheck, 735 unit tests
+  (UI component tests now run from the root Vitest projects), E2E 15/15.
+- Desktop: min window size, macOS hidden-inset title bar with draggable headers,
+  app menu (Settings Cmd+,), notification clicks navigate the UI.
+- Harness serves PWA icons and hashed assets per request (no restart after a UI
+  rebuild). Stored theme applies before first paint.
+- Design system: `docs/design-system.md` + live gallery at `/app/?design`.
+- Connectors: plan `.ai/memory/plans/2026-09-28-connectors.md`, decision D-019
+  (open MCP only, Composio removed). UI done: Connectors screen (gallery,
+  community, connected, connect dialog) and per-bot toggles in the profile.
+  Backend T1–T3 in progress in the same branch.
+- Local commits on `claude/product-polish` are not pushed yet.
 
 ## Product status
 - OpenBot is an early desktop preview for managing persistent Claude Code and Codex Bots.
