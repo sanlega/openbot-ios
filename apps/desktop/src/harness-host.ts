@@ -41,7 +41,8 @@ export function resolveServerEntryPath(): string {
 export function createNodeForkFactory(): UtilityProcessFactory {
   return {
     fork(modulePath, args, options) {
-      const child = spawn(process.execPath, [modulePath, ...(args ?? [])], {
+      const nodeBin = process.env.npm_node_execpath ?? "node";
+      const child = spawn(nodeBin, [modulePath, ...(args ?? [])], {
         env: options?.env as NodeJS.ProcessEnv,
         stdio: "inherit",
       });
