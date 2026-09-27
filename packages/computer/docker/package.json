@@ -1,0 +1,26 @@
+{
+  "name": "@openbot/computer-docker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@openbot/contracts": "workspace:*",
+    "dockerode": "4.0.9"
+  },
+  "devDependencies": {
+    "@openbot/testkit": "workspace:*",
+    "@types/dockerode": "3.3.47",
+    "typescript": "6.0.3",
+    "vitest": "5.0.2"
+  }
+}
