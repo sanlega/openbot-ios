@@ -183,6 +183,9 @@ importers:
         specifier: 3.0.2
         version: 3.0.2
     devDependencies:
+      '@openbot/engines-fake':
+        specifier: workspace:*
+        version: link:../engines/fake
       '@openbot/store':
         specifier: workspace:*
         version: link:../store

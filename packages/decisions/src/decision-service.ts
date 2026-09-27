@@ -17,6 +17,7 @@ import {
   LLM_FALLBACK_PURPOSES,
   type LlmFallback,
 } from "./fallbacks.js";
+import { EngineLlmFallback } from "./llm-fallback.js";
 import { DecisionLog, primaryAnswerIdForPurpose } from "./decision-log.js";
 import { JevClient, jevTimeoutMs, PINNED_JEV_MODEL } from "./jev-client.js";
 import { routeBot } from "./router.js";
@@ -114,7 +115,10 @@ export class DecisionServiceImpl implements DecisionService {
         return {
           answers: llmAnswers,
           provider: "llm",
-          model: "llm-fallback",
+          model:
+            this.llmFallback instanceof EngineLlmFallback
+              ? this.llmFallback.modelLabel
+              : "llm-fallback",
           latencyMs: 0,
         };
       }

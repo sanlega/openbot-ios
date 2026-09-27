@@ -18,6 +18,7 @@
     "ulid": "3.0.2"
   },
   "devDependencies": {
+    "@openbot/engines-fake": "workspace:*",
     "@openbot/store": "workspace:*",
     "typescript": "6.0.3",
     "vitest": "5.0.2",
