@@ -61,7 +61,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-2022, macos-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -81,6 +81,9 @@ jobs:
 
       - name: Build workspace
         run: pnpm build
+
+      - name: Rebuild native modules for Electron
+        run: pnpm --filter @openbot/desktop exec electron-rebuild -f -w better-sqlite3
 
       - name: Install Playwright browsers
         run: pnpm --filter @openbot/desktop exec playwright install --with-deps chromium
@@ -138,7 +141,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-2022, macos-latest]
     steps:
       - uses: actions/checkout@v4
 
