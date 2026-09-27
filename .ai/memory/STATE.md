@@ -44,8 +44,13 @@ _Last updated: 2026-09-28 by Claude_
 - Also done: command palette (bots, screens, actions), "Waiting for your
   approval" turn state, Claude Models API listing for API-key mode
   (`listClaudeModelsForKey`, not yet wired into `/api/models`).
-- Open question for the owner: should the harness listen on the LAN so a phone
-  can pair without Tailscale/Cloudflare? It binds 127.0.0.1 today.
+- Owner approved (2026-09-28): (1) pushing the branch — done, PR #18 head now
+  includes the CI fix; CI result not visible from this shell (no `gh`); (2) a LAN
+  mode for phone pairing. Design: owner toggle "Allow phones on this Wi-Fi" in
+  Devices (off by default) → bind 0.0.0.0 on next start (desktop restarts the
+  harness), pairing QR lists private-range LAN IPv4s; non-loopback requests still
+  need a paired device token and pairing still needs the QR secret. Starts after
+  the connectors backend work lands (same packages).
 - Local commits on `claude/product-polish` are not pushed yet.
 
 ## Product status
