@@ -16,7 +16,8 @@ _Última actualización: 2026-09-27 por cursor (WS2 rebase onto WS0)_
     routing/sessions/prompt, `createRuntime()`.
   - 127 tests nuevos en `packages/runtime` (274 en total en el workspace).
   - D-018: brecha de contratos señalada (`capCounter` prefix) — PR separada.
-  - Rebaseada sobre WS0 con CI verde; pendiente confirmar CI en PR 4 tras rebase.
+  - Rebaseada sobre WS0 con CI verde; **CI PR 4 verde en las 3 SO** (corrida
+    `36289870410` tras fix D-017: build antes de typecheck en CI).
 
 ## Próximos pasos
 1. Confirmar CI verde en PR 4 tras el rebase sobre WS0.
