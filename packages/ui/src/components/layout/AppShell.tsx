@@ -17,6 +17,7 @@ import { DevicesRemoteView } from "../devices/DevicesRemoteView.js";
 import { CommandPalette } from "./CommandPalette.js";
 import { useOpenBot } from "../../state/context.js";
 import { ShellBackContext } from "../common/ScreenHeader.js";
+import { desktopApi } from "../../state/desktop.js";
 import type { AppScreen } from "../../api/types.js";
 
 interface AppShellProps {
@@ -36,7 +37,7 @@ export function AppShell({ showSetup = false }: AppShellProps) {
   const [mobileView, setMobileView] = useState<"list" | "thread">("list");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [creating, setCreating] = useState(false);
-  const { pendingApprovals, state } = useOpenBot();
+  const { pendingApprovals, state, selectThread } = useOpenBot();
   const waitingInputs = [...state.inputs.values()].filter((i) => i.status === "pending").length;
   const needsYou = pendingApprovals.length + waitingInputs;
 
@@ -55,6 +56,22 @@ export function AppShell({ showSetup = false }: AppShellProps) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // Notification clicks and the app menu (Electron) open a thread or Settings.
+  useEffect(() => {
+    return desktopApi()?.onNavigate?.((target) => {
+      if (target.kind === "thread" && target.threadId) {
+        selectThread(target.threadId);
+        setScreen("bots");
+        setMobileView("thread");
+      } else if (target.kind === "settings") {
+        setScreen("settings");
+        setMobileView("thread");
+      } else if (target.kind === "home") {
+        setScreen("bots");
+      }
+    });
+  }, [selectThread]);
 
   if (showSetup) return null;
 

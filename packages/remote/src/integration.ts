@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { readFile, readdir } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { newId } from "@openbot/contracts";
 import type { DeviceRole } from "@openbot/contracts";
@@ -244,6 +244,8 @@ function mimeType(fileName: string): string {
       return "image/png";
     case ".ico":
       return "image/x-icon";
+    case ".woff2":
+      return "font/woff2";
     default:
       return "application/octet-stream";
   }
@@ -261,23 +263,42 @@ async function registerPwaStatic(app: FastifyInstance, pwaRoot: string): Promise
   serveFile("/app/", "index.html");
   serveFile("/app/index.html", "index.html");
 
-  for (const optional of ["manifest.webmanifest", "sw.js"]) {
-    try {
-      await readFile(join(pwaRoot, optional));
-      serveFile(`/app/${optional}`, optional);
-    } catch {
-      // Built UI may omit legacy PWA assets.
-    }
+  // Top-level PWA files (manifest, service worker, icons). Read per request so a
+  // rebuilt UI is served without restarting the harness.
+  for (const file of [
+    "manifest.webmanifest",
+    "sw.js",
+    "favicon.png",
+    "apple-touch-icon.png",
+    "icon-192.png",
+    "icon-512.png",
+  ]) {
+    app.get(`/app/${file}`, async (_request, reply) => {
+      try {
+        const contents = await readFile(join(pwaRoot, file));
+        return reply.type(mimeType(file)).send(contents);
+      } catch {
+        return reply.code(404).send({ error: "not_found" });
+      }
+    });
   }
 
-  try {
-    const assets = await readdir(join(pwaRoot, "assets"));
-    for (const asset of assets) {
-      serveFile(`/app/assets/${asset}`, join("assets", asset));
+  app.get("/app/assets/:file", async (request, reply) => {
+    const { file } = request.params as { file: string };
+    // Hashed bundle names only: no path separators or parent references.
+    if (!/^[\w.-]+$/.test(file) || file.includes("..")) {
+      return reply.code(404).send({ error: "not_found" });
     }
-  } catch {
-    // No hashed assets yet — build step may not have run.
-  }
+    try {
+      const contents = await readFile(join(pwaRoot, "assets", file));
+      return reply
+        .header("cache-control", "public, max-age=31536000, immutable")
+        .type(mimeType(file))
+        .send(contents);
+    } catch {
+      return reply.code(404).send({ error: "not_found" });
+    }
+  });
 }
 
 export function shouldUseE2E(request: FastifyRequest, devicePublicKey?: string): boolean {

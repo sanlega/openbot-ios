@@ -61,11 +61,17 @@ const vault = new Vault(join(openbotHome, "vault.bin"), safeStorage);
 
 function createBrowserWindow(): BrowserWindow {
   const win = new BrowserWindow({
-    width: 1100,
-    height: 760,
     show: false,
     title: APP_NAME,
     icon: iconPath,
+    width: 1240,
+    height: 800,
+    minWidth: 880,
+    minHeight: 580,
+    // macOS: the sidebar runs under the traffic lights, like other native messengers.
+    ...(process.platform === "darwin"
+      ? { titleBarStyle: "hiddenInset" as const, trafficLightPosition: { x: 16, y: 18 } }
+      : {}),
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#0e0f11" : "#ffffff",
     webPreferences: {
       preload: join(here, "preload.cjs"),
@@ -226,8 +232,60 @@ function setupWindowManager(): void {
   });
 }
 
+function setupAppMenu(): void {
+  const isMac = process.platform === "darwin";
+  const openSettings = () => windowManager?.navigate({ kind: "settings" });
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      ...(isMac
+        ? [
+            {
+              label: APP_NAME,
+              submenu: [
+                { role: "about" as const },
+                { type: "separator" as const },
+                { label: "Settings…", accelerator: "CmdOrCtrl+,", click: openSettings },
+                { type: "separator" as const },
+                { role: "hide" as const },
+                { role: "hideOthers" as const },
+                { role: "unhide" as const },
+                { type: "separator" as const },
+                { role: "quit" as const },
+              ],
+            },
+          ]
+        : [
+            {
+              label: "File",
+              submenu: [
+                { label: "Settings", accelerator: "CmdOrCtrl+,", click: openSettings },
+                { type: "separator" as const },
+                { role: "quit" as const },
+              ],
+            },
+          ]),
+      { role: "editMenu" as const },
+      {
+        label: "View",
+        submenu: [
+          { role: "reload" as const },
+          { role: "toggleDevTools" as const },
+          { type: "separator" as const },
+          { role: "resetZoom" as const },
+          { role: "zoomIn" as const },
+          { role: "zoomOut" as const },
+          { type: "separator" as const },
+          { role: "togglefullscreen" as const },
+        ],
+      },
+      { role: "windowMenu" as const },
+    ]),
+  );
+}
+
 async function onReady(): Promise<void> {
   try {
+    setupAppMenu();
     // The packaged app gets its Dock icon from the bundle; dev runs need it set.
     if (process.platform === "darwin" && !app.isPackaged) app.dock?.setIcon(iconPath);
     registerProtocol();

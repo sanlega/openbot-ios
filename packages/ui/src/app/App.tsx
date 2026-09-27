@@ -4,6 +4,12 @@ import type { Transport } from "../transport/index.js";
 import { AppShell } from "../components/layout/AppShell.js";
 import { SetupWizard } from "../components/setup/SetupWizard.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
+import { markDesktopPlatform } from "../state/desktop.js";
+import { applyStoredTheme } from "../state/theme.js";
+
+// Before the first paint, so a forced light/dark theme never flashes the other.
+applyStoredTheme();
+markDesktopPlatform();
 
 export interface OpenBotAppProps {
   transport: Transport;

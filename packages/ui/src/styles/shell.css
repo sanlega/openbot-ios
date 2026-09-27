@@ -501,3 +501,22 @@ body {
   background: currentColor;
   animation: pulse 1.2s var(--ease) infinite;
 }
+
+/* Electron on macOS: hidden title bar. Room for the traffic lights, and the
+   top bars drag the window (their buttons stay clickable). */
+[data-desktop="mac"] .sidebar-header {
+  padding-left: 84px;
+}
+[data-desktop="mac"] .sidebar-header,
+[data-desktop="mac"] .thread-header,
+[data-desktop="mac"] .screen-header {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+[data-desktop="mac"] .sidebar-header button,
+[data-desktop="mac"] .thread-header button,
+[data-desktop="mac"] .screen-header button,
+[data-desktop="mac"] .screen-header input,
+[data-desktop="mac"] .screen-header select {
+  -webkit-app-region: no-drag;
+}

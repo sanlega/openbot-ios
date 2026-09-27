@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import type { DeepLinkTarget, OpenbotDesktopApi } from "./types";
 
 const api: OpenbotDesktopApi = {
+  platform: process.platform,
   getHarnessStatus: () => ipcRenderer.invoke("openbot:harness-status") as Promise<string>,
   getLocalComputerPermissions: () =>
     ipcRenderer.invoke("openbot:local-computer-permissions") as Promise<
