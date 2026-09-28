@@ -222,7 +222,7 @@ export function ThreadViewPanel({ onBack }: ThreadViewProps) {
 
       {panel === "computer" && showComputer ? (
         <div className="thread-scroll">
-          <div className="panel-page">
+          <div className="panel-page panel-page-wide">
             <ComputerPanel botId={bot.id} />
           </div>
         </div>

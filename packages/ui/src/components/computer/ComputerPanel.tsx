@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AlertTriangle, Info, Monitor, MousePointer2 } from "lucide-react";
 import type { ComputerStatusResponse, LiveViewResponse } from "../../api/types.js";
 import { computerStatusView } from "../../api/adapters.js";
 import { useOpenBot } from "../../state/context.js";
@@ -80,55 +81,66 @@ export function ComputerPanel({ botId }: ComputerPanelProps) {
   const liveSrc = live?.url.startsWith("http")
     ? live.url
     : `${transport.baseUrl}${live?.url ?? ""}`;
+  const local = status?.provider === "local" && status.running;
 
   return (
     <div className="computer-panel" data-testid="computer-panel">
-      <div className="banner banner-warning">{status?.sharedWorkspaceNotice}</div>
-      {error && (
-        <div className="banner banner-warning" role="alert">
-          {error}
+      {error ? (
+        <div className="callout callout-danger" role="alert">
+          <AlertTriangle size={16} aria-hidden />
+          <span>{error}</span>
         </div>
-      )}
+      ) : null}
 
-      <div className="computer-grid">
-        <section className="card">
-          <h3 className="card-title">Live view</h3>
-          {status?.provider === "local" && status.running ? (
-            <p>Your Mac desktop is the live view for local computer tasks.</p>
-          ) : live ? (
-            <>
-              <div className="novnc-frame-wrap">
-                <iframe
-                  title="Bot screen live view"
-                  src={liveSrc}
-                  className="novnc-frame"
-                  allow="fullscreen"
-                  allowFullScreen
-                  sandbox="allow-scripts allow-same-origin"
-                />
-              </div>
-              <div className="card-actions">
-                <button
-                  type="button"
-                  className={takeover ? "danger" : "primary"}
-                  onClick={() => void toggleTakeover()}
-                >
-                  {takeover ? "End takeover" : "Take over screen"}
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="card-actions">
-              <p style={{ color: "var(--text-muted)" }}>
-                {status?.running ? "The screen is unavailable." : "The computer is not running."}
-              </p>
-              <button type="button" className="primary" onClick={() => void startComputer()}>
-                {status?.running ? "Retry Live View" : "Start computer"}
-              </button>
-            </div>
-          )}
-        </section>
-      </div>
+      <section className="settings-card">
+        <div className="routine-card-header-row">
+          <div className="settings-card-header">
+            <h3>Screen</h3>
+            <p>
+              {local
+                ? "Your own desktop is the screen for local computer tasks."
+                : live
+                  ? "What this bot sees, live. Take over to use it yourself."
+                  : status?.running
+                    ? "The screen isn't available right now."
+                    : "The virtual computer is off. It starts on its own when a bot needs it."}
+            </p>
+          </div>
+          {live && !local ? (
+            <button
+              type="button"
+              className={`btn btn-sm ${takeover ? "btn-danger" : "btn-secondary"}`}
+              onClick={() => void toggleTakeover()}
+            >
+              <MousePointer2 size={14} aria-hidden />
+              {takeover ? "End takeover" : "Take over"}
+            </button>
+          ) : null}
+        </div>
+        {live && !local ? (
+          <div className="novnc-frame-wrap" data-takeover={takeover}>
+            <iframe
+              title="Bot screen live view"
+              src={liveSrc}
+              className="novnc-frame"
+              allow="fullscreen"
+              allowFullScreen
+              sandbox="allow-scripts allow-same-origin"
+            />
+          </div>
+        ) : !local ? (
+          <div className="computer-off">
+            <Monitor size={28} aria-hidden />
+            <button type="button" className="btn btn-primary" onClick={() => void startComputer()}>
+              {status?.running ? "Retry live view" : "Start computer"}
+            </button>
+          </div>
+        ) : null}
+        <p className="computer-note">
+          <Info size={13} aria-hidden /> {status?.sharedWorkspaceNotice}
+        </p>
+      </section>
+
       <ComputerTasks botId={botId} />
     </div>
   );

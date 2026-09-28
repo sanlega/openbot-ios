@@ -179,7 +179,7 @@ test.describe("Every screen of the real UI loads against the harness", () => {
       await expect(page.getByTestId("bot-profile")).toBeVisible();
       await page.getByRole("button", { name: "Computer", exact: true }).click();
       await page.getByRole("button", { name: "Start computer" }).click();
-      await expect(page.getByRole("button", { name: "Take over screen" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Take over" })).toBeVisible();
 
       expect(errors).toEqual([]);
     } finally {

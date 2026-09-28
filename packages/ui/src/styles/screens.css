@@ -725,6 +725,15 @@
   color: var(--text-2);
 }
 
+.callout-danger {
+  background: var(--danger-soft);
+  color: var(--text);
+}
+
+.callout-danger > svg {
+  color: var(--danger);
+}
+
 .callout-body {
   flex: 1;
   display: flex;
@@ -746,6 +755,7 @@
 .routine-last {
   font-size: var(--text-sm);
   color: var(--text-3);
+  white-space: nowrap;
 }
 
 .routine-card-header-row {
@@ -905,6 +915,52 @@
 
 /* ---------- Phones ---------- */
 
+/* Narrow window: list and detail take turns, as on a phone. */
+@media (max-width: 960px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .split[data-pane="list"] .split-detail-pane,
+  .split[data-pane="detail"] .split-nav {
+    display: none;
+  }
+  .split-nav {
+    border-right: 0;
+    padding: var(--space-2);
+  }
+  .split-item-chevron {
+    display: block;
+    flex: none;
+    color: var(--text-3);
+  }
+  .split-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin: var(--space-3) var(--space-3) 0;
+    padding: 4px 6px;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: var(--text-base);
+    color: var(--accent);
+    cursor: pointer;
+  }
+}
+
+/* Medium window: keep the detail pane readable next to the list. */
+@media (min-width: 961px) and (max-width: 1100px) {
+  .split {
+    grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
+  }
+  .routine-detail {
+    padding: var(--space-5) var(--space-4) var(--space-8);
+  }
+  .routine-title {
+    font-size: var(--text-lg);
+  }
+}
+
 @media (max-width: 768px) {
   .feed-toolbar {
     align-items: stretch;
@@ -965,35 +1021,6 @@
     padding: var(--space-2) var(--space-3) var(--space-4);
   }
 
-  .split {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .split[data-pane="list"] .split-detail-pane,
-  .split[data-pane="detail"] .split-nav {
-    display: none;
-  }
-  .split-nav {
-    border-right: 0;
-    padding: var(--space-2);
-  }
-  .split-item-chevron {
-    display: block;
-    flex: none;
-    color: var(--text-3);
-  }
-  .split-back {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    margin: var(--space-3) var(--space-3) 0;
-    padding: 4px 6px;
-    border: 0;
-    background: none;
-    font: inherit;
-    font-size: var(--text-base);
-    color: var(--accent);
-    cursor: pointer;
-  }
   .routine-detail {
     padding: var(--space-3) var(--space-3) var(--space-8);
   }

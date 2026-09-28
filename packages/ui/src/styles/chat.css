@@ -170,6 +170,11 @@
   gap: var(--space-4);
 }
 
+/* The Computer tab: room for a 16:10 screen. */
+.panel-page-wide {
+  max-width: 880px;
+}
+
 .day-separator {
   display: flex;
   align-items: center;

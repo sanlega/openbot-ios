@@ -51,7 +51,7 @@ describe("ComputerPanel", () => {
     expect(post).toHaveBeenCalledWith("/api/computer/start");
   });
 
-  it("shows the Mac desktop explanation for local mode", async () => {
+  it("explains that your own desktop is the screen in local mode", async () => {
     const get = vi.fn(async (path: string) =>
       path === "/api/computer/status" ? { ready: true, provider: "local" } : { tasks: [] },
     );
@@ -59,7 +59,7 @@ describe("ComputerPanel", () => {
 
     render(<ComputerPanel botId="bot-a" />);
 
-    expect(await screen.findByText(/Your Mac desktop is the live view/)).toBeInTheDocument();
+    expect(await screen.findByText(/Your own desktop is the screen/)).toBeInTheDocument();
     expect(screen.queryByTitle("Bot screen live view")).not.toBeInTheDocument();
     expect(get).not.toHaveBeenCalledWith("/api/computer/screens/bot-a/live");
   });
@@ -81,7 +81,7 @@ describe("ComputerPanel", () => {
     setTransport(get, post);
 
     render(<ComputerPanel botId="bot-a" />);
-    await userEvent.setup().click(await screen.findByRole("button", { name: "Retry Live View" }));
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Retry live view" }));
 
     const liveFrame = await screen.findByTitle("Bot screen live view");
     expect(liveFrame).toHaveAttribute("allow", "fullscreen");

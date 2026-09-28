@@ -243,19 +243,29 @@ a {
 .computer-panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-4);
 }
 
-.computer-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+.computer-off {
+  aspect-ratio: 16 / 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text-3);
 }
 
-@media (max-width: 900px) {
-  .computer-grid {
-    grid-template-columns: 1fr;
-  }
+.computer-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-3);
 }
 
 .banner {
@@ -273,8 +283,14 @@ a {
 .novnc-frame-wrap {
   aspect-ratio: 16 / 10;
   background: #000;
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   overflow: hidden;
+}
+
+.novnc-frame-wrap[data-takeover="true"] {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-soft);
 }
 
 .novnc-frame {
