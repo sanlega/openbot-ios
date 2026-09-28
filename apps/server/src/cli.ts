@@ -8,6 +8,8 @@ import {
 } from "@openbot/core";
 import { bootstrapHarness } from "./bootstrap.js";
 
+import { startFileLog } from "./log-file.js";
+
 const USAGE = "Usage: openbot <serve|doctor|pair> [options]";
 
 /**
@@ -33,6 +35,7 @@ export async function runCli(argv: string[]): Promise<void> {
 
 async function serve(): Promise<void> {
   const ctx = await createCoreContext();
+  startFileLog(ctx.config.openbotHome);
   const app = await buildServer(ctx, { wireRemote: false });
   await bootstrapHarness(ctx, app);
   const host = resolveBindHost(computeBindHostFlags(ctx));

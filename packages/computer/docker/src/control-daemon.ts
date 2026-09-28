@@ -13,6 +13,20 @@ export interface ControlDaemonOptions {
   token?: string;
 }
 
+/** fetch's "fetch failed" hides the reason; surface ECONNREFUSED, timeouts, etc. */
+async function call(what: string, run: () => Promise<Response>): Promise<Response> {
+  try {
+    return await run();
+  } catch (error) {
+    const cause = (error as { cause?: { code?: string; message?: string } }).cause;
+    const reason =
+      (error as Error).name === "TimeoutError"
+        ? "timed out"
+        : (cause?.code ?? cause?.message ?? (error as Error).message);
+    throw new Error(`computer ${what} failed: ${reason}`, { cause: error });
+  }
+}
+
 export class HttpControlDaemonClient implements ControlDaemonClient {
   constructor(private readonly options: ControlDaemonOptions) {}
 
@@ -31,18 +45,22 @@ export class HttpControlDaemonClient implements ControlDaemonClient {
     const url = new URL(`${this.options.baseUrl}/observe`);
     url.searchParams.set("botId", botId);
     url.searchParams.set("display", String(display));
-    const res = await fetch(url, { headers: this.headers(), signal: AbortSignal.timeout(20_000) });
+    const res = await call("observe", () =>
+      fetch(url, { headers: this.headers(), signal: AbortSignal.timeout(20_000) }),
+    );
     if (!res.ok) throw new Error(`control daemon observe failed: ${res.status}`);
     return (await res.json()) as Observation;
   }
 
   async act(botId: string, display: number, action: Action): Promise<ActResult> {
-    const res = await fetch(`${this.options.baseUrl}/act`, {
-      method: "POST",
-      headers: this.headers(),
-      body: JSON.stringify({ botId, display, action }),
-      signal: AbortSignal.timeout(45_000),
-    });
+    const res = await call("action", () =>
+      fetch(`${this.options.baseUrl}/act`, {
+        method: "POST",
+        headers: this.headers(),
+        body: JSON.stringify({ botId, display, action }),
+        signal: AbortSignal.timeout(45_000),
+      }),
+    );
     if (!res.ok) throw new Error(`control daemon act failed: ${res.status}`);
     return (await res.json()) as ActResult;
   }

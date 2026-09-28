@@ -177,6 +177,11 @@ export class McpComputerServiceAdapter implements McpComputerService {
 
   /** Persists progress and streams it to the UI as computer.* events. */
   private async record(snapshot: ComputerTaskSnapshot, isStep: boolean): Promise<void> {
+    if (["escalated", "failed", "takeover"].includes(snapshot.status)) {
+      console.warn(
+        `computer task ${snapshot.taskId} ${snapshot.status} after ${snapshot.steps.length} steps (phase ${snapshot.phase ?? "-"}): ${snapshot.summary ?? ""}`,
+      );
+    }
     const status =
       snapshot.status === "completed"
         ? "completed"
