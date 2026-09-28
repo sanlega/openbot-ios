@@ -16,6 +16,7 @@ import {
   type Runtime,
   type SessionStore,
 } from "@openbot/runtime";
+import { EngineHealth, isOutOfService } from "./engine-health.js";
 import { VAULT_KEYS } from "./providers.js";
 
 type McpConnectors = Parameters<typeof McpComposer.forTurnAsync>[1]["connectors"];
@@ -27,6 +28,13 @@ export interface TurnMailboxDeps {
   caps: CapCounterService;
   /** Available once `integrateMcp` has run; turns fail cleanly before that. */
   mcp: () => { tokens: SessionTokenService; connectors?: McpConnectors } | undefined;
+  /** Engines out of quota or logged out; shared by routing and failover. */
+  health?: EngineHealth;
+}
+
+function healthOf(deps: TurnMailboxDeps): EngineHealth {
+  deps.health ??= new EngineHealth();
+  return deps.health;
 }
 
 interface EngineChoice {
@@ -82,12 +90,20 @@ export function createEngineChooser(ctx: CoreContext, deps: TurnMailboxDeps): En
     text: string,
     requested?: EngineId,
   ): Promise<EngineChoice | { error: string }> {
-    const available = (Object.keys(deps.drivers) as EngineId[]).filter((e) => deps.drivers[e]);
+    // Skip engines that just ran out of quota, while another one can answer.
+    const available = healthOf(deps).filter(
+      (Object.keys(deps.drivers) as EngineId[]).filter((e) => deps.drivers[e]),
+    );
     if (available.length === 0) {
       return { error: "no engine available: log in to Claude Code or Codex, or add an API key" };
     }
 
-    const pinnedEngine = bot.routing.mode === "pinned" ? bot.routing.engine : undefined;
+    let pinnedEngine = bot.routing.mode === "pinned" ? bot.routing.engine : undefined;
+    // A pinned engine that is out of quota yields to a healthy one until it resets.
+    if (!requested && pinnedEngine && !healthOf(deps).isAvailable(pinnedEngine)) {
+      const healthy = available.find((e) => e !== pinnedEngine);
+      if (healthy) pinnedEngine = healthy;
+    }
     const override = requested ?? pinnedEngine;
     if (override) {
       if (!deps.drivers[override]) return { error: `engine "${override}" is not available` };
@@ -264,7 +280,14 @@ export function createTurnMailbox(
         return { ok: false, reason: turn.error, chainId: liveChainId, messageId: userMessage.id };
       }
 
-      void deps.runtime.mailbox.submit(turn);
+      submitWithFailover(ctx, deps, buildTurn, turn, {
+        bot,
+        text: input.text,
+        chainId: liveChainId,
+        threadId: thread.id,
+        mode,
+        pinnedByUser: Boolean(input.engine),
+      });
       return {
         ok: true,
         chainId: liveChainId,
@@ -336,9 +359,70 @@ export function wakeOnBotMessages(
         });
         return;
       }
-      void deps.runtime.mailbox.submit(turn);
+      submitWithFailover(ctx, deps, buildTurn, turn, {
+        bot,
+        text: turn.text,
+        chainId,
+        threadId: thread.id,
+        mode: ctx.repos.chains.getById(chainId)?.mode ?? "live",
+        pinnedByUser: false,
+      });
     })().catch(() => undefined);
   });
+}
+
+const ENGINE_NAMES: Record<string, string> = { claude: "Claude", codex: "Codex", fake: "Test" };
+
+/**
+ * Runs a turn; if its engine turns out to be out of quota (or logged out), marks
+ * it unavailable until it resets and retries once on another engine, telling
+ * the user in the chat. An engine the user picked for this one message is not
+ * second-guessed.
+ */
+function submitWithFailover(
+  ctx: CoreContext,
+  deps: TurnMailboxDeps,
+  buildTurn: TurnBuilder,
+  turn: EnqueueTurnInput,
+  args: Omit<BuildTurnArgs, "engine"> & { pinnedByUser: boolean },
+): void {
+  void deps.runtime.mailbox
+    .submit(turn)
+    .then(async (outcome) => {
+      if (outcome.status !== "failed" || !isOutOfService(outcome.reason)) return;
+      const until = healthOf(deps).markOutOfService(turn.engine, outcome.reason);
+      if (args.pinnedByUser) return;
+      const fallback = (Object.keys(deps.drivers) as EngineId[]).find(
+        (e) => e !== turn.engine && deps.drivers[e] && healthOf(deps).isAvailable(e),
+      );
+      if (!fallback) return;
+
+      const time = until.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const note = `${ENGINE_NAMES[turn.engine] ?? turn.engine} is out of quota until ${time}, so ${ENGINE_NAMES[fallback] ?? fallback} is answering instead.`;
+      const message = deps.runtime.messages.create({
+        threadId: args.threadId,
+        author: { type: "system" },
+        text: note,
+        attachments: [],
+        chainId: args.chainId,
+        hop: 0,
+        proactive: false,
+        delivery: "delivered",
+        pushed: false,
+      });
+      await ctx.eventBus.publish({
+        type: "message.created",
+        botId: args.bot.id,
+        threadId: args.threadId,
+        chainId: args.chainId,
+        payload: { messageId: message.id, text: note, author: "system" },
+      });
+
+      const retry = await buildTurn({ ...args, engine: fallback });
+      if ("error" in retry) return;
+      void deps.runtime.mailbox.submit(retry);
+    })
+    .catch(() => undefined);
 }
 
 /** `engine_sessions`-backed store, so a Bot resumes its engine session after a restart (M1). */

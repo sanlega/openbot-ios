@@ -844,3 +844,18 @@
 .turn-waiting {
   color: var(--warning);
 }
+
+.msg-system {
+  align-self: center;
+  align-items: center;
+  gap: 6px;
+  max-width: 90%;
+  margin: var(--space-2) 0;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  font-size: var(--text-sm);
+  color: var(--text-2);
+  text-align: center;
+}

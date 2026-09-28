@@ -28,6 +28,8 @@ class RecordingDriver implements EngineDriver {
   /** Tools to ask permission for in each turn (like an engine's approval hook). */
   askFor: string[] = [];
   readonly decisions = new Map<string, "allow" | "deny" | "pending">();
+  /** When set, every turn fails with this engine error. */
+  failWith?: string;
   constructor(
     readonly id: "claude" | "codex",
     private readonly models: string[],
@@ -48,6 +50,15 @@ class RecordingDriver implements EngineDriver {
       void hooks
         .requestApproval({ toolName, input: {}, toolUseId: toolName })
         .then((d) => this.decisions.set(toolName, d));
+    }
+    if (this.failWith) {
+      const failed: Promise<TurnResult> = Promise.resolve({
+        sessionId: "",
+        isError: true,
+        errorMessage: this.failWith,
+        usage: { inputTokens: 0, outputTokens: 0 },
+      });
+      return { steer: async () => {}, interrupt: async () => {}, done: failed };
     }
     hooks.emit({ type: "text_delta", text: `done by ${this.id}` });
     const done: Promise<TurnResult> = Promise.resolve({
@@ -185,6 +196,28 @@ describe("createTurnMailbox (message.send → engine turn)", () => {
     expect(first!.systemPrompt).toContain("USING YOUR COMPUTER");
     expect(first!.systemPrompt).toContain("computer_steer");
     expect(second!.systemPrompt).not.toContain("USING YOUR COMPUTER");
+  });
+
+  it("moves a turn to another engine when the first is out of quota, and says so", async () => {
+    const claude = new RecordingDriver("claude", ["claude-sonnet"]);
+    claude.failWith = "You've hit your session limit · resets 11:30pm";
+    const codex = new RecordingDriver("codex", ["gpt-codex"]);
+    const { core, mailbox, addBot, settle } = await setup({ claude, codex });
+    const { bot, threadId } = addBot({ routing: { mode: "pinned", engine: "claude" } });
+
+    await mailbox.enqueue({ botId: bot.id, text: "open youtube" });
+    for (let i = 0; i < 20 && codex.inputs.length === 0; i++) await settle();
+
+    expect(codex.inputs).toHaveLength(1);
+    const texts = core.repos.messages.list({ threadId }).map((m) => `${m.author.type}:${m.text}`);
+    expect(texts.some((t) => t.startsWith("system:Claude is out of quota until"))).toBe(true);
+    expect(texts).toContain("bot:done by codex");
+
+    // While Claude is out of quota, the next message goes straight to Codex.
+    await mailbox.enqueue({ botId: bot.id, text: "again" });
+    for (let i = 0; i < 20 && codex.inputs.length < 2; i++) await settle();
+    expect(claude.inputs).toHaveLength(1);
+    expect(codex.inputs).toHaveLength(2);
   });
 
   it("honors a pinned engine and an explicit override, and refuses unavailable engines", async () => {

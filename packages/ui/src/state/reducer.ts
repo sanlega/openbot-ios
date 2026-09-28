@@ -174,7 +174,11 @@ function applyEvent(state: UiState, event: OBEvent): void {
         id: String(p.messageId ?? `msg_${event.id}`),
         threadId,
         author:
-          p.author === "user" ? { type: "user", id: "user" } : { type: "bot", id: event.botId },
+          p.author === "user"
+            ? { type: "user", id: "user" }
+            : p.author === "system"
+              ? { type: "system" }
+              : { type: "bot", id: event.botId },
         text: String(p.text ?? ""),
         attachments: [],
         chainId: event.chainId,

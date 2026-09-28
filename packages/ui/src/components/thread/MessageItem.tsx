@@ -1,5 +1,5 @@
 import type { Bot, Message } from "@openbot/contracts";
-import { ArrowRightLeft, BellOff } from "lucide-react";
+import { ArrowRightLeft, BellOff, Info } from "lucide-react";
 import { BotAvatar } from "../common/BotAvatar.js";
 import { clockTime } from "../common/time.js";
 import { MessageText } from "./MessageText.js";
@@ -37,6 +37,17 @@ export function MessageItem({ message, bot, bots, grouped, onQuickReply }: Messa
     );
   }
 
+  if (message.author.type === "system") {
+    // Notes from OpenBot itself (engine switched, etc.): centered, not a bubble.
+    return (
+      <div className="msg msg-system" data-author="system" data-testid={`msg-${message.id}`}>
+        <Info size={13} aria-hidden />
+        <span>{message.text}</span>
+        <span className="msg-time">{time}</span>
+      </div>
+    );
+  }
+
   const sender =
     message.author.type === "bot" && message.author.id && message.author.id !== bot.id
       ? bots.find((b) => b.id === message.author.id)
@@ -60,12 +71,7 @@ export function MessageItem({ message, bot, bots, grouped, onQuickReply }: Messa
     );
   }
 
-  const author =
-    message.author.type === "routine"
-      ? "Routine"
-      : message.author.type === "system"
-        ? "OpenBot"
-        : bot.name;
+  const author = message.author.type === "routine" ? "Routine" : bot.name;
 
   return (
     <div
