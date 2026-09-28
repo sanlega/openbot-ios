@@ -31,7 +31,7 @@ export class HttpControlDaemonClient implements ControlDaemonClient {
     const url = new URL(`${this.options.baseUrl}/observe`);
     url.searchParams.set("botId", botId);
     url.searchParams.set("display", String(display));
-    const res = await fetch(url, { headers: this.headers() });
+    const res = await fetch(url, { headers: this.headers(), signal: AbortSignal.timeout(20_000) });
     if (!res.ok) throw new Error(`control daemon observe failed: ${res.status}`);
     return (await res.json()) as Observation;
   }
@@ -41,6 +41,7 @@ export class HttpControlDaemonClient implements ControlDaemonClient {
       method: "POST",
       headers: this.headers(),
       body: JSON.stringify({ botId, display, action }),
+      signal: AbortSignal.timeout(45_000),
     });
     if (!res.ok) throw new Error(`control daemon act failed: ${res.status}`);
     return (await res.json()) as ActResult;

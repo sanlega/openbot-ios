@@ -72,6 +72,7 @@ export function registerComputerRoutes(app: FastifyInstance, ctx: CoreContext): 
               needsText: live.pendingInput?.field,
               instructions: live.instructions,
               summary: live.summary,
+              phase: live.phase,
               page: { url: live.url, title: live.title },
             }
           : row;

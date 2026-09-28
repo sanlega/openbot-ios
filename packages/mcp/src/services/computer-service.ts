@@ -131,14 +131,23 @@ export class McpComputerServiceAdapter implements McpComputerService {
 
   async computerScreenshot(
     session: SessionContext,
-  ): Promise<ToolResult<{ screenshotPath: string }>> {
+  ): Promise<ToolResult<{ screenshotPath?: string; page?: ComputerTaskView["page"] }>> {
     if (!this.ctx.computerProvider) return refused("no computer provider wired");
     await this.ctx.computerProvider.ensureStarted();
     const screen = await this.ctx.computerProvider.screen(session.botId);
     const observation = await screen.observe();
-    return allowed({
-      screenshotPath: observation.screenshotPath ?? `/screens/${session.botId}/latest.png`,
-    });
+    const page = {
+      url: observation.url,
+      title: observation.title,
+      visible: observation.elements
+        .map((el) => el.label.replace(/\s+/g, " ").trim())
+        .filter(Boolean)
+        .slice(0, 40),
+    };
+    // Only point at an image that exists; otherwise the page as text is the answer.
+    return observation.screenshotPath
+      ? allowed({ screenshotPath: observation.screenshotPath, page })
+      : allowed({ page });
   }
 
   /** A bot can only follow or steer its own tasks. */
@@ -287,6 +296,10 @@ function view(snapshot: ComputerTaskSnapshot): ComputerTaskView {
           .filter(Boolean)
           .join(" "),
       ),
-    page: snapshot.url || snapshot.title ? { url: snapshot.url, title: snapshot.title } : undefined,
+    phase: snapshot.status === "running" ? snapshot.phase : undefined,
+    page:
+      snapshot.url || snapshot.title
+        ? { url: snapshot.url, title: snapshot.title, visible: snapshot.visible }
+        : undefined,
   };
 }

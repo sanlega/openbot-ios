@@ -215,7 +215,8 @@ export const OPENBOT_TOOL_DEFINITIONS: Tool[] = [
   },
   {
     name: "computer_screenshot",
-    description: "Capture a screenshot from this bot's screen for escalation.",
+    description:
+      "See this bot's screen now: the page title, URL, and the labels of what's on it (plus an image path when the computer can capture one).",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
   {

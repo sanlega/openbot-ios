@@ -18,6 +18,8 @@ export interface TurnActivity {
   steps: TurnStep[];
   /** Text streamed so far (the reply arrives as a message when the turn ends). */
   text: string;
+  /** Streamed chunks by event seq: the bus may deliver them out of order. */
+  parts?: Array<[number, string]>;
   /** Short engine failure detail, such as an expired login or usage limit. */
   errorMessage?: string;
 }
@@ -198,7 +200,12 @@ function applyEvent(state: UiState, event: OBEvent): void {
     case "message.delta": {
       const turn = turnFor(state, event);
       if (turn) {
-        state.turns.set(turn.id, { ...turn, text: turn.text + String(p.text ?? p.delta ?? "") });
+        const parts = [
+          ...(turn.parts ?? []),
+          [event.seq, String(p.text ?? p.delta ?? "")],
+        ] as Array<[number, string]>;
+        parts.sort((a, b) => a[0] - b[0]);
+        state.turns.set(turn.id, { ...turn, parts, text: parts.map(([, t]) => t).join("") });
       }
       const messageId = String(p.messageId ?? "");
       const delta = String(p.delta ?? p.text ?? "");

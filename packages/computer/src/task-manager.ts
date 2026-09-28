@@ -6,7 +6,7 @@ import type {
 } from "@openbot/contracts";
 import type { ComputerActionBroker } from "./broker.js";
 import { DefaultComputerActionBroker } from "./broker.js";
-import { runFastLoop, type ComputerStepEvent } from "./fast-loop.js";
+import { runFastLoop, type ComputerPhase, type ComputerStepEvent } from "./fast-loop.js";
 
 export type ComputerTaskStatus =
   "running" | "needs_input" | "completed" | "escalated" | "takeover" | "failed" | "cancelled";
@@ -32,6 +32,10 @@ export interface ComputerTaskSnapshot {
   summary?: string;
   url?: string;
   title?: string;
+  /** What the task is doing now (while running). */
+  phase?: ComputerPhase;
+  /** Labels of what's on screen at the last look, so the engine can check the result. */
+  visible?: string[];
 }
 
 export interface StartComputerTask {
@@ -50,6 +54,8 @@ export interface ComputerTaskManagerOptions {
   provider: ComputerProvider;
   broker?: ComputerActionBroker;
   now?: () => Date;
+  /** Per-phase limits for the loop (see FastLoopOptions.timeouts). */
+  timeouts?: Partial<Record<"observe" | "decide" | "act", number>>;
   /** How long a task waits for the engine to supply text before escalating. */
   inputTimeoutMs?: number;
   onUpdate?: (snapshot: ComputerTaskSnapshot, event?: ComputerStepEvent) => void;
@@ -180,6 +186,11 @@ export class ComputerTaskManager {
       broker: this.broker,
       instructions: () => runtime.snapshot.instructions,
       shouldStop: () => runtime.cancelled,
+      timeouts: this.opts.timeouts,
+      onPhase: (phase) => {
+        runtime.snapshot.phase = phase;
+        this.emit(runtime);
+      },
       textForType: (ctx) => this.textFor(runtime, ctx.target),
       onStep: (event) => {
         runtime.snapshot.steps.push({
@@ -192,6 +203,10 @@ export class ComputerTaskManager {
         });
         runtime.snapshot.url = event.observation.url;
         runtime.snapshot.title = event.observation.title;
+        runtime.snapshot.visible = event.observation.elements
+          .map((el) => el.label.replace(/\s+/g, " ").trim())
+          .filter(Boolean)
+          .slice(0, 25);
         this.emit(runtime, event);
       },
     });
@@ -232,6 +247,7 @@ export class ComputerTaskManager {
     if (TERMINAL.has(runtime.snapshot.status)) return;
     runtime.snapshot.status = status;
     runtime.snapshot.summary = summary;
+    runtime.snapshot.phase = undefined;
     runtime.snapshot.pendingInput = undefined;
     this.emit(runtime);
     this.wake(runtime);

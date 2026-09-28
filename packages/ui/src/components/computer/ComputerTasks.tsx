@@ -33,8 +33,16 @@ interface ComputerTask {
   timeline?: TaskStep[];
   needsText?: string;
   summary?: string;
+  phase?: string;
   page?: { url?: string; title?: string };
 }
+
+const PHASE: Record<string, string> = {
+  opening: "Opening the page…",
+  looking: "Looking at the screen…",
+  deciding: "Jev is picking the next step…",
+  acting: "Acting…",
+};
 
 const ACTIVE = new Set(["running", "needs_input"]);
 
@@ -153,6 +161,11 @@ function TaskCard({
           </button>
         ) : null}
       </header>
+      {task.status === "running" && task.phase ? (
+        <p className="ctask-page">
+          <Loader2 size={11} className="spin" /> {PHASE[task.phase] ?? task.phase}
+        </p>
+      ) : null}
       {task.page?.title ? <p className="ctask-page">On “{task.page.title}”</p> : null}
       {task.timeline?.length ? (
         <ol className="ctask-steps">

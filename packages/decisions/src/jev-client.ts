@@ -106,17 +106,20 @@ export class JevClient {
           }),
           signal: controller.signal,
         });
-        clearTimeout(timer);
 
         if (res.ok) {
+          // The deadline covers the body too: a stalled body must not hang the caller.
+          const response = (await res.json()) as JevResponse;
+          clearTimeout(timer);
           return {
-            response: (await res.json()) as JevResponse,
+            response,
             requestId: res.headers.get(JEV_REQUEST_ID_HEADER) ?? undefined,
             latencyMs: Date.now() - started,
           };
         }
 
         const err = await this.errorFromResponse(res);
+        clearTimeout(timer);
         lastError = err;
         if (!err.retryable || attempt >= this.maxRetries || Date.now() >= retryDeadline) {
           throw err;

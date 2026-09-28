@@ -96,7 +96,10 @@ export type ComputerTaskView = {
   /** Set when the task waits for text: answer with computer_steer({taskId, text}). */
   needsText?: string;
   recentSteps: string[];
-  page?: { url?: string; title?: string };
+  /** While running: opening, looking, deciding, or acting. */
+  phase?: string;
+  /** The page at the last look: title, URL, and the labels of what's on screen. */
+  page?: { url?: string; title?: string; visible?: string[] };
 };
 
 export interface CreateRoutineInput {

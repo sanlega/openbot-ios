@@ -91,6 +91,8 @@ export interface LiveComputerTask {
   summary?: string;
   url?: string;
   title?: string;
+  phase?: string;
+  visible?: string[];
 }
 
 export interface ComputerTasksControl {

@@ -30,6 +30,8 @@ export interface ComputerStepEvent {
   reason?: string;
 }
 
+export type ComputerPhase = "opening" | "looking" | "deciding" | "acting";
+
 export interface TypeTextContext {
   goal: string;
   observation: Observation;
@@ -57,6 +59,10 @@ export interface FastLoopOptions {
   instructions?: () => string[];
   /** Checked before every step; true stops the loop as cancelled. */
   shouldStop?: () => boolean;
+  /** What the loop is doing right now, for progress displays. */
+  onPhase?: (phase: ComputerPhase) => void;
+  /** Per-phase limits in ms (defaults: observe 15 s, decide 20 s, act 30 s). */
+  timeouts?: Partial<Record<"observe" | "decide" | "act", number>>;
   /** Same observation hash repeated this many times triggers escalation. */
   stallThreshold?: number;
 }
@@ -87,8 +93,15 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
     textForType,
     instructions,
     shouldStop,
+    onPhase,
+    timeouts = {},
     stallThreshold = DEFAULT_STALL_THRESHOLD,
   } = options;
+  const limit = { observe: 15_000, decide: 20_000, act: 30_000, ...timeouts };
+  const observe = async () => {
+    onPhase?.("looking");
+    return withDeadline(screen.observe(), limit.observe, "Looking at the screen took too long.");
+  };
 
   const broker = optionsBroker ?? new DefaultComputerActionBroker();
   const recent: string[] = [];
@@ -98,7 +111,12 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
   };
 
   if (startUrl) {
-    const nav = await screen.act({ op: "navigate", url: startUrl });
+    onPhase?.("opening");
+    const nav = await withDeadline(
+      screen.act({ op: "navigate", url: startUrl }),
+      limit.act,
+      "Opening the page took too long.",
+    ).catch((error: unknown) => ({ ok: false, reason: String((error as Error).message ?? error) }));
     if (!nav.ok) {
       return { status: "failed", steps: 0, summary: nav.reason ?? "navigation failed" };
     }
@@ -113,7 +131,12 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
       return { status: "cancelled", steps, summary: "cancelled" };
     }
     steps += 1;
-    const observation = await screen.observe();
+    let observation: Observation;
+    try {
+      observation = await observe();
+    } catch (error) {
+      return { status: "escalated", steps, summary: messageOf(error) };
+    }
     const hash = hashObservation(observation);
     observationHashes.push(hash);
     const stallCount = countTrailingEqual(observationHashes, hash);
@@ -145,7 +168,24 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
 
     const indices = observation.elements.map((el) => String(el.index));
     const questions = buildComputerQuestions(indices);
-    const decision = await decisionService.decide({ purpose: "computer", state, questions });
+    onPhase?.("deciding");
+    let decision: Awaited<ReturnType<DecisionService["decide"]>>;
+    try {
+      decision = await withDeadline(
+        decisionService.decide({ purpose: "computer", state, questions }),
+        limit.decide,
+        "Jev didn't answer in time, so I stopped instead of guessing.",
+      );
+    } catch (error) {
+      const event: ComputerStepEvent = {
+        step: steps,
+        observation,
+        outcome: "escalated",
+        reason: messageOf(error),
+      };
+      onStep?.(event);
+      return { status: "escalated", steps, lastObservation: observation, summary: event.reason };
+    }
 
     if (shouldStop?.()) {
       return { status: "cancelled", steps, lastObservation: observation, summary: "cancelled" };
@@ -321,7 +361,13 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
       return { status: "escalated", steps, lastObservation: observation, summary: event.reason };
     }
 
-    const result = await screen.act(action);
+    onPhase?.("acting");
+    let result: Awaited<ReturnType<Screen["act"]>>;
+    try {
+      result = await withDeadline(screen.act(action), limit.act, "The action took too long.");
+    } catch (error) {
+      result = { ok: false, reason: messageOf(error) };
+    }
     if (result.blocked) {
       await screen.takeover(true);
       const event: ComputerStepEvent = {
@@ -364,13 +410,25 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
     });
   }
 
-  const lastObservation = await screen.observe();
+  const lastObservation = await observe().catch(() => undefined);
   return {
     status: "escalated",
     steps,
     lastObservation,
     summary: `Stopped after ${steps} steps without finishing.`,
   };
+}
+
+function withDeadline<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
+}
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 /** A short line Jev sees next step, so it doesn't redo what just happened. */

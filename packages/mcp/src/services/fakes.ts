@@ -160,7 +160,7 @@ export class FakeComputerService implements McpComputerService {
 
   async computerScreenshot(
     session: SessionContext,
-  ): Promise<ToolResult<{ screenshotPath: string }>> {
+  ): Promise<ToolResult<{ screenshotPath?: string; page?: ComputerTaskView["page"] }>> {
     return allowed({ screenshotPath: `/screens/${session.botId}/latest.png` });
   }
 }

@@ -132,4 +132,21 @@ describe("ComputerTaskManager", () => {
     const screen = await provider.screen("bot_1");
     expect((await screen.observe()).title).toContain("Inbox");
   });
+
+  it("stops with a clear reason when Jev never answers, and reports its phase", async () => {
+    const hanging = { decide: () => new Promise(() => undefined) } as unknown as DecisionService;
+    const phases: string[] = [];
+    const tasks = new ComputerTaskManager({
+      decisionService: hanging,
+      provider: new FakeComputerProvider(),
+      onUpdate: (s) => s.phase && phases.push(s.phase),
+      timeouts: { decide: 200 },
+    });
+    tasks.start({ taskId: "ctask_h", botId: "bot_1", chainId: "chn_1", goal: "anything" });
+    let snapshot = await tasks.wait("ctask_h", 5_000);
+    while (snapshot?.status === "running") snapshot = await tasks.wait("ctask_h", 5_000);
+    expect(snapshot?.status).toBe("escalated");
+    expect(snapshot?.summary).toContain("Jev didn't answer in time");
+    expect(phases).toContain("deciding");
+  });
 });

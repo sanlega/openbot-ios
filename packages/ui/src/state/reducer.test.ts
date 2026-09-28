@@ -4,6 +4,23 @@ import { buildSeedEvents, SEED_BOTS, SEED_MESSAGES } from "../mock/seed-data.js"
 import type { OBEvent } from "@openbot/contracts";
 
 describe("uiReducer", () => {
+  it("rebuilds streamed text in order even when chunks arrive out of order", () => {
+    const delta = (seq: number, text: string): OBEvent => ({
+      id: `evt_d${seq}`,
+      seq,
+      ts: "2026-09-27T10:00:00.000Z",
+      type: "message.delta",
+      botId: "bot_code_01",
+      turnId: "turn_x",
+      payload: { text },
+    });
+    let state = createInitialState(SEED_BOTS);
+    for (const event of [delta(3, "world"), delta(1, "Hello"), delta(2, ", ")]) {
+      state = uiReducer(state, { type: "event", event });
+    }
+    expect(state.turns.get("turn_x")?.text).toBe("Hello, world");
+  });
+
   it("folds a turn's tool steps and links them to the Bot's reply", () => {
     const ev = (seq: number, type: string, payload: Record<string, unknown>): OBEvent => ({
       id: `evt_${seq}`,

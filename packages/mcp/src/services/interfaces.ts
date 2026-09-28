@@ -63,7 +63,9 @@ export interface McpComputerService {
     session: SessionContext,
     input: { taskId: string },
   ): Promise<ToolResult<ComputerTaskView>>;
-  computerScreenshot(session: SessionContext): Promise<ToolResult<{ screenshotPath: string }>>;
+  computerScreenshot(
+    session: SessionContext,
+  ): Promise<ToolResult<{ screenshotPath?: string; page?: ComputerTaskView["page"] }>>;
   /** Live task control for the Client API (UI timeline, steering, cancel). */
   controller?(): ComputerTasksControl;
 }
