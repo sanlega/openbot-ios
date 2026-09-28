@@ -18,12 +18,18 @@ export class CdpClient {
 
   constructor(private readonly port: number) {}
 
+  /** The tab this client reads and drives. */
+  targetId: string | undefined;
+
   async connect(timeoutMs = 30_000): Promise<void> {
     const targets = await this.waitForTargets(timeoutMs);
     const page = targets.find((t) => t.type === "page") ?? targets[0];
     if (!page?.webSocketDebuggerUrl) {
       throw new Error(`no CDP target on port ${this.port}`);
     }
+    this.targetId = page.id;
+    // Bring that tab to the front, so what OpenBot reads is what the screen shows.
+    await fetch(`http://127.0.0.1:${this.port}/json/activate/${page.id}`).catch(() => undefined);
     this.ws = new WebSocket(page.webSocketDebuggerUrl);
     await new Promise<void>((resolve, reject) => {
       this.ws!.onopen = () => resolve();
@@ -58,6 +64,28 @@ export class CdpClient {
       returnByValue: true,
     })) as { result?: { value?: T } };
     return result.result?.value as T;
+  }
+
+  /** Loads `url` in this tab (not a new one) and waits for the page to load. */
+  async navigate(url: string, timeoutMs = 15_000): Promise<void> {
+    await this.send("Page.navigate", { url });
+    const started = Date.now();
+    await sleep(200);
+    while (Date.now() - started < timeoutMs) {
+      const state = await this.evaluate<string>("document.readyState").catch(() => undefined);
+      if (state === "interactive" || state === "complete") return;
+      await sleep(200);
+    }
+  }
+
+  /** Closes every other page tab, so the browser keeps just the one being driven. */
+  async closeOtherTabs(): Promise<void> {
+    const targets = await this.listTargets().catch(() => []);
+    for (const t of targets) {
+      if (t.type === "page" && t.id !== this.targetId) {
+        await fetch(`http://127.0.0.1:${this.port}/json/close/${t.id}`).catch(() => undefined);
+      }
+    }
   }
 
   async axTree(): Promise<unknown> {

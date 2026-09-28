@@ -300,7 +300,7 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
           observation,
           decisionId: decision.decisionId,
           outcome: "escalated",
-          reason: "I needed a field to type into and couldn't find one.",
+          reason: "Jev chose to type, but didn't pick a field on this page.",
         };
         onStep?.(event);
         return { status: "escalated", steps, lastObservation: observation, summary: event.reason };

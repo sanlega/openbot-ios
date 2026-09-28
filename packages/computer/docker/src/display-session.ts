@@ -3,7 +3,10 @@ import { createConnection } from "node:net";
 import {
   runObservationPipeline,
   stripMeta,
+  withCdp,
+  type ObservationMode,
   type ObservationResult,
+  type ShellExec,
 } from "@openbot/computer/observation";
 import type { Action, ActResult } from "@openbot/contracts";
 import { ScreenManager } from "./screen-manager.js";
@@ -13,6 +16,37 @@ export interface DisplaySessionOptions {
   maxScreens?: number;
   workspaceMount?: string;
   onEvict?: (display: number) => void;
+  /** Runs xdotool and friends (injected in tests). */
+  shell?: ShellExec;
+  /**
+   * Loads a URL in the browser's current tab over CDP and closes the others.
+   * Resolves false when the browser isn't reachable (then a new one is launched).
+   */
+  navigateTab?: (debugPort: number, url: string) => Promise<boolean>;
+  /** Starts Xvfb, the window manager, VNC and Chromium for a display (stubbed in tests). */
+  startDisplay?: (display: number, debugPort: number, vncPort: number) => Promise<void>;
+  /** Reads the page (stubbed in tests). */
+  observePage?: (
+    display: number,
+    debugPort: number,
+    mode: ObservationMode,
+  ) => Promise<ObservationResult>;
+}
+
+async function navigateTabOverCdp(debugPort: number, url: string): Promise<boolean> {
+  try {
+    await withCdp(
+      debugPort,
+      async (client) => {
+        await client.navigate(url);
+        await client.closeOtherTabs();
+      },
+      3_000,
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 interface SessionState {
@@ -31,10 +65,13 @@ interface SessionState {
 export class DisplaySessionManager {
   private readonly screens: ScreenManager;
   private readonly sessions = new Map<string, SessionState>();
-  private readonly shell = createShellExec();
+  private readonly shell: ShellExec;
+  private readonly navigateTab: (debugPort: number, url: string) => Promise<boolean>;
 
   constructor(private readonly options: DisplaySessionOptions = {}) {
     this.screens = new ScreenManager(options.maxScreens ?? 4);
+    this.shell = options.shell ?? createShellExec();
+    this.navigateTab = options.navigateTab ?? navigateTabOverCdp;
   }
 
   assign(botId: string): SessionState {
@@ -67,7 +104,9 @@ export class DisplaySessionManager {
         ready: Promise.resolve(),
       };
       this.sessions.set(botId, session);
-      session.ready = this.ensureDisplayRunning(session);
+      session.ready = this.options.startDisplay
+        ? this.options.startDisplay(session.display, session.debugPort, session.vncPort)
+        : this.ensureDisplayRunning(session);
     }
     session.lastUsed = Date.now();
     return session;
@@ -76,15 +115,17 @@ export class DisplaySessionManager {
   async observe(botId: string, mode?: "dom" | "ax" | "ocr" | "auto"): Promise<ObservationResult> {
     const session = this.assign(botId);
     await session.ready;
-    const observation = await runObservationPipeline(
-      {
-        mode: mode ?? "auto",
-        display: `:${session.display}`,
-        debugPort: session.debugPort,
-        cdpTimeoutMs: 30_000,
-      },
-      this.shell,
-    );
+    const observation = this.options.observePage
+      ? await this.options.observePage(session.display, session.debugPort, mode ?? "auto")
+      : await runObservationPipeline(
+          {
+            mode: mode ?? "auto",
+            display: `:${session.display}`,
+            debugPort: session.debugPort,
+            cdpTimeoutMs: 30_000,
+          },
+          this.shell,
+        );
     session.lastObservation = observation;
     return observation;
   }
@@ -97,6 +138,10 @@ export class DisplaySessionManager {
     switch (action.op) {
       case "navigate":
         if (!action.url) return { ok: false, reason: "navigate requires url" };
+        session.lastObservation = undefined;
+        // Same tab over CDP: launching chromium again would open a new tab, and
+        // OpenBot could end up reading a tab that isn't the one on screen.
+        if (await this.navigateTab(session.debugPort, action.url)) return { ok: true };
         spawn(
           "chromium",
           [
@@ -126,10 +171,27 @@ export class DisplaySessionManager {
       case "wait":
       case "done":
         return { ok: true };
-      case "type":
+      case "type": {
         if (!action.text) return { ok: false, reason: "type requires text" };
-        await this.shell.run("xdotool", ["type", "--", action.text], env);
+        // Focus the field first (typing otherwise goes wherever focus happens to
+        // be), then replace what it holds.
+        if (action.target !== undefined) {
+          const meta = session.lastObservation?._meta?.[action.target];
+          if (!meta) {
+            return {
+              ok: false,
+              reason: `index ${action.target} was not returned by the last observe()`,
+            };
+          }
+          if (meta.bounds) {
+            await this.click(session, action.target, env);
+            await this.shell.run("xdotool", ["key", "ctrl+a"], env);
+          }
+        }
+        await this.shell.run("xdotool", ["type", "--delay", "20", "--", action.text], env);
+        session.lastObservation = undefined;
         return { ok: true };
+      }
       case "key":
         if (action.text) await this.shell.run("xdotool", ["key", xdotoolKey(action.text)], env);
         return { ok: true };

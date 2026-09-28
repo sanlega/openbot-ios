@@ -45,6 +45,11 @@ export class DarwinLocalDriver implements LocalDriver {
         return this.click(action.target);
       case "type":
         if (!action.text) return { ok: false, reason: "type requires text" };
+        // Focus the chosen field first; otherwise the text goes wherever focus is.
+        if (action.target !== undefined) {
+          const focused = await this.click(action.target);
+          if (!focused.ok) return focused;
+        }
         await this.shell.run("osascript", [
           "-e",
           `tell application "System Events" to keystroke ${appleScriptString(action.text)}`,
