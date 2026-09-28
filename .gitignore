@@ -23,3 +23,6 @@ coverage/
 *.tsbuildinfo
 openbot-*.tgz
 e2e/test-results/
+
+# built PWA (apps/pwa/scripts/build-static.mjs regenerates it)
+apps/pwa/static/

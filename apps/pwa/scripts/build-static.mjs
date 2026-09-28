@@ -8,7 +8,7 @@ const repoRoot = dirname(dirname(root));
 const uiRoot = join(repoRoot, "packages", "ui");
 const staticDir = join(root, "static");
 const uiDist = join(uiRoot, "dist", "app");
-const legacyStatic = join(root, "src", "static");
+const pwaAssets = join(root, "src", "static");
 
 async function run(command, args, cwd) {
   await new Promise((resolve, reject) => {
@@ -31,9 +31,9 @@ await cp(uiDist, staticDir, { recursive: true });
 
 for (const file of ["manifest.webmanifest", "sw.js"]) {
   try {
-    await cp(join(legacyStatic, file), join(staticDir, file));
+    await cp(join(pwaAssets, file), join(staticDir, file));
   } catch {
-    // Optional legacy PWA assets.
+    // Optional PWA assets.
   }
 }
 

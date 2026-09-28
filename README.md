@@ -91,6 +91,9 @@ Unit and integration tests use fake engines and services by default, so routine
 development does not require provider credentials. Playwright covers desktop and
 cross-package flows.
 
+For how it works inside (processes, a chat turn, safety gates, computer use,
+storage, Client API), see [docs/architecture.md](docs/architecture.md).
+
 See [CONTRIBUTING.md](CONTRIBUTING.md) for pull request guidance and the optional
 AI-assisted workflow included with the repository.
 
