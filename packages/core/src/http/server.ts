@@ -3,7 +3,7 @@ import fastifyWebsocket from "@fastify/websocket";
 import { getPwaStaticRoot } from "@openbot/pwa";
 import { attachRemoteServices, E2E_CONTENT_TYPE, registerRemoteIntegration } from "@openbot/remote";
 import type { CoreContext } from "../context.js";
-import { resolveDeviceIdentity } from "./auth.js";
+import { resolveDeviceIdentity, resolveSealedDeviceIdentity } from "./auth.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerBotRoutes } from "./routes/bots.js";
 import { registerInputRoutes } from "./routes/inputs.js";
@@ -70,7 +70,8 @@ export async function buildServer(
   // bearer token or gets no identity, which every route's `requireAuth`/
   // `requireOwner` then rejects with 401).
   app.addHook("onRequest", async (request) => {
-    request.device = resolveDeviceIdentity(ctx, request);
+    request.device =
+      (await resolveSealedDeviceIdentity(ctx, request)) ?? resolveDeviceIdentity(ctx, request);
   });
 
   registerHealthRoutes(app, ctx);

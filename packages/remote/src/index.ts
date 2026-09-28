@@ -8,6 +8,8 @@ export {
   generateX25519KeyPair,
   importX25519PublicKey,
   ensureSodium,
+  sealSecret,
+  openSecret,
   E2E_CONTENT_TYPE,
   E2E_HEADER,
   type X25519KeyPair,
@@ -32,6 +34,7 @@ export {
   attachRemoteServices,
   registerRemoteIntegration,
   shouldUseE2E,
+  remoteE2EScope,
   type RemoteCoreContext,
 } from "./integration.js";
 export {

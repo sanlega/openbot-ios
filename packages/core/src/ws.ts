@@ -3,7 +3,7 @@ import type { OBEvent } from "@openbot/contracts";
 import type { WebSocket } from "ws";
 import type { CoreContext } from "./context.js";
 import { resolveDeviceIdentity } from "./http/auth.js";
-import { shouldUseE2E } from "@openbot/remote";
+import { remoteE2EScope, shouldUseE2E } from "@openbot/remote";
 
 interface SubscribeCommand {
   type: "subscribe";
@@ -34,7 +34,7 @@ function safeSend(socket: WebSocket, payload: unknown): void {
  */
 export function registerWebSocketRoute(app: FastifyInstance, ctx: CoreContext): void {
   app.get("/api/ws", { websocket: true }, (socket: WebSocket, request: FastifyRequest) => {
-    const device = resolveDeviceIdentity(ctx, request);
+    const device = request.device ?? resolveDeviceIdentity(ctx, request);
     if (!device) {
       socket.close(4401, "unauthorized");
       return;
@@ -60,6 +60,14 @@ export function registerWebSocketRoute(app: FastifyInstance, ctx: CoreContext): 
 
     socket.on("message", (raw: Buffer | string) => {
       void (async () => {
+        if (device.deviceId !== "local") {
+          const activeDevice = ctx.repos.devices.getById(device.deviceId);
+          if (!activeDevice || activeDevice.revokedAt) {
+            socket.close(4403, "device revoked");
+            unsubscribe();
+            return;
+          }
+        }
         let text = raw.toString();
         const deviceRecord = ctx.repos.devices.getById(device.deviceId);
         if (
@@ -71,7 +79,11 @@ export function registerWebSocketRoute(app: FastifyInstance, ctx: CoreContext): 
             ctx.remote.hostKeys.privateKey,
             deviceRecord.publicKey,
           );
-          const session = await ctx.remote.framing.ensureSession(device.deviceId, framingKey);
+          const session = await ctx.remote.framing.ensureSession(
+            device.deviceId,
+            framingKey,
+            remoteE2EScope(request),
+          );
           text = await session.decryptWs(text);
         }
 
@@ -127,7 +139,11 @@ async function sendToClient(
       ctx.remote.hostKeys.privateKey,
       deviceRecord.publicKey,
     );
-    const session = await ctx.remote.framing.ensureSession(deviceId, framingKey);
+    const session = await ctx.remote.framing.ensureSession(
+      deviceId,
+      framingKey,
+      remoteE2EScope(request),
+    );
     const encrypted = await session.encryptWs(JSON.stringify(payload));
     safeSend(socket, encrypted);
     return;

@@ -5,6 +5,7 @@ import { newId } from "@openbot/contracts";
 import { lanAddresses, readNetworkPrefs, writeNetworkPrefs } from "./network-prefs.js";
 import type { DeviceRole } from "@openbot/contracts";
 import { E2E_CONTENT_TYPE } from "./framing.js";
+import { computeSharedSecret, deriveFramingKey, openSecret, sealSecret } from "./crypto.js";
 import { PairingError } from "./pairing.js";
 import {
   collectPairingUrls,
@@ -59,12 +60,6 @@ export interface RemoteCoreContext {
 
 export { createRemoteServices, type RemoteServices };
 
-const LOOPBACK = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
-
-function isLoopback(ip: string): boolean {
-  return LOOPBACK.has(ip);
-}
-
 function requireOwnerDevice(request: FastifyRequest, reply: FastifyReply): boolean {
   if (!request.device || request.device.role !== "owner") {
     reply.code(request.device ? 403 : 401).send({
@@ -103,15 +98,37 @@ export async function registerRemoteIntegration(
 
 function registerPairingRoutes(app: FastifyInstance, ctx: RemoteCoreContext): void {
   app.post("/api/devices/pair/complete", async (request, reply) => {
-    const body = request.body as {
+    const rawBody = request.body as {
       pairSecret?: string;
       devicePub?: string;
       name?: string;
       role?: DeviceRole;
       via?: "lan" | "tailscale" | "cloudflare";
+      sealed?: string;
     };
+    let body = rawBody;
+    let pairFramingKey: Buffer | undefined;
+    const pairPubHeader = request.headers["x-openbot-pair-pub"];
+    const pairPub = Array.isArray(pairPubHeader) ? pairPubHeader[0] : pairPubHeader;
+    if (rawBody?.sealed && pairPub) {
+      try {
+        pairFramingKey = deriveFramingKey(
+          computeSharedSecret(ctx.remote!.hostKeys.privateKey, pairPub),
+        );
+        const clear = await openSecret(pairFramingKey, rawBody.sealed);
+        const parsed = JSON.parse(clear.toString("utf8")) as typeof rawBody;
+        if (parsed.devicePub !== pairPub)
+          return reply.code(400).send({ error: "invalid_pair_key" });
+        body = parsed;
+      } catch {
+        return reply.code(400).send({ error: "pair_payload_decrypt_failed" });
+      }
+    }
     if (!body?.pairSecret || !body.devicePub || !body.name) {
       return reply.code(400).send({ error: "invalid_request" });
+    }
+    if (!pairFramingKey) {
+      return reply.code(400).send({ error: "encrypted_pairing_required" });
     }
 
     try {
@@ -141,6 +158,18 @@ function registerPairingRoutes(app: FastifyInstance, ctx: RemoteCoreContext): vo
       };
       ctx.repos.devices.create(device);
       const token = ctx.deviceAuth.issueToken(device.id);
+      if (pairFramingKey) {
+        const sealed = await sealSecret(
+          pairFramingKey,
+          Buffer.from(JSON.stringify({ device, token }), "utf8"),
+        );
+        await ctx.eventBus.publish({
+          type: "device.paired",
+          payload: { deviceId: device.id, via: device.via },
+        });
+        reply.code(201).header("cache-control", "no-store");
+        return { sealed };
+      }
       ctx.remote!.framing.rememberFramingKey(device.id, result.framingKey);
       const session = await ctx.remote!.framing.ensureSession(device.id, result.framingKey);
       await ctx.eventBus.publish({
@@ -226,7 +255,7 @@ function registerPairingRoutes(app: FastifyInstance, ctx: RemoteCoreContext): vo
 
 function registerE2EHooks(app: FastifyInstance, ctx: RemoteCoreContext): void {
   app.addHook("preValidation", async (request, reply) => {
-    if (!ctx.remote || isLoopback(request.ip)) return;
+    if (!ctx.remote) return;
     if (!request.device || request.device.deviceId === "local") return;
     if (request.headers["content-type"] !== E2E_CONTENT_TYPE) return;
     if (typeof request.body !== "string") return;
@@ -238,8 +267,12 @@ function registerE2EHooks(app: FastifyInstance, ctx: RemoteCoreContext): void {
         ctx.remote.hostKeys.privateKey,
         device.publicKey,
       );
-      const session = await ctx.remote.framing.ensureSession(request.device.deviceId, framingKey);
-      const decrypted = await session.decryptRequest(request.body);
+      const scopedSession = await ctx.remote.framing.ensureSession(
+        request.device.deviceId,
+        framingKey,
+        remoteE2EScope(request),
+      );
+      const decrypted = await scopedSession.decryptRequest(request.body);
       request.body = JSON.parse(decrypted.toString("utf8"));
       request.e2eActive = true;
     } catch {
@@ -259,7 +292,11 @@ function registerE2EHooks(app: FastifyInstance, ctx: RemoteCoreContext): void {
         ctx.remote.hostKeys.privateKey,
         device.publicKey,
       );
-      const session = await ctx.remote.framing.ensureSession(request.device.deviceId, framingKey);
+      const session = await ctx.remote.framing.ensureSession(
+        request.device.deviceId,
+        framingKey,
+        remoteE2EScope(request),
+      );
       const raw = Buffer.isBuffer(payload) ? payload : Buffer.from(payload);
       const encrypted = await session.encryptResponse(raw);
       reply.header("content-type", E2E_CONTENT_TYPE);
@@ -347,9 +384,11 @@ async function registerPwaStatic(app: FastifyInstance, pwaRoot: string): Promise
 }
 
 export function shouldUseE2E(request: FastifyRequest, devicePublicKey?: string): boolean {
-  return (
-    !isLoopback(request.ip) &&
-    request.device?.deviceId !== "local" &&
-    Boolean(request.device && devicePublicKey)
-  );
+  return request.device?.deviceId !== "local" && Boolean(request.device && devicePublicKey);
+}
+
+export function remoteE2EScope(request: FastifyRequest): string {
+  const header = request.headers["x-openbot-e2e-session"];
+  const value = Array.isArray(header) ? header[0] : header;
+  return value && /^[a-zA-Z0-9_-]{8,80}$/.test(value) ? value : "default";
 }

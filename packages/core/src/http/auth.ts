@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { DeviceIdentity } from "../device-auth.js";
 import type { CoreContext } from "../context.js";
+import { openSecret } from "@openbot/remote";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -39,6 +40,57 @@ export function resolveDeviceIdentity(
     return { deviceId: "local", role: "owner" };
   }
   return undefined;
+}
+
+const proofNonces = new Map<string, number>();
+const PROOF_WINDOW_MS = 5 * 60_000;
+
+/** Resolves an E2E-sealed bearer token without putting it in a clear HTTP header. */
+export async function resolveSealedDeviceIdentity(
+  ctx: CoreContext,
+  request: FastifyRequest,
+): Promise<DeviceIdentity | undefined> {
+  const rawId = request.headers["x-openbot-device"];
+  const rawProof = request.headers["x-openbot-device-token"];
+  const deviceId = Array.isArray(rawId) ? rawId[0] : rawId;
+  const sealed = Array.isArray(rawProof) ? rawProof[0] : rawProof;
+  if (!deviceId || !sealed || !ctx.remote) return undefined;
+
+  const device = ctx.repos.devices.getById(deviceId);
+  if (!device?.publicKey || device.revokedAt) return undefined;
+
+  try {
+    const key = ctx.remote.framing.deriveKey(ctx.remote.hostKeys.privateKey, device.publicKey);
+    const proof = JSON.parse((await openSecret(key, sealed)).toString("utf8")) as {
+      token?: unknown;
+      nonce?: unknown;
+      issuedAt?: unknown;
+    };
+    if (
+      typeof proof.token !== "string" ||
+      typeof proof.nonce !== "string" ||
+      typeof proof.issuedAt !== "number" ||
+      Math.abs(Date.now() - proof.issuedAt) > PROOF_WINDOW_MS
+    ) {
+      return undefined;
+    }
+
+    const replayKey = `${deviceId}:${proof.nonce}`;
+    pruneProofNonces(Date.now());
+    if (proofNonces.has(replayKey)) return undefined;
+    const identity = ctx.deviceAuth.verifyToken(proof.token);
+    if (!identity || identity.deviceId !== deviceId) return undefined;
+    proofNonces.set(replayKey, proof.issuedAt + PROOF_WINDOW_MS);
+    return identity;
+  } catch {
+    return undefined;
+  }
+}
+
+function pruneProofNonces(now: number): void {
+  for (const [key, expiry] of proofNonces) {
+    if (expiry < now) proofNonces.delete(key);
+  }
 }
 
 export function requireAuth(request: FastifyRequest, reply: FastifyReply): boolean {

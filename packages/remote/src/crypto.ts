@@ -141,3 +141,31 @@ export function unpackEncryptedFrame(encoded: string): {
     ciphertext: new Uint8Array(packed.subarray(24)),
   };
 }
+
+/** Seals a small credential or pairing payload with the existing device framing key. */
+export async function sealSecret(key: Uint8Array, plaintext: Uint8Array): Promise<string> {
+  const sodium = await ensureSodium();
+  const nonce = randomBytes(sodium.crypto_secretbox_NONCEBYTES);
+  const ciphertext = sodium.crypto_secretbox_easy(
+    new Uint8Array(plaintext),
+    nonce,
+    new Uint8Array(key),
+  );
+  return Buffer.concat([nonce, Buffer.from(ciphertext)]).toString("base64");
+}
+
+/** Opens a value produced by `sealSecret`; authentication failure throws. */
+export async function openSecret(key: Uint8Array, sealed: string): Promise<Buffer> {
+  const sodium = await ensureSodium();
+  const packed = Buffer.from(sealed, "base64");
+  const nonceBytes = sodium.crypto_secretbox_NONCEBYTES;
+  if (packed.length < nonceBytes + sodium.crypto_secretbox_MACBYTES) {
+    throw new Error("sealed value too short");
+  }
+  const plaintext = sodium.crypto_secretbox_open_easy(
+    new Uint8Array(packed.subarray(nonceBytes)),
+    new Uint8Array(packed.subarray(0, nonceBytes)),
+    new Uint8Array(key),
+  );
+  return Buffer.from(plaintext);
+}

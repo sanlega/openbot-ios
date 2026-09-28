@@ -5,7 +5,10 @@ import {
   computeSharedSecret,
   deriveFramingKey,
   generateX25519KeyPair,
+  openSecret,
+  sealSecret,
 } from "@openbot/remote";
+import { randomBytes } from "node:crypto";
 import { buildServer } from "./server.js";
 import { createTestContext, type TestContext } from "../test-helpers.js";
 
@@ -28,8 +31,19 @@ async function boot(): Promise<{ app: FastifyInstance; test: TestContext }> {
 }
 
 describe("WS11 remote pairing integration", () => {
-  it("completes QR pairing and serves the WS5 UI shell", async () => {
+  it("rejects an unencrypted pairing payload even on loopback", async () => {
     const { app } = await boot();
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/devices/pair/complete",
+      payload: { pairSecret: "secret", devicePub: "public", name: "phone" },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ error: "encrypted_pairing_required" });
+  });
+
+  it("completes QR pairing and serves the WS5 UI shell", async () => {
+    const { app, test } = await boot();
     await app.inject({
       method: "POST",
       url: "/api/devices/pair",
@@ -41,20 +55,34 @@ describe("WS11 remote pairing integration", () => {
     const payload = qr.json<{ pairSecret: string; hostPub: string; urls: string[] }>();
 
     const deviceKeys = generateX25519KeyPair();
+    const framingKey = deriveFramingKey(
+      computeSharedSecret(test.ctx.remote!.hostKeys.privateKey, deviceKeys.publicKeyBase64),
+    );
+    const sealed = await sealSecret(
+      framingKey,
+      Buffer.from(
+        JSON.stringify({
+          pairSecret: payload.pairSecret,
+          devicePub: deviceKeys.publicKeyBase64,
+          name: "phone",
+          via: "lan",
+        }),
+      ),
+    );
     const complete = await app.inject({
       method: "POST",
       url: "/api/devices/pair/complete",
       remoteAddress: REMOTE_IP,
-      payload: {
-        pairSecret: payload.pairSecret,
-        devicePub: deviceKeys.publicKeyBase64,
-        name: "phone",
-        via: "lan",
-      },
+      headers: { "x-openbot-pair-pub": deviceKeys.publicKeyBase64 },
+      payload: { sealed },
     });
     expect(complete.statusCode).toBe(201);
-    const body = complete.json<{ token: string; e2e: { serverHeader: string } }>();
+    const body = JSON.parse(
+      (await openSecret(framingKey, complete.json<{ sealed: string }>().sealed)).toString("utf8"),
+    ) as { token: string; device: { id: string } };
     expect(body.token).toMatch(/^dev_/);
+    expect(body.device.id).toMatch(/^dev_/);
+    expect(complete.body).not.toContain(body.token);
 
     const pwa = await app.inject({ method: "GET", url: "/app/" });
     expect(pwa.statusCode).toBe(200);
@@ -72,29 +100,129 @@ describe("WS11 remote pairing integration", () => {
     const qr = await app.inject({ method: "POST", url: "/api/devices/pair/qr" });
     const { pairSecret } = qr.json<{ pairSecret: string }>();
     const deviceKeys = generateX25519KeyPair();
-    const complete = await app.inject({
-      method: "POST",
-      url: "/api/devices/pair/complete",
-      remoteAddress: REMOTE_IP,
-      payload: { pairSecret, devicePub: deviceKeys.publicKeyBase64, name: "phone", via: "lan" },
-    });
-    const { token, e2e } = complete.json<{ token: string; e2e: { serverHeader: string } }>();
-
     const hostPrivate = test.ctx.remote!.hostKeys.privateKey;
     const framingKey = deriveFramingKey(
       computeSharedSecret(hostPrivate, deviceKeys.publicKeyBase64),
     );
-    const client = await ClientE2ESession.create(framingKey, e2e.serverHeader);
+    const sealed = await sealSecret(
+      framingKey,
+      Buffer.from(
+        JSON.stringify({
+          pairSecret,
+          devicePub: deviceKeys.publicKeyBase64,
+          name: "phone",
+          via: "lan",
+        }),
+      ),
+    );
+    const complete = await app.inject({
+      method: "POST",
+      url: "/api/devices/pair/complete",
+      remoteAddress: REMOTE_IP,
+      headers: { "x-openbot-pair-pub": deviceKeys.publicKeyBase64 },
+      payload: { sealed },
+    });
+    const { token, device } = JSON.parse(
+      (await openSecret(framingKey, complete.json<{ sealed: string }>().sealed)).toString("utf8"),
+    ) as { token: string; device: { id: string } };
+    const client = await ClientE2ESession.create(framingKey);
+    const proof = await sealSecret(
+      framingKey,
+      Buffer.from(
+        JSON.stringify({
+          token,
+          nonce: randomBytes(24).toString("base64url"),
+          issuedAt: Date.now(),
+        }),
+      ),
+    );
 
     const proxied = await app.inject({
       method: "GET",
       url: "/api/bots",
       remoteAddress: REMOTE_IP,
-      headers: { authorization: `Bearer ${token}` },
+      headers: {
+        "x-openbot-device": device.id,
+        "x-openbot-device-token": proof,
+        "x-openbot-e2e-session": "test-http-session",
+      },
     });
     expect(proxied.statusCode).toBe(200);
     expect(proxied.body).not.toContain("bots");
     const decrypted = await client.decryptResponse(proxied.body);
     expect(JSON.parse(decrypted.toString("utf8"))).toHaveProperty("bots");
+
+    const replay = await app.inject({
+      method: "GET",
+      url: "/api/bots",
+      remoteAddress: REMOTE_IP,
+      headers: {
+        "x-openbot-device": device.id,
+        "x-openbot-device-token": proof,
+        "x-openbot-e2e-session": "test-http-session",
+      },
+    });
+    expect(replay.statusCode).toBe(401);
+  });
+
+  it("does not downgrade sealed mobile auth to implicit local-owner auth on a loopback proxy", async () => {
+    const { app, test } = await boot();
+    await app.inject({
+      method: "POST",
+      url: "/api/devices/pair",
+      payload: { name: "owner", role: "owner" },
+    });
+    const qr = await app.inject({ method: "POST", url: "/api/devices/pair/qr" });
+    const deviceKeys = generateX25519KeyPair();
+    const framingKey = deriveFramingKey(
+      computeSharedSecret(test.ctx.remote!.hostKeys.privateKey, deviceKeys.publicKeyBase64),
+    );
+    const sealedPair = await sealSecret(
+      framingKey,
+      Buffer.from(
+        JSON.stringify({
+          pairSecret: qr.json<{ pairSecret: string }>().pairSecret,
+          devicePub: deviceKeys.publicKeyBase64,
+          name: "phone",
+          via: "lan",
+        }),
+      ),
+    );
+    const complete = await app.inject({
+      method: "POST",
+      url: "/api/devices/pair/complete",
+      remoteAddress: REMOTE_IP,
+      headers: { "x-openbot-pair-pub": deviceKeys.publicKeyBase64 },
+      payload: { sealed: sealedPair },
+    });
+    const paired = JSON.parse(
+      (await openSecret(framingKey, complete.json<{ sealed: string }>().sealed)).toString("utf8"),
+    ) as { token: string; device: { id: string } };
+    const client = await ClientE2ESession.create(framingKey);
+    const proof = await sealSecret(
+      framingKey,
+      Buffer.from(
+        JSON.stringify({
+          token: paired.token,
+          nonce: randomBytes(24).toString("base64url"),
+          issuedAt: Date.now(),
+        }),
+      ),
+    );
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/bots",
+      remoteAddress: "127.0.0.1",
+      headers: {
+        "x-openbot-device": paired.device.id,
+        "x-openbot-device-token": proof,
+        "x-openbot-e2e-session": "loopback-test-session",
+      },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.body).not.toContain("bots");
+    expect(
+      JSON.parse((await client.decryptResponse(response.body)).toString("utf8")),
+    ).toHaveProperty("bots");
   });
 });
