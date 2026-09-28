@@ -19,7 +19,7 @@ From an iPhone, a user can pair once with their existing OpenBot host, reconnect
 |---|---|
 | QR pairing | `POST /api/devices/pair/qr` and sealed `POST /api/devices/pair/complete` in `packages/remote/src/integration.ts`; QR payload `{hostPub,pairSecret,urls[]}`; the existing device token is returned inside a secretbox response; device revocation is `DELETE /api/devices/:id` in `packages/core/src/http/routes/devices.ts`. |
 | Remote crypto | X25519 + libsodium secretstream in `packages/remote/src/{crypto,framing}.ts`; HTTP and WebSocket E2E hooks in `packages/remote/src/integration.ts` and `packages/core/src/ws.ts`. The native app mirrors the wire primitives with `react-native-libsodium`; Node `crypto`, `KeyObject`, and `Buffer` prevent direct Expo import. |
-| Bots | `GET /api/bots` (`packages/core/src/http/routes/bots.ts`), `Bot` contract (`packages/contracts/src/entities.ts`); current execution state is reconstructed from event types. |
+| Bots/tasks | `GET /api/bots` (`packages/core/src/http/routes/bots.ts`), `GET /api/audit?botId=...` for existing `Turn` state, `POST /api/threads/:id/stop`, and `Bot`/`Turn` contracts (`packages/contracts/src/entities.ts`). |
 | Threads/messages | `GET /api/threads`, `GET /api/threads/:id/messages`, send via WS command `message.send`, stop via `POST /api/threads/:id/stop`; see `packages/core/src/http/routes/threads.ts`, `packages/core/src/ws.ts`. |
 | Activity/realtime | `GET /api/activity` provides messages; `/api/ws` subscribe with numeric `since` replays durable events and streams live events. Event delivery order cannot be assumed (`.ai/memory/LESSONS.md`). |
 | Approvals | `GET /api/approvals?status=pending`; `POST /api/approvals/:id/resolve` with `{resolution:'allow'|'deny'}` returns authoritative approval or 404/409. |
@@ -36,7 +36,7 @@ No new business API is needed for the core read/send/approve workflows. Fresh in
 ### Expo compatibility and security constraints
 
 - Expo Router and TanStack Query are JS-only integration points; shared contracts bundle successfully in Metro. `packages/remote` is Node-bound, so only its established wire protocol is mirrored behind a native adapter.
-- `react-native-libsodium` requires native CocoaPods/Xcode setup and an Expo development build; Expo Go cannot load it. Pin React Native and safe-area-context to Expo SDK's bundled versions. `expo export` validates Metro, not native linking or simulator execution.
+- `react-native-libsodium` requires native CocoaPods/Xcode setup and an Expo development build; Expo Go cannot load it. Pin React Native and safe-area-context to Expo SDK's bundled versions. SDK 57 requires Xcode 26.4+ (Swift tools 6.2); this host has Xcode 16.2 / Swift 6.0, so `expo export` passes but a native simulator build cannot complete here.
 - SecureStore uses iOS Keychain. Device token proof encryption uses the paired host key and a one-use five-minute nonce. HTTP/WS response payloads are E2E encrypted; TLS remains preferred, since connection metadata and error responses are not hidden by response framing.
 - Push is not dependable without an APNs sender. A sender requires user-owned host credentials or an optional separately operated relay; no OpenBot cloud dependency is added.
 
@@ -73,7 +73,7 @@ No new business API is needed for the core read/send/approve workflows. Fresh in
 | 5 | [x] Implement queries, durable WS cursor/reconciliation, and TanStack Query integration | `apps/mobile/src/connection/*`, `apps/mobile/src/app/*` | contiguous cursor and query invalidation on events/reconnect |
 | 6 | [x] Implement mobile navigation and core read views with global approval badge | `apps/mobile/src/app/*`, `apps/mobile/src/components/*` | Expo iOS bundle; manual simulator review remains |
 | 7 | [x] Implement send-message, stop, approve and deny actions with authoritative outcomes | `apps/mobile/src/connection/client.ts`, `apps/mobile/src/app/*` | action waits for host response; expanded fake tests remain |
-| 8 | [ ] Document install/run/security/push boundaries; complete lint, format, build, typecheck, tests and metaharness memory | `apps/mobile/README.md`, `docs/architecture.md`, `.ai/memory/*` | root format/lint/build/typecheck/tests/mh check; Expo simulator manual pass |
+| 8 | [ ] Document install/run/security/push boundaries; complete checks and metaharness memory | `apps/mobile/README.md`, `docs/architecture.md`, `.ai/memory/*` | root build/tests/lint/format pass; root typecheck blocked by unrelated Docker CdpClient errors; `mh check` blocked by absent `.agents`; simulator requires newer Xcode |
 
 ## Risks
 

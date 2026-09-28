@@ -17,6 +17,9 @@ pnpm --filter @openbot/mobile ios
 The mobile app includes a native libsodium module for OpenBot's existing X25519 and
 secretstream protocol, so use an Expo development build (`expo run:ios`) rather than
 Expo Go. QR scanning uses the camera and requests access only when pairing starts.
+This app is pinned to Expo SDK 57, which requires Xcode 26.4 or newer for an iOS
+native build. A JavaScript export can run on older toolchains, but it does not validate
+native linking.
 
 ## Push notifications
 

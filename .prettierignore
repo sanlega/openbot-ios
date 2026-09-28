@@ -7,6 +7,9 @@ CLAUDE.md
 **/dist/**
 **/build/**
 apps/pwa/static/**
+apps/mobile/.expo/**
+apps/mobile/ios/Pods/**
+apps/mobile/ios/build/**
 **/release/**
 **/test-results/**
 **/coverage/**
