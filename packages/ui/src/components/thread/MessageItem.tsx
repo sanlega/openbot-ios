@@ -90,15 +90,22 @@ export function MessageItem({ message, bot, bots, grouped, onQuickReply }: Messa
             </span>
           </div>
         )}
-        {message.proactive && message.kind ? (
-          <span className={`pill pill-kind`} data-kind={message.kind}>
-            {KIND_LABEL[message.kind]}
-          </span>
-        ) : null}
-        {message.delivery === "held" ? (
-          <span className="pill pill-muted" title="Held by the notify gate; it goes to the digest">
-            <BellOff size={11} aria-hidden /> Not delivered
-          </span>
+        {(message.proactive && message.kind) || message.delivery === "held" ? (
+          <div className="msg-tags">
+            {message.proactive && message.kind ? (
+              <span className="pill pill-kind" data-kind={message.kind}>
+                {KIND_LABEL[message.kind]}
+              </span>
+            ) : null}
+            {message.delivery === "held" ? (
+              <span
+                className="pill pill-muted"
+                title="Held by the notify gate; it goes to the digest"
+              >
+                <BellOff size={11} aria-hidden /> Not delivered
+              </span>
+            ) : null}
+          </div>
         ) : null}
         <div className="msg-body">
           <MessageText text={message.text} markdown />

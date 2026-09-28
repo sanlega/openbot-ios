@@ -6,6 +6,15 @@ interface BotWhyPanelProps {
   botId: string;
 }
 
+/** Jev's spawn check in words: "Jev approved it on its own", … */
+function spawnCheck(decision: NonNullable<BotWhyResponse["spawnDecision"]>): string {
+  if (decision.outcome === "deny") return "Jev advised against creating it.";
+  if (decision.outcome === "ask" || decision.band !== "auto") {
+    return "Jev wasn't sure, so it was checked before the bot was created.";
+  }
+  return "Jev approved creating it on its own.";
+}
+
 export function BotWhyPanel({ botId }: BotWhyPanelProps) {
   const { transport, bots } = useOpenBot();
   const [why, setWhy] = useState<BotWhyResponse | null>(null);
@@ -28,7 +37,7 @@ export function BotWhyPanel({ botId }: BotWhyPanelProps) {
           <h3>Why does this bot exist?</h3>
           <p>The Chief of Staff created it with this reasoning.</p>
         </div>
-        <p style={{ color: "var(--text-muted)" }}>No justification on file.</p>
+        <p className="field-help">It didn't record a reason.</p>
       </div>
     );
   }
@@ -51,11 +60,7 @@ export function BotWhyPanel({ botId }: BotWhyPanelProps) {
         <dt>User requested</dt>
         <dd>{j.userRequested ? "Yes" : "No"}</dd>
       </dl>
-      {why?.spawnDecision ? (
-        <p style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-          Spawn decision: {why.spawnDecision.outcome} · band {why.spawnDecision.band}
-        </p>
-      ) : null}
+      {why?.spawnDecision ? <p className="field-help">{spawnCheck(why.spawnDecision)}</p> : null}
     </div>
   );
 }

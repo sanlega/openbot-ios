@@ -869,3 +869,10 @@
   color: var(--text-2);
   text-align: center;
 }
+
+.msg-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 4px;
+}
