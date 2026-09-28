@@ -70,8 +70,12 @@ export async function buildServer(
   // bearer token or gets no identity, which every route's `requireAuth`/
   // `requireOwner` then rejects with 401).
   app.addHook("onRequest", async (request) => {
-    request.device =
-      (await resolveSealedDeviceIdentity(ctx, request)) ?? resolveDeviceIdentity(ctx, request);
+    const hasSealedDeviceCredential =
+      request.headers["x-openbot-device"] !== undefined ||
+      request.headers["x-openbot-device-token"] !== undefined;
+    request.device = hasSealedDeviceCredential
+      ? await resolveSealedDeviceIdentity(ctx, request)
+      : resolveDeviceIdentity(ctx, request);
   });
 
   registerHealthRoutes(app, ctx);

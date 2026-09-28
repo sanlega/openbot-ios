@@ -224,5 +224,17 @@ describe("WS11 remote pairing integration", () => {
     expect(
       JSON.parse((await client.decryptResponse(response.body)).toString("utf8")),
     ).toHaveProperty("bots");
+
+    const invalidProof = await app.inject({
+      method: "GET",
+      url: "/api/bots",
+      remoteAddress: "127.0.0.1",
+      headers: {
+        "x-openbot-device": paired.device.id,
+        "x-openbot-device-token": "invalid-proof",
+        "x-openbot-e2e-session": "invalid-proof-session",
+      },
+    });
+    expect(invalidProof.statusCode).toBe(401);
   });
 });

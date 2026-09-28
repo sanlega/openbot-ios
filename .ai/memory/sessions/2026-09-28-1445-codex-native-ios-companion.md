@@ -15,6 +15,7 @@
 - `expo run:ios` generated the native iOS project, but simulator compilation could not continue because CocoaPods is unavailable; manual simulator review remains.
 - `mh check` reports stale `.agents` skill files because this checkout omits those read-only files. Generated metaharness files were not modified.
 - Approval/auth/session tests cover core protocol paths; broader mobile UI and command integration tests can still be added.
+- A final proxy-auth review found and fixed a potential invalid-proof fallback to implicit loopback owner access; regression test passes.
 
 ## Retro
 - Worked: tracing the existing Client API and pairing flow avoided adding mobile-specific business APIs; a separate scope per transport made restart recovery work without another renewal endpoint.
