@@ -1,4 +1,5 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "expo-router";
 import { Pressable, Text } from "react-native";
 import { DataCard } from "@/components/DataCard";
 import { EmptyCard, Screen } from "@/components/Screen";
@@ -77,6 +78,18 @@ export default function BotsScreen() {
               ) : null}
               {stop.isError ? (
                 <Text style={{ color: "#FF7777", fontSize: 12 }}>{stop.error.message}</Text>
+              ) : null}
+              {thread ? (
+                <Link
+                  href={{ pathname: "/thread/[id]", params: { id: thread.id, bot: bot.name } }}
+                  asChild
+                >
+                  <Pressable style={{ paddingVertical: 8 }}>
+                    <Text style={{ color: "#65A9FF", fontSize: 13, fontWeight: "700" }}>
+                      Open conversation
+                    </Text>
+                  </Pressable>
+                </Link>
               ) : null}
             </DataCard>
           );
