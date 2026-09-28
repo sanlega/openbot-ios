@@ -26,7 +26,8 @@ rl.on("line", (line) => {
 });
 `;
 
-describe("CodexAppServer against a real child process", () => {
+// Windows can't execute a shebang script as a binary; the logic is the same there.
+describe.skipIf(process.platform === "win32")("CodexAppServer against a real child process", () => {
   it("initializes and answers model/list (regression: start() used to deadlock)", async () => {
     dir = await mkdtemp(join(tmpdir(), "fake-codex-"));
     const bin = join(dir, "codex");
