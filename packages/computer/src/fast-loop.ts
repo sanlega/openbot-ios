@@ -7,7 +7,7 @@ import type {
   ObservedElement,
   Screen,
 } from "@openbot/contracts";
-import { bandForAnswer } from "@openbot/decisions";
+import { bandForAnswer, UNCONFIGURED_MODEL } from "@openbot/decisions";
 import { buildComputerQuestions, COMPUTER_KEYS } from "@openbot/decisions";
 import { buildDecisionState } from "@openbot/decisions";
 import type { ComputerActionBroker } from "./broker.js";
@@ -206,7 +206,10 @@ export async function runFastLoop(options: FastLoopOptions): Promise<FastLoopRes
         observation,
         decisionId: decision.decisionId,
         outcome: "escalated",
-        reason: "Jev is unavailable, so I stopped instead of guessing.",
+        reason:
+          decision.model === UNCONFIGURED_MODEL
+            ? "No Jev (TypeSafe) key is set, so I stopped instead of guessing. Add it in Settings → Jev."
+            : "Jev is unavailable, so I stopped instead of guessing.",
       };
       onStep?.(event);
       return { status: "escalated", steps, lastObservation: observation, summary: event.reason };

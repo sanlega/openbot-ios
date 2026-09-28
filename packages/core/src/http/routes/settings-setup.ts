@@ -90,11 +90,13 @@ async function validate(
   kind: SetupValidatorKind,
   value: string | undefined,
 ): Promise<{ ok: boolean; reason?: string; rpmLimit?: number }> {
-  if (kind === "typesafe") {
+  const validator = ctx.validators[kind];
+  // A registered validator also saves the key; probing alone would report "ok"
+  // while Jev keeps falling back because no key was ever stored.
+  if (kind === "typesafe" && !validator) {
     if (!ctx.decisionService) return { ok: false, reason: "DecisionService not wired yet (WS7)" };
     return ctx.decisionService.validateKey(value ?? "");
   }
-  const validator = ctx.validators[kind];
   if (!validator) return { ok: false, reason: `no validator registered for "${kind}" yet` };
   return validator(value);
 }

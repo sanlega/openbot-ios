@@ -62,6 +62,7 @@ export async function bootstrapProviders(
   const computerProvider = resolveComputerProvider();
 
   registerSetupValidators(ctx, decisionService, detection);
+  await reconcileTypesafeSetup(ctx);
 
   ctx.availableEngines = availableEngines;
   ctx.engineStatuses = engineStatuses;
@@ -129,6 +130,18 @@ function resolveComputerProvider(): ComputerProvider {
   // Keep the provider wired even while Docker Desktop is starting. Its start
   // operation checks the daemon again, so opening Docker needs no app restart.
   return createDockerProvider();
+}
+
+/**
+ * Setup remembers "TypeSafe key: ok" even if the key is gone from the vault (or
+ * was never saved). Then Jev silently falls back on every decision, so report
+ * it as not connected and let Settings ask for the key again.
+ */
+async function reconcileTypesafeSetup(ctx: CoreContext): Promise<void> {
+  if (fakeFlag("OPENBOT_FAKE_JEV") || process.env.JEV_API_KEY) return;
+  if (ctx.repos.setupState.get().typesafe?.ok !== true) return;
+  if (await ctx.vault.get(VAULT_KEYS.typesafe)) return;
+  ctx.repos.setupState.patch({ typesafe: { ok: false } });
 }
 
 function registerSetupValidators(

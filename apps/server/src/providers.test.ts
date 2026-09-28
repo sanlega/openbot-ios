@@ -90,6 +90,25 @@ describe("bootstrapProviders", () => {
     process.env = prev;
   });
 
+  it("marks the TypeSafe setup step as not connected when the saved key is missing", async () => {
+    const prev = { ...process.env };
+    delete process.env.OPENBOT_FAKE_JEV;
+    delete process.env.JEV_API_KEY;
+
+    const ctx = await testContext();
+    ctx.repos.setupState.patch({ typesafe: { ok: true } });
+    await bootstrapProviders(ctx, mockDetection());
+    expect(ctx.repos.setupState.get().typesafe?.ok).toBe(false);
+
+    ctx.repos.setupState.patch({ typesafe: { ok: true } });
+    await ctx.vault.set("typesafe.apiKey", "ts_live_key_1234567890");
+    await bootstrapProviders(ctx, mockDetection());
+    expect(ctx.repos.setupState.get().typesafe?.ok).toBe(true);
+
+    ctx.closeDb();
+    process.env = prev;
+  });
+
   it("never falls back to the fake Jev when no TypeSafe key is configured", async () => {
     const prev = { ...process.env };
     delete process.env.OPENBOT_FAKE_JEV;
