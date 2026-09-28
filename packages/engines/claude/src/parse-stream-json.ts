@@ -120,6 +120,19 @@ export function handleClaudeLine(
     return;
   }
 
+  if (type === "openbot_process_exit") {
+    if (state.turnComplete) return;
+    state.turnComplete = true;
+    state.isError = true;
+    const stderr = typeof line.stderr === "string" ? line.stderr : "";
+    const lastLine = stderr.split("\n").filter(Boolean).pop();
+    state.errorMessage = `Claude Code stopped unexpectedly${
+      typeof line.code === "number" ? ` (exit code ${line.code})` : ""
+    }${lastLine ? `: ${lastLine}` : "."}`;
+    if (/not logged in|\/login/i.test(stderr)) state.authFailure = true;
+    return;
+  }
+
   if (type === "result") {
     state.turnComplete = true;
     state.isError = Boolean(line.is_error);

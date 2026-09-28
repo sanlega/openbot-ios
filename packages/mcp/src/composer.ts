@@ -9,6 +9,19 @@ import type { SessionTokenService } from "./session-token.js";
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SHIM_PATH = join(PACKAGE_ROOT, "dist", "shim", "stdio.js");
 
+/**
+ * How to run a Node script as an MCP server. Inside the desktop app the harness
+ * runs in Electron, whose binary is OpenBot itself: engines must launch it with
+ * ELECTRON_RUN_AS_NODE=1 (it can read app.asar), or they'd open a second app.
+ */
+export function nodeLaunch(): { command: string; env: Record<string, string> } {
+  const inElectron = Boolean(process.versions.electron) || Boolean(process.env.OPENBOT_NODE_BIN);
+  return {
+    command: process.env.OPENBOT_NODE_BIN ?? process.execPath,
+    env: inElectron ? { ELECTRON_RUN_AS_NODE: "1" } : {},
+  };
+}
+
 export interface McpComposerInput {
   bot: Bot;
   turnId: string;
@@ -27,9 +40,10 @@ export class McpComposer {
   static openbotServerSpec(harnessUrl: string, sessionToken: string, bot: Bot): McpServerSpec {
     return {
       name: "openbot",
-      command: process.execPath,
+      ...nodeLaunch(),
       args: [SHIM_PATH],
       env: {
+        ...nodeLaunch().env,
         OPENBOT_API_URL: harnessUrl,
         OPENBOT_SESSION_TOKEN: sessionToken,
         ...(bot.isChiefOfStaff ? { OPENBOT_COS_TOOLS: "1" } : {}),

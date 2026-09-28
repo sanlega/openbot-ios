@@ -12,7 +12,12 @@ export interface ClaudeProcessHandle {
   interrupt(): void;
   close(): Promise<void>;
   onLine(handler: (line: Record<string, unknown>) => void): () => void;
+  /** False once the CLI process has exited; a dead session must not be reused. */
+  isAlive?(): boolean;
 }
+
+/** Synthetic line the transport emits when the CLI process exits. */
+export const PROCESS_EXIT_LINE = "openbot_process_exit";
 
 export interface ClaudeTransport {
   spawnSession(
@@ -91,6 +96,25 @@ export class SubprocessClaudeTransport implements ClaudeTransport {
     }) as ChildProcessWithoutNullStreams;
 
     const emitter = new EventEmitter();
+    let alive = true;
+    let stderrTail = "";
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderrTail = (stderrTail + chunk.toString()).slice(-800);
+    });
+    child.once("close", (code, signal) => {
+      alive = false;
+      // Tell the turn the CLI is gone, so it ends now instead of waiting it out.
+      emitter.emit("line", {
+        type: PROCESS_EXIT_LINE,
+        code,
+        signal,
+        stderr: stderrTail.trim(),
+      });
+    });
+    child.once("error", (error) => {
+      alive = false;
+      emitter.emit("line", { type: PROCESS_EXIT_LINE, code: null, stderr: error.message });
+    });
     const rl = createInterface({ input: child.stdout });
     rl.on("line", (line) => {
       if (!line.trim()) return;
@@ -125,6 +149,9 @@ export class SubprocessClaudeTransport implements ClaudeTransport {
       onLine(handler) {
         emitter.on("line", handler);
         return () => emitter.off("line", handler);
+      },
+      isAlive() {
+        return alive;
       },
     };
   }

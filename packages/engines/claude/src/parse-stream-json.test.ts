@@ -59,4 +59,31 @@ describe("handleClaudeLine", () => {
       { type: "tool_completed", toolUseId: "tu_1", output: "[]", isError: false },
     ]);
   });
+
+  it("ends the turn with the CLI's last stderr line when the process exits mid-turn", () => {
+    const state = createClaudeParseState();
+    handleClaudeLine(
+      {
+        type: "openbot_process_exit",
+        code: 1,
+        stderr: "starting\nError: MCP server openbot failed to start",
+      },
+      state,
+      { emit: () => undefined },
+    );
+    expect(state).toMatchObject({
+      turnComplete: true,
+      isError: true,
+      errorMessage:
+        "Claude Code stopped unexpectedly (exit code 1): Error: MCP server openbot failed to start",
+    });
+
+    // After a normal result, a later exit changes nothing.
+    const done = createClaudeParseState();
+    handleClaudeLine({ type: "result", is_error: false, usage: {} }, done, {
+      emit: () => undefined,
+    });
+    handleClaudeLine({ type: "openbot_process_exit", code: 0 }, done, { emit: () => undefined });
+    expect(done.isError).toBe(false);
+  });
 });

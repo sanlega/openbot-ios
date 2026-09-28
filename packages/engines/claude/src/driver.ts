@@ -126,7 +126,9 @@ export class ClaudeDriver implements EngineDriver {
 
   private async ensureSession(sessionKey: string, input: TurnInput): Promise<ActiveSession> {
     const existing = this.sessions.get(sessionKey);
-    if (existing) return existing;
+    if (existing && existing.handle.isAlive?.() !== false) return existing;
+    // The CLI behind this session exited: start a fresh process (it resumes by id).
+    if (existing) this.sessions.delete(sessionKey);
 
     const handle = await this.transport.spawnSession(input, {
       resumeSessionId: input.sessionId,

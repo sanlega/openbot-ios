@@ -145,6 +145,8 @@ export class HarnessHost extends EventEmitter<HarnessHostEvents> {
       ...process.env,
       PORT: String(this.options.port),
       OPENBOT_HOME: this.options.openbotHome,
+      // Engines launch OpenBot's MCP scripts with this binary (as Node).
+      OPENBOT_NODE_BIN: process.execPath,
       OPENBOT_PWA_STATIC_ROOT: this.options.pwaStaticRoot ?? resolvePwaStaticRoot(),
     };
   }

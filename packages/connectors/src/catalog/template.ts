@@ -83,5 +83,13 @@ export function renderServer(
   names.forEach((header, i) => {
     env[`OPENBOT_REMOTE_HEADER_${i}`] = headers[header]!;
   });
-  return { name, command: process.execPath, args: [REMOTE_LAUNCHER_PATH], env };
+  // Same rule as the OpenBot MCP server: in the desktop app, run Electron as Node.
+  const inElectron = Boolean(process.versions.electron) || Boolean(process.env.OPENBOT_NODE_BIN);
+  if (inElectron) env.ELECTRON_RUN_AS_NODE = "1";
+  return {
+    name,
+    command: process.env.OPENBOT_NODE_BIN ?? process.execPath,
+    args: [REMOTE_LAUNCHER_PATH],
+    env,
+  };
 }
