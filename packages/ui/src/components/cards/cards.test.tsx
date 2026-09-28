@@ -40,6 +40,28 @@ describe("ApprovalCard", () => {
   });
 });
 
+describe("ApprovalCard wording", () => {
+  it("names the action and never shows a raw bot id", () => {
+    const approval: Approval = {
+      id: "apr_2",
+      kind: "tool",
+      botId: "bot_01ABC",
+      summary: "Bash requested by bot_01ABC",
+      detail: '{"command":"ls -la"}\n\nJev risk gate: band=confirm, external_side_effect=0.33',
+      status: "pending",
+      resolution: undefined,
+      risk: 0.33,
+      expiresAt: new Date(Date.now() + 60000).toISOString(),
+      createdAt: new Date().toISOString(),
+    };
+    const { container } = render(<ApprovalCard approval={approval} onResolve={() => undefined} />);
+    expect(screen.getByText("Run a command")).toBeInTheDocument();
+    expect(screen.getByText("ls -la")).toBeInTheDocument();
+    expect(screen.getByText("Risk: low")).toBeInTheDocument();
+    expect(container.textContent).not.toContain("bot_01ABC");
+  });
+});
+
 describe("RouteChip", () => {
   it("shows engine model and confidence", () => {
     render(<RouteChip route={{ engine: "claude", model: "sonnet", confidence: 0.88 }} />);

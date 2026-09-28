@@ -1,7 +1,14 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Approval } from "@openbot/contracts";
 import { ShieldAlert } from "lucide-react";
 import { useOptionalOpenBot } from "../../state/context.js";
+import {
+  approvalAction,
+  approvalTarget,
+  botNamer,
+  humanReason,
+  parseApproval,
+} from "../activity/format.js";
 
 interface ApprovalCardProps {
   approval: Approval;
@@ -20,40 +27,15 @@ const KIND_TITLES: Record<Approval["kind"], string> = {
 
 const SHELL_TOOLS = new Set(["Bash", "shell", "exec_command", "local_shell"]);
 
-/** What the action is, read from the card the broker wrote ("Permission prompt: Tool" + JSON input). */
-export function describeApproval(approval: Approval): {
-  tool?: string;
-  input?: Record<string, unknown>;
-  headline: string;
-  reason?: string;
-} {
-  const tool = /^Permission prompt: (.+)$/.exec(approval.summary)?.[1];
-  const [rawInput, ...rest] = approval.detail.split("\n\n");
-  let input: Record<string, unknown> | undefined;
-  try {
-    const parsed: unknown = JSON.parse(rawInput ?? "");
-    if (parsed && typeof parsed === "object") input = parsed as Record<string, unknown>;
-  } catch {
-    input = undefined;
-  }
-  const reason = input ? rest.join("\n\n") || undefined : approval.detail || undefined;
-  if (!tool) return { headline: approval.summary, reason };
-
-  const str = (key: string) => (typeof input?.[key] === "string" ? (input[key] as string) : "");
-  let headline = `Use ${tool}`;
-  if (SHELL_TOOLS.has(tool) && str("command")) headline = "Run a command";
-  else if (["Write", "Edit", "MultiEdit", "NotebookEdit"].includes(tool) && str("file_path")) {
-    headline = `${tool === "Write" ? "Write" : "Edit"} ${str("file_path")}`;
-  } else if (tool === "WebFetch" && str("url")) headline = `Open ${str("url")}`;
-  if (str("description")) headline = str("description");
-  return { tool, input, headline, reason };
-}
-
 export function ApprovalCard({ approval, onResolve }: ApprovalCardProps) {
   const openbot = useOptionalOpenBot();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { tool, input, headline, reason } = describeApproval(approval);
+  const names = useMemo(() => botNamer(openbot?.bots ?? []), [openbot?.bots]);
+  const { tool, input, reason: rawReason } = parseApproval(approval);
+  const headline = approvalAction(approval, names.humanize);
+  const reason = rawReason ? names.humanize(humanReason(rawReason)) : undefined;
+  const target = approvalTarget(approval);
   const command = typeof input?.command === "string" ? input.command : undefined;
   const isShell = tool ? SHELL_TOOLS.has(tool) : false;
 
@@ -80,7 +62,7 @@ export function ApprovalCard({ approval, onResolve }: ApprovalCardProps) {
         <h3>{KIND_TITLES[approval.kind]}</h3>
       </header>
       <p className="approval-headline">{headline}</p>
-      {command ? <pre className="approval-command">{command}</pre> : null}
+      {target ? <pre className="approval-command">{target}</pre> : null}
       {input || reason ? (
         <details className="approval-details">
           <summary>Details</summary>
@@ -89,7 +71,9 @@ export function ApprovalCard({ approval, onResolve }: ApprovalCardProps) {
         </details>
       ) : null}
       {approval.risk !== undefined ? (
-        <p className="approval-risk">Risk score: {approval.risk.toFixed(2)}</p>
+        <p className="approval-risk">
+          Risk: {approval.risk < 0.34 ? "low" : approval.risk < 0.67 ? "medium" : "high"}
+        </p>
       ) : null}
       {error ? <p className="form-error">{error}</p> : null}
       <div className="approval-actions">
