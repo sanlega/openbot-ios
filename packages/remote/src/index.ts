@@ -34,3 +34,10 @@ export {
   shouldUseE2E,
   type RemoteCoreContext,
 } from "./integration.js";
+export {
+  isPrivateIPv4,
+  lanAddresses,
+  readNetworkPrefs,
+  writeNetworkPrefs,
+  type NetworkPrefs,
+} from "./network-prefs.js";

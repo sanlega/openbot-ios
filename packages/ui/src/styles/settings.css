@@ -748,3 +748,14 @@ a.pair-url:hover {
     bottom: var(--space-3);
   }
 }
+
+.lan-restart {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 10px var(--space-4);
+  background: var(--warning-soft);
+  color: var(--text);
+  font-size: var(--text-base);
+}

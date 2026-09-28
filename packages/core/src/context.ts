@@ -10,6 +10,7 @@ import type {
   RoutineRunCause,
 } from "@openbot/contracts";
 import { systemClock } from "@openbot/contracts";
+import { readNetworkPrefs } from "@openbot/remote";
 import type { RemoteServices } from "@openbot/remote";
 import {
   ApprovalsRepo,
@@ -167,6 +168,8 @@ export interface CoreContext {
   /** Wired in by WS13 bootstrap; populated for `/api/engines` and routing. */
   availableEngines?: EngineId[];
   engineStatuses?: Partial<Record<EngineId, EngineStatus>>;
+  /** The address the server listens on (set by `serve` before listening). */
+  bindHost?: string;
   /** Wired by bootstrap: live computer tasks (progress, steering, cancel) for the UI. */
   computerTasks?: ComputerTasksControl;
   /** Models of each available engine, for `/api/models` (Bot profile model picker). */
@@ -266,7 +269,8 @@ export function computeBindHostFlags(ctx: CoreContext): BindHostFlags {
   const setup = ctx.repos.setupState.get();
   const remoteEnabled = Boolean(setup.tailscale?.ok || setup.cloudflare?.ok);
   const deviceAuthConfigured = ctx.repos.devices.list().some((device) => !device.revokedAt);
-  return { remoteEnabled, deviceAuthConfigured };
+  const { lanAccess } = readNetworkPrefs(ctx.config.openbotHome);
+  return { remoteEnabled, deviceAuthConfigured, lanAccess };
 }
 
 async function loadOrCreateDeviceSecret(vault: Vault): Promise<Buffer> {

@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { newId } from "@openbot/contracts";
+import { lanAddresses, readNetworkPrefs, writeNetworkPrefs } from "./network-prefs.js";
 import type { DeviceRole } from "@openbot/contracts";
 import { E2E_CONTENT_TYPE } from "./framing.js";
 import { PairingError } from "./pairing.js";
@@ -22,7 +23,9 @@ declare module "fastify" {
 /** Minimal surface `packages/core` needs without importing core types (avoids cycles). */
 export interface RemoteCoreContext {
   clock: { now(): Date };
-  config: { port: number };
+  config: { port: number; openbotHome: string };
+  /** The address the server listens on, once it listens. */
+  bindHost?: string;
   vault: {
     get(key: string): Promise<string | undefined>;
     set(key: string, value: string): Promise<void>;
@@ -158,15 +161,57 @@ function registerPairingRoutes(app: FastifyInstance, ctx: RemoteCoreContext): vo
     }
   });
 
+  // "Allow phones on this Wi-Fi": the owner's choice, applied when the server
+  // (re)starts, since that's when it picks the address it listens on.
+  const lanState = () => {
+    const enabled = readNetworkPrefs(ctx.config.openbotHome).lanAccess;
+    const active = ctx.bindHost === "0.0.0.0";
+    return {
+      enabled,
+      active,
+      restartRequired: enabled !== active,
+      canRestart: process.env.OPENBOT_SUPERVISED === "1",
+      addresses: lanAddresses().map((ip) => `http://${ip}:${ctx.config.port}`),
+    };
+  };
+
+  app.get("/api/remote/lan", async (request, reply) => {
+    if (!requireOwnerDevice(request, reply)) return;
+    return lanState();
+  });
+
+  app.put("/api/remote/lan", async (request, reply) => {
+    if (!requireOwnerDevice(request, reply)) return;
+    const enabled = (request.body as { enabled?: unknown } | undefined)?.enabled;
+    if (typeof enabled !== "boolean") return reply.code(400).send({ error: "enabled_required" });
+    await writeNetworkPrefs(ctx.config.openbotHome, { lanAccess: enabled });
+    await ctx.eventBus.publish({ type: "remote.status", payload: { lanAccess: enabled } });
+    return lanState();
+  });
+
+  app.post("/api/harness/restart", async (request, reply) => {
+    if (!requireOwnerDevice(request, reply)) return;
+    // Only when a supervisor (the desktop app) will start the harness again.
+    if (process.env.OPENBOT_SUPERVISED !== "1") {
+      return reply.code(409).send({ error: "not_supervised", reason: "restart OpenBot yourself" });
+    }
+    setTimeout(() => process.exit(0), 300).unref?.();
+    return { restarting: true };
+  });
+
   app.post("/api/devices/pair/qr", async (request, reply) => {
     if (!requireOwnerDevice(request, reply)) return;
     const ts = await ctx.remote!.tailscale.status();
     const cf = ctx.remote!.cloudflare.status();
+    // Listening on the local network: phones on this Wi-Fi can reach these.
+    const lan = ctx.bindHost === "0.0.0.0" ? lanAddresses() : [];
     const urls = collectPairingUrls({
       port: ctx.config.port,
       tailscaleUrls: ts.serveUrls,
       cloudflareHostname: cf.hostname,
+      lanHost: lan[0] ? `${lan[0]}:${ctx.config.port}` : undefined,
     });
+    for (const ip of lan.slice(1)) urls.splice(1, 0, `http://${ip}:${ctx.config.port}`);
     const session = ctx.remote!.pairing.createSession(urls);
     const host = primaryPairingHost(urls);
     return {

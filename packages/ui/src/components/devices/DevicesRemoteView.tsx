@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { LanAccessRow } from "./LanAccessRow.js";
 import { Check, Copy, Globe, Link2, QrCode, RefreshCw, Smartphone, Tablet } from "lucide-react";
 import type { DevicesResponse, PairQrResponse } from "../../api/types.js";
 import { remoteStatusView, type HarnessRemoteStatus } from "../../api/adapters.js";
@@ -403,6 +404,7 @@ function RemoteAccess({
       description="Reach OpenBot when your phone isn't on the same network. Traffic stays end-to-end encrypted either way."
     >
       <SettingsGroup>
+        <LanAccessRow />
         <SettingRow
           leading={
             <span className="device-icon" aria-hidden>

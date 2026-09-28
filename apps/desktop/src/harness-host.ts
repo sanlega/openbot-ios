@@ -147,6 +147,8 @@ export class HarnessHost extends EventEmitter<HarnessHostEvents> {
       OPENBOT_HOME: this.options.openbotHome,
       // Engines launch OpenBot's MCP scripts with this binary (as Node).
       OPENBOT_NODE_BIN: process.execPath,
+      // The desktop app restarts the harness when it exits (e.g. to rebind).
+      OPENBOT_SUPERVISED: "1",
       OPENBOT_PWA_STATIC_ROOT: this.options.pwaStaticRoot ?? resolvePwaStaticRoot(),
     };
   }

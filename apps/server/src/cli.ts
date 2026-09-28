@@ -36,6 +36,7 @@ async function serve(): Promise<void> {
   const app = await buildServer(ctx, { wireRemote: false });
   await bootstrapHarness(ctx, app);
   const host = resolveBindHost(computeBindHostFlags(ctx));
+  ctx.bindHost = host;
   const address = await app.listen({ port: ctx.config.port, host });
   console.log(`OpenBot server listening on ${address} (bind host: ${host})`);
 }

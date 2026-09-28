@@ -52,3 +52,14 @@ describe("loadConfig", () => {
     expect(config.openbotHome).toBe("/tmp/example-home");
   });
 });
+
+describe("resolveBindHost with LAN access", () => {
+  it("listens on the network when the owner allows phones on this Wi-Fi", () => {
+    expect(
+      resolveBindHost({ remoteEnabled: false, deviceAuthConfigured: false, lanAccess: true }),
+    ).toBe("0.0.0.0");
+    expect(
+      resolveBindHost({ remoteEnabled: false, deviceAuthConfigured: true, lanAccess: false }),
+    ).toBe("127.0.0.1");
+  });
+});

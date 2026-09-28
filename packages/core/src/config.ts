@@ -37,6 +37,8 @@ export interface CoreConfig {
 export interface BindHostFlags {
   remoteEnabled: boolean;
   deviceAuthConfigured: boolean;
+  /** The owner turned on "Allow phones on this Wi-Fi". */
+  lanAccess?: boolean;
 }
 
 export interface LoadConfigOptions {
@@ -78,5 +80,9 @@ export function loadConfig(options: LoadConfigOptions = {}): CoreConfig {
  * with no device auth, must not expose the API.
  */
 export function resolveBindHost(flags: BindHostFlags): string {
+  // LAN access is an explicit owner opt-in made for pairing the first phone, so
+  // it can't wait for a paired device. It stays safe because every non-loopback
+  // request needs a paired device's token, and pairing needs the QR's secret.
+  if (flags.lanAccess) return "0.0.0.0";
   return flags.remoteEnabled && flags.deviceAuthConfigured ? "0.0.0.0" : "127.0.0.1";
 }
