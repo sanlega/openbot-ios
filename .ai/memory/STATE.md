@@ -3,6 +3,11 @@
 _Last updated: 2026-09-29 by Claude_
 
 ## In progress
+- Physical iPhone now runs a standalone Release build (no Metro needed), signed with a
+  free Personal Team, so it expires 7 days after signing; see `apps/mobile/README.md`
+  ("Standalone build") to renew. Bot avatars now use the desktop's blobatar faces
+  (needs the native `react-native-svg`, included since this build). To resume Metro
+  development on the phone, reinstall a Debug build.
 - iPhone app redesign and features (plan `.ai/memory/plans/2026-09-29-mobile-design-and-features.md`,
   T1-T6 done): native Liquid Glass tabs (Home, Chats, Inbox, Settings), desktop tokens and
   Bot avatars in dark/light, messenger chat with live streaming and inline approvals and

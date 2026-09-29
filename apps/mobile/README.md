@@ -21,6 +21,26 @@ This app is pinned to Expo SDK 57, which requires Xcode 26.4 or newer for an iOS
 native build. A JavaScript export can run on older toolchains, but it does not validate
 native linking.
 
+## Standalone build on your own iPhone
+
+A Release build embeds the JavaScript bundle, so it runs without Metro or a cable and
+connects to your desktop over Wi-Fi, Tailscale, or a Cloudflare tunnel. With a free
+Apple ID ("Personal Team") the signature lasts 7 days; a paid developer account gives a
+year. Re-run the same two commands to renew it; pairing survives a reinstall.
+
+```sh
+cd apps/mobile/ios && pod install
+xcodebuild -workspace OpenBot.xcworkspace -scheme OpenBot -configuration Release \
+  -destination 'id=<device-udid>' -derivedDataPath build/device-release \
+  DEVELOPMENT_TEAM=<your-team-id> CODE_SIGN_STYLE=Automatic -allowProvisioningUpdates build
+xcrun devicectl device install app --device <device-udid> \
+  build/device-release/Build/Products/Release-iphoneos/OpenBot.app
+```
+
+`xcrun devicectl list devices` shows the UDID; the team ID is on your signing
+certificate (`security find-identity -v -p codesigning`). To go back to the
+development client, build and install the Debug configuration again.
+
 ## Push notifications
 
 Push is not required for the app to work. iOS suspends background JavaScript and
