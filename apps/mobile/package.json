@@ -2,7 +2,7 @@
   "name": "@openbot/mobile",
   "version": "0.1.0",
   "private": true,
-  "main": "expo-router/entry",
+  "main": "index.js",
   "scripts": {
     "start": "expo start",
     "ios": "expo run:ios",
@@ -12,7 +12,8 @@
   "dependencies": {
     "@openbot/contracts": "workspace:*",
     "@tanstack/react-query": "5.90.2",
-    "expo": "~57.0.3",
+    "expo": "~57.0.23",
+    "expo-build-properties": "~57.0.22",
     "expo-camera": "~57.0.5",
     "expo-crypto": "~57.0.3",
     "expo-dev-client": "~57.0.14",
@@ -21,6 +22,7 @@
     "expo-status-bar": "~57.0.0",
     "react": "19.2.3",
     "react-native": "0.86.3",
+    "react-native-get-random-values": "^2.0.0",
     "react-native-libsodium": "1.7.0",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",

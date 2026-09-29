@@ -7,11 +7,15 @@ _Last updated: 2026-09-29 by Codex_
   Existing Bot/thread/message/activity/approval APIs are reused. Expo screens, sealed QR
   pairing/auth, SecureStore, independent E2E streams, reconnect, and remote actions are
   implemented. Full tests, monorepo build and typecheck, lint, formatting, Expo iOS
-  bundle, and config validation pass. macOS has now been upgraded to 27.0, but the active
-  Xcode is still 16.2 (iOS SDK 18.2), with no simulator runtimes available. CoreSimulator
-  is unavailable and CoreDevice timed out listing the attached phone. Native build/launch
-  remains unverified until a current Xcode and iOS runtime are installed; see
-  `.ai/local/mobile-ios-device-session.md` and the 2026-09-29 test session.
+  bundle, and config validation pass. macOS 27.0 and Xcode 27.0 are installed and the
+  license is accepted. The physical iPhone now launches the app on iOS 27: SDK 57 was
+  upgraded to 57.0.25 with `expo-build-properties` scene support, fixing UIKit's
+  `NoSceneLifecycleAdoption` launch trap. The first Metro bundle then exposed missing
+  `crypto.getRandomValues` for prefixed ULIDs; `react-native-get-random-values` is loaded
+  before Expo Router from `apps/mobile/index.js`. Rebuilt and installed; Metro bundled
+  successfully and the Settings screen rendered on the device. Keep Metro running for
+  this development build. See `.ai/local/mobile-ios-device-session.md` and the
+  2026-09-29 iOS test sessions.
 - Prepare the first downloadable GitHub release (`v0.1.0`) and polish the public repository.
   Plan: `.ai/memory/plans/2026-09-27-github-release.md`.
 - Public-release README, contributor guide, issue/PR templates, changelog, and installer
@@ -152,9 +156,9 @@ _Last updated: 2026-09-29 by Codex_
   format and `mh check` passed. Lint has three pre-existing warnings and no errors.
 
 ## Known gaps
-- Native iOS installation is unverified. SDK 57 needs Swift tools 6.2; deployment to
-  iOS 27 needs Xcode 27 and macOS 26.6 or later. See `.ai/local/mobile-ios-device-session.md`
-  for machine-specific upgrade progress and the next steps.
+- Physical iPhone launch is verified on iOS 27 with Metro. App functionality beyond
+  loading the Settings screen still needs a hands-on pairing/conversation walkthrough.
+  See `.ai/local/mobile-ios-device-session.md` for machine-specific device setup.
 - `mh check` reports stale generated `.agents` skill files; this checkout omits those
   read-only source files, so generated metaharness files were left untouched.
 - Real Claude/Codex and Jev credentials, Docker on other operating systems, and

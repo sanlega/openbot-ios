@@ -1675,6 +1675,28 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - react-native-get-random-values (2.0.0):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - react-native-libsodium (1.7.0):
     - hermes-engine
     - RCTRequired
@@ -2206,7 +2228,6 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-    - RNWorklets (>= 0.8.0)
     - Yoga
   - RNReanimated (4.7.0):
     - hermes-engine
@@ -2496,6 +2517,7 @@ DEPENDENCIES:
   - "React-Mapbuffer (from `../../../node_modules/.pnpm/react-native@0.86.3_@babel+core@7.29.7_@react-native+metro-config@0.87.1_@babel+core@7._86fe373da1e1014b6d42a9e1c1cbfce8/node_modules/react-native/ReactCommon`)"
   - "React-microtasksnativemodule (from `../../../node_modules/.pnpm/react-native@0.86.3_@babel+core@7.29.7_@react-native+metro-config@0.87.1_@babel+core@7._86fe373da1e1014b6d42a9e1c1cbfce8/node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)"
   - "React-mutationobservernativemodule (from `../../../node_modules/.pnpm/react-native@0.86.3_@babel+core@7.29.7_@react-native+metro-config@0.87.1_@babel+core@7._86fe373da1e1014b6d42a9e1c1cbfce8/node_modules/react-native/ReactCommon/react/nativemodule/mutationobserver`)"
+  - "react-native-get-random-values (from `../../../node_modules/.pnpm/react-native-get-random-values@2.0.0_react-native@0.86.3_@babel+core@7.29.7_@react-nati_afa48a8c5d38bfc77f419f8c60aec0dd/node_modules/react-native-get-random-values`)"
   - "react-native-libsodium (from `../../../node_modules/.pnpm/react-native-libsodium@1.7.0_react-native@0.86.3_@babel+core@7.29.7_@react-native+metro_ce074d5bb984b6a5bb6aad1fece03efb/node_modules/react-native-libsodium`)"
   - "react-native-safe-area-context (from `../../../node_modules/.pnpm/react-native-safe-area-context@5.7.0_react-native@0.86.3_@babel+core@7.29.7_@react-nati_31ee00c07de3effed51a53cad0200315/node_modules/react-native-safe-area-context`)"
   - "React-NativeModulesApple (from `../../../node_modules/.pnpm/react-native@0.86.3_@babel+core@7.29.7_@react-native+metro-config@0.87.1_@babel+core@7._86fe373da1e1014b6d42a9e1c1cbfce8/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)"
@@ -2676,6 +2698,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/.pnpm/react-native@0.86.3_@babel+core@7.29.7_@react-native+metro-config@0.87.1_@babel+core@7._86fe373da1e1014b6d42a9e1c1cbfce8/node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
   React-mutationobservernativemodule:
     :path: "../../../node_modules/.pnpm/react-native@0.86.3_@babel+core@7.29.7_@react-native+metro-config@0.87.1_@babel+core@7._86fe373da1e1014b6d42a9e1c1cbfce8/node_modules/react-native/ReactCommon/react/nativemodule/mutationobserver"
+  react-native-get-random-values:
+    :path: "../../../node_modules/.pnpm/react-native-get-random-values@2.0.0_react-native@0.86.3_@babel+core@7.29.7_@react-nati_afa48a8c5d38bfc77f419f8c60aec0dd/node_modules/react-native-get-random-values"
   react-native-libsodium:
     :path: "../../../node_modules/.pnpm/react-native-libsodium@1.7.0_react-native@0.86.3_@babel+core@7.29.7_@react-native+metro_ce074d5bb984b6a5bb6aad1fece03efb/node_modules/react-native-libsodium"
   react-native-safe-area-context:
@@ -2831,6 +2855,7 @@ SPEC CHECKSUMS:
   React-Mapbuffer: 3c805ea54675b00ef1755f23b3c1fccf34962b93
   React-microtasksnativemodule: 97a771dbbb4315c71579995b53e4e3e351a99d89
   React-mutationobservernativemodule: 530bff1bba9511a5133e3cf8170e3b2c0df49e89
+  react-native-get-random-values: 68792987aef40e8aa72dc448d97e009d1f440c88
   react-native-libsodium: 2704943436a7317ab1f21502ec263436b13cbf70
   react-native-safe-area-context: 6b4966397ada0f7dd481e4486a2ef936834861a1
   React-NativeModulesApple: 2b658272ca69df0694cf5d54f9510aa7c33977bc
@@ -2869,7 +2894,7 @@ SPEC CHECKSUMS:
   ReactCommon: 02f6a489d5eb4ab79d7deba5cd4434e0ba351a07
   ReactNativeDependencies: 6738e602b46fd24aa453cd58267ec3bb8bf29d27
   RNCMaskedView: eb2b2e538afa907f05a5848a1a1ac26092e6fec9
-  RNGestureHandler: fb2375bebca8d187e54a854cd4da9f5e0b9d5f81
+  RNGestureHandler: fe183fe6d00211abee16d680e277a2ac50e45e73
   RNReanimated: 8692a0defe71c410668d0d305dcc9b4824254f08
   RNScreens: c1a06fd73d0581a2a28a160577be393f579662b9
   RNWorklets: b6fbd722c9dfe3fad45d515d0c338ead58b83953

@@ -18,6 +18,14 @@
       "expo-router",
       "expo-secure-store",
       [
+        "expo-build-properties",
+        {
+          "ios": {
+            "enableSceneSupport": true
+          }
+        }
+      ],
+      [
         "expo-camera",
         {
           "cameraPermission": "OpenBot uses your camera to scan a pairing QR code from your desktop."
