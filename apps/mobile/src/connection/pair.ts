@@ -21,9 +21,11 @@ export async function pairFromQr(qrUrl: string): Promise<DeviceCredentials> {
   const keys = await makeDeviceKeys();
   const key = await framingKeyFor(qr.hostPub, keys.privateKey);
   const failures: string[] = [];
+  const addresses = phonePairingUrls(qr.urls);
 
-  for (const address of phonePairingUrls(qr.urls)) {
+  for (const address of addresses) {
     const baseUrl = address.replace(/\/$/, "");
+    const controller = new AbortController();
     try {
       const sealed = seal(
         key,
@@ -36,7 +38,6 @@ export async function pairFromQr(qrUrl: string): Promise<DeviceCredentials> {
           }),
         ),
       );
-      const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 8000);
       let response: Response;
       try {
@@ -68,7 +69,8 @@ export async function pairFromQr(qrUrl: string): Promise<DeviceCredentials> {
       await saveCredentials(credentials);
       return credentials;
     } catch (error) {
-      if (error instanceof TypeError) failures.push("unreachable");
+      // A timed-out request surfaces as a native cancel error on iOS, not a TypeError.
+      if (controller.signal.aborted || error instanceof TypeError) failures.push("unreachable");
       else if (error instanceof Error) failures.push(error.message);
       else failures.push("pairing failed");
     }
@@ -85,8 +87,9 @@ export async function pairFromQr(qrUrl: string): Promise<DeviceCredentials> {
   }
   const firstPairingError = failures.find((failure) => failure !== "unreachable");
   if (firstPairingError) throw new Error(`Pairing failed: ${firstPairingError}`);
+  const hosts = addresses.map((address) => new URL(address).host).join(", ");
   throw new Error(
-    "Could not reach OpenBot. Check that the desktop is online and on the same network.",
+    `Could not reach OpenBot at ${hosts || "any address"}. Check that this iPhone is on the same Wi-Fi as the desktop and that the desktop allows phones on this Wi-Fi.`,
   );
 }
 

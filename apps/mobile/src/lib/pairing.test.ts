@@ -36,4 +36,20 @@ describe("phonePairingUrls", () => {
       ]),
     ).toEqual(["http://192.168.1.20:4577", "http://172.25.0.1:4577"]);
   });
+
+  it("tries likely virtual adapter addresses after real LAN addresses", () => {
+    expect(
+      phonePairingUrls([
+        "http://172.25.240.1:4577",
+        "http://192.168.1.20:4577",
+        "http://172.32.0.5:4577",
+        "http://10.0.0.8:4577",
+      ]),
+    ).toEqual([
+      "http://192.168.1.20:4577",
+      "http://172.32.0.5:4577",
+      "http://10.0.0.8:4577",
+      "http://172.25.240.1:4577",
+    ]);
+  });
 });

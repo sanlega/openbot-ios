@@ -28,10 +28,24 @@ export function parsePairingQr(value: string): PairPayload {
   return result.data;
 }
 
-/** Loopback URLs in a desktop QR point back to the phone, never to the desktop. */
+/**
+ * Loopback URLs in a desktop QR point back to the phone, never to the desktop.
+ * Addresses in 172.16.0.0/12 are usually virtual adapters (WSL, Hyper-V, Docker)
+ * that a phone cannot reach, so they are tried last.
+ */
 export function phonePairingUrls(urls: string[]): string[] {
-  return urls.filter((address) => {
+  const usable = urls.filter((address) => {
     const hostname = new URL(address).hostname;
     return hostname !== "127.0.0.1" && hostname !== "localhost" && hostname !== "[::1]";
   });
+  return [
+    ...usable.filter((address) => !isLikelyVirtualAdapter(address)),
+    ...usable.filter(isLikelyVirtualAdapter),
+  ];
+}
+
+function isLikelyVirtualAdapter(address: string): boolean {
+  const match = /^172\.(\d+)\./.exec(new URL(address).hostname);
+  const second = match ? Number(match[1]) : NaN;
+  return second >= 16 && second <= 31;
 }
