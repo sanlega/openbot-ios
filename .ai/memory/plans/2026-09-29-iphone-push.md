@@ -25,9 +25,9 @@ sends them straight to Apple with the owner's own APNs auth key; there is no rel
   message when the build has no push entitlement.
 
 ## Tasks
-- [ ] T1 Host push module + tests (JWT shape, content, notifier routing, token
+- [x] T1 Host push module + tests (JWT shape, content, notifier routing, token
       environment fallback, unregistered cleanup).
-- [ ] T2 Routes + wiring in bootstrap + integration tests.
-- [ ] T3 Desktop UI card (this checkout and the sibling desktop checkout).
-- [ ] T4 Phone: notifications module, registration, settings UI, tap handling.
-- [ ] T5 Paid-team build instructions; verify with a real key when available.
+- [x] T2 Routes + wiring in bootstrap + integration tests.
+- [x] T3 Desktop UI card (this checkout and the sibling desktop checkout).
+- [x] T4 Phone: notifications module, registration, settings UI, tap handling.
+- [ ] T5 Paid-team build instructions (done in apps/mobile/README.md); verify end to end with the owner's real key and a paid-team build. Both checkouts carry the host side; the Windows desktop needs a rebuild.

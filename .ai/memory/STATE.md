@@ -3,6 +3,11 @@
 _Last updated: 2026-09-29 by Claude_
 
 ## In progress
+- iPhone push notifications (plan `.ai/memory/plans/2026-09-29-iphone-push.md`, T1-T4 done):
+  the desktop sends straight to APNs with the owner's `.p8` key (Devices → Phone
+  notifications); the phone opts in under Settings → Notifications. Needs a paid Apple
+  Developer team and a build with `OpenBotPush.entitlements`. Next: owner's key + paid-team
+  build on the device, then rebuild the Windows desktop (sibling checkout has the host code).
 - Physical iPhone now runs a standalone Release build (no Metro needed), signed with a
   free Personal Team, so it expires 7 days after signing; see `apps/mobile/README.md`
   ("Standalone build") to renew. Bot avatars now use the desktop's blobatar faces
