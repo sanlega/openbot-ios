@@ -1,8 +1,14 @@
 # Project state
 
-_Last updated: 2026-09-29 by Codex_
+_Last updated: 2026-09-29 by Claude_
 
 ## In progress
+- Desktop protocol gap closed in source: the sibling OpenBot checkout now has the
+  same sealed pairing, sealed device proofs, and scoped E2E host code as this
+  checkout (its commit `Support the native iPhone pairing and scoped E2E
+  protocol`; full checks and integration E2E pass there). Remaining: push that
+  commit, rebuild/install the Windows app from it, and repeat a fresh-QR pairing
+  on the physical iPhone (plan T5).
 - Verify pairing to a Windows host from the physical iPhone. The iOS app now uses
   standard Base64 for the host wire format, a native random session ID, and patched
   libsodium X25519/secretstream bindings. The patched native build is installed and
