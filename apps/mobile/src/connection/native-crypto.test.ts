@@ -5,7 +5,10 @@ const bytes = (value: string) => Uint8Array.from(atob(value), (char) => char.cha
 
 vi.mock("expo-crypto", () => ({
   CryptoDigestAlgorithm: { SHA256: "SHA256" },
-  digest: async () => new ArrayBuffer(32),
+  digest: async (_algorithm: string, input: unknown) => {
+    if (!(input instanceof Uint8Array)) throw new Error("digest requires a TypedArray");
+    return new ArrayBuffer(32);
+  },
 }));
 
 vi.mock("react-native-libsodium", () => ({

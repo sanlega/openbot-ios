@@ -3,11 +3,22 @@
 _Last updated: 2026-09-29 by Codex_
 
 ## In progress
-- Verify QR pairing on the physical iPhone with a fresh code. The iOS app now uses
+- Verify pairing to a Windows host from the physical iPhone. The iOS app now uses
   standard Base64 for the host wire format, a native random session ID, and patched
   libsodium X25519/secretstream bindings. The patched native build is installed and
-  launches; Home now has a dark background and distinct tab icons. A live pairing
-  attempt and connected-screen walkthrough remain. Plan:
+  launches; Home now has a dark background and distinct tab icons. The first live
+  QR scan found that Expo Crypto rejects an `ArrayBuffer` on iOS; the SHA-256
+  input is now a `Uint8Array`, with a regression test, and the app has been
+  reloaded. A fresh QR paired successfully to the macOS host; the connected Home
+  screen shows host data and the server lists the paired device. The Windows host
+  advertises multiple private IPs and its earlier scan timed out; its LAN endpoint
+  responds from macOS and from Safari on the iPhone. A fresh Windows QR scanned
+  inside the app returns `Pairing failed: invalid_request`. The sibling OpenBot
+  desktop source accepts legacy clear pairing fields, whereas this iPhone sends
+  a sealed payload plus its public-key header. A harmless malformed sealed POST
+  reproduces `invalid_request` on Windows and a decrypt error on the compatible
+  macOS host. The sibling repo also has older unscoped E2E framing. Continue in
+  its pairing/framing implementation; see the handoff session and plan. Plan:
   `.ai/memory/plans/2026-09-29-iphone-pairing-ui.md`.
 - Build the native iOS companion using `.ai/memory/plans/2026-09-28-native-ios-companion.md`.
   Existing Bot/thread/message/activity/approval APIs are reused. Expo screens, sealed QR
@@ -162,8 +173,9 @@ _Last updated: 2026-09-29 by Codex_
   format and `mh check` passed. Lint has three pre-existing warnings and no errors.
 
 ## Known gaps
-- Physical iPhone launch and the unpaired Home screen are verified on iOS 27 with Metro.
-  QR pairing and connected screens still need a hands-on walkthrough.
+- Physical iPhone launch, QR pairing to macOS, and the connected Home screen are
+  verified on iOS 27 with Metro. Windows pairing needs a desktop protocol update
+  and refreshed Windows build; deeper connected flows need a hands-on walkthrough.
   See `.ai/local/mobile-ios-device-session.md` for machine-specific device setup.
 - `mh check` reports stale generated `.agents` skill files; this checkout omits those
   read-only source files, so generated metaharness files were left untouched.

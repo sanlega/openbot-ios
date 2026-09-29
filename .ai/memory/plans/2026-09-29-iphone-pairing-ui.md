@@ -24,7 +24,9 @@ Complete QR pairing on the installed iPhone and make every unpaired screen reada
 - [x] T1: Reproduce Base64 variant and scope-ID failures; fix native crypto and add a focused regression check. Files: `apps/mobile/src/connection/native-crypto.ts`, `ConnectionProvider.tsx`, focused test. Verify against host wire format.
 - [x] T2: Repair dark scroll surfaces, tab icons, and scan error state. Files: mobile UI components/routes and dependency manifest if needed. Verify on physical iPhone screenshots.
 - [x] T2a: Build and install the missing native X25519 and secretstream bindings, then confirm that the installed binary contains them.
-- [ ] T3: Complete physical pairing with a fresh QR, run relevant checks, update STATE and handoff, commit only task files.
+- [x] T3: Complete physical pairing with a fresh QR to the macOS host, run relevant checks, update STATE and handoff, commit only task files.
+- [x] T4: Diagnose physical iPhone pairing to a Windows host on the same LAN. Its LAN endpoint is reachable; its legacy pairing route rejects the current encrypted payload with `invalid_request`.
+- [ ] T5: Bring the sibling OpenBot desktop host's sealed pairing and scoped E2E framing up to the iPhone protocol, rebuild the Windows app, and verify a fresh QR plus connected API/WS flows. See the sibling repo's protocol plan.
 
 ## Risks
 - A pairing secret is single use and expires; use a fresh desktop QR for each live attempt.

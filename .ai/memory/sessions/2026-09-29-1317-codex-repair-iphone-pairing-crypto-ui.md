@@ -13,13 +13,20 @@
   physical-device screenshot confirms the unpaired Home screen is readable.
 - Focused Vitest, iOS build, monorepo typecheck, lint, and targeted formatting pass.
   Lint reports only three existing warnings in unrelated files.
+- The first physical QR scan exposed a separate native Expo Crypto argument error:
+  `digest` rejected an `ArrayBuffer`. A native-shaped regression mock failed before
+  the fix; passing a `Uint8Array` made it pass. The app was reloaded for a fresh QR.
+- A subsequent QR paired with the macOS host. The iPhone showed a connected Home
+  screen populated from that host, and the host listed one paired device.
+- Pairing now skips loopback addresses advertised in QR payloads and limits each
+  network attempt to eight seconds. Failures retain a useful server error code.
 
 ## Next
-- Scan a new, single-use QR on the physical device and verify that pairing reaches
-  a connected screen. The harness and Metro are running for this live attempt.
-- If pairing fails, inspect the new error and the running server before changing
-  the crypto protocol. The current scanner preserves the error until retry.
-- Finish the connected-screen walkthrough and mark T3 in the active plan.
+- In the sibling OpenBot repo, implement the current iPhone's sealed pairing
+  request/response and scoped E2E sessions while preserving supported PWA clients.
+  The Windows host currently responds `invalid_request` to a sealed request.
+- Build and install the updated Windows desktop app, then scan a fresh QR and
+  verify both HTTP and WebSocket connected flows. See the new handoff and plan.
 
 ## Retro
 - Comparing the package's web and native entry points revealed the missing exports;

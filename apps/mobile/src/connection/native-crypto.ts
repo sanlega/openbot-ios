@@ -45,7 +45,7 @@ export async function framingKeyFor(hostPubSpki: string, devicePrivateKey: Uint8
   const shared = sodium.crypto_scalarmult(devicePrivateKey, hostSpki.slice(-32));
   const domain = utf8.encode("openbot-e2e-v1");
   return new Uint8Array(
-    await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, toArrayBuffer(concat(domain, shared))),
+    await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, concat(domain, shared)),
   );
 }
 
@@ -131,7 +131,7 @@ export function unpackFrame(encoded: string): { header: Uint8Array; ciphertext: 
   return { header: bytes.slice(0, 24), ciphertext: bytes.slice(24) };
 }
 
-export function concat(...chunks: Uint8Array[]): Uint8Array {
+export function concat(...chunks: Uint8Array[]): Uint8Array<ArrayBuffer> {
   const length = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
   const result = new Uint8Array(length);
   let offset = 0;
@@ -139,12 +139,6 @@ export function concat(...chunks: Uint8Array[]): Uint8Array {
     result.set(chunk, offset);
     offset += chunk.length;
   }
-  return result;
-}
-
-function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-  const result = new ArrayBuffer(bytes.length);
-  new Uint8Array(result).set(bytes);
   return result;
 }
 

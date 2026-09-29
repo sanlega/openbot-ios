@@ -27,3 +27,11 @@ export function parsePairingQr(value: string): PairPayload {
   if (!result.success) throw new Error("The pairing QR code is missing required data.");
   return result.data;
 }
+
+/** Loopback URLs in a desktop QR point back to the phone, never to the desktop. */
+export function phonePairingUrls(urls: string[]): string[] {
+  return urls.filter((address) => {
+    const hostname = new URL(address).hostname;
+    return hostname !== "127.0.0.1" && hostname !== "localhost" && hostname !== "[::1]";
+  });
+}

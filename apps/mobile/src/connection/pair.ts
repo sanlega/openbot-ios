@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { parsePairingQr } from "@/lib/pairing";
+import { parsePairingQr, phonePairingUrls } from "@/lib/pairing";
 import {
   framingKeyFor,
   makeDeviceKeys,
@@ -22,7 +22,7 @@ export async function pairFromQr(qrUrl: string): Promise<DeviceCredentials> {
   const key = await framingKeyFor(qr.hostPub, keys.privateKey);
   const failures: string[] = [];
 
-  for (const address of qr.urls) {
+  for (const address of phonePairingUrls(qr.urls)) {
     const baseUrl = address.replace(/\/$/, "");
     try {
       const sealed = seal(
@@ -36,14 +36,22 @@ export async function pairFromQr(qrUrl: string): Promise<DeviceCredentials> {
           }),
         ),
       );
-      const response = await fetch(new URL("/api/devices/pair/complete", baseUrl), {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-openbot-pair-pub": keys.publicKeySpki,
-        },
-        body: JSON.stringify({ sealed }),
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      let response: Response;
+      try {
+        response = await fetch(new URL("/api/devices/pair/complete", baseUrl), {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-openbot-pair-pub": keys.publicKeySpki,
+          },
+          body: JSON.stringify({ sealed }),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
       const body = (await response.json()) as { sealed?: unknown; error?: unknown };
       if (!response.ok || typeof body.sealed !== "string") {
         failures.push(typeof body.error === "string" ? body.error : `HTTP ${response.status}`);
@@ -66,11 +74,17 @@ export async function pairFromQr(qrUrl: string): Promise<DeviceCredentials> {
     }
   }
 
-  if (failures.some((failure) => failure.includes("invalid_pair_secret"))) {
+  if (
+    failures.some((failure) =>
+      ["invalid_pair_secret", "pair_secret_reused", "pair_secret_expired"].includes(failure),
+    )
+  ) {
     throw new Error(
       "This pairing code expired or was already used. Create a new code on your desktop.",
     );
   }
+  const firstPairingError = failures.find((failure) => failure !== "unreachable");
+  if (firstPairingError) throw new Error(`Pairing failed: ${firstPairingError}`);
   throw new Error(
     "Could not reach OpenBot. Check that the desktop is online and on the same network.",
   );
