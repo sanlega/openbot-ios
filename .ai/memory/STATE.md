@@ -3,6 +3,16 @@
 _Last updated: 2026-09-29 by Claude_
 
 ## In progress
+- iPhone app redesign and features (plan `.ai/memory/plans/2026-09-29-mobile-design-and-features.md`,
+  T1-T6 done): native Liquid Glass tabs (Home, Chats, Inbox, Settings), desktop tokens and
+  Bot avatars in dark/light, messenger chat with live streaming and inline approvals and
+  `ask_user` forms, Inbox, Routines (test run / run now, pause/resume), paste-link pairing.
+  Verified screen by screen in the iOS simulator against a local fake-engine harness.
+  Remaining (T7): hands-on walkthrough on the physical iPhone.
+- Fixed a host bug that broke every live update to the phone: encrypted WebSocket frames
+  were JSON-quoted (`packages/core/src/ws.ts`). Fixed here and in the sibling desktop
+  checkout (local commit, not pushed); the phone also unwraps quoted frames, so the
+  already-installed Windows build works. Approvals with `resolution: null` now parse.
 - Public repository: `sanlega/openbot-ios`. Work on local `main`, which tracks
   `public/main` (push over SSH; the gh token lacks `workflow` scope). Commit
   authors were rewritten to the GitHub noreply identity when publishing, so the
