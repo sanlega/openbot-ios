@@ -3,6 +3,11 @@
 _Last updated: 2026-09-29 by Claude_
 
 ## In progress
+- Public repository: `sanlega/openbot-ios` (branch `main`, remote `public`). It was
+  pushed from a copy whose commit authors were rewritten to the GitHub noreply
+  identity; file contents are identical, but commit hashes differ from the local
+  `claude/product-polish`. Reconcile before pushing further (e.g. rebase new
+  commits onto `public/main`). The token-based `gh` push lacks `workflow` scope; use SSH.
 - Desktop protocol gap closed in source: the sibling OpenBot checkout now has the
   same sealed pairing, sealed device proofs, and scoped E2E host code as this
   checkout (its commit `Support the native iPhone pairing and scoped E2E
