@@ -348,3 +348,118 @@ describe("encrypted WebSocket ordering", () => {
     expect(received.filter((item) => item.type === "event").length).toBeGreaterThanOrEqual(30);
   });
 });
+
+describe("iPhone push registration", () => {
+  it("lets a paired phone register its APNs token and the owner send a test", async () => {
+    const { app: server, test } = await boot();
+    const { PushService, PushStore, ClientE2ESession: Session } = await import("@openbot/remote");
+    await server.inject({
+      method: "POST",
+      url: "/api/devices/pair",
+      payload: { name: "owner", role: "owner" },
+    });
+    const qr = await server.inject({ method: "POST", url: "/api/devices/pair/qr" });
+    const keys = generateX25519KeyPair();
+    const framingKey = deriveFramingKey(
+      computeSharedSecret(test.ctx.remote!.hostKeys.privateKey, keys.publicKeyBase64),
+    );
+    const complete = await server.inject({
+      method: "POST",
+      url: "/api/devices/pair/complete",
+      remoteAddress: REMOTE_IP,
+      headers: { "x-openbot-pair-pub": keys.publicKeyBase64 },
+      payload: {
+        sealed: await sealSecret(
+          framingKey,
+          Buffer.from(
+            JSON.stringify({
+              pairSecret: qr.json<{ pairSecret: string }>().pairSecret,
+              devicePub: keys.publicKeyBase64,
+              name: "phone",
+              via: "lan",
+            }),
+          ),
+        ),
+      },
+    });
+    const paired = JSON.parse(
+      (await openSecret(framingKey, complete.json<{ sealed: string }>().sealed)).toString("utf8"),
+    ) as { token: string; device: { id: string } };
+
+    // Swap in a service whose APNs transport is a fake.
+    const sent: { path: string; body: string }[] = [];
+    test.ctx.remote!.push = new PushService({
+      store: new PushStore(test.ctx.config.openbotHome),
+      vault: test.ctx.vault,
+      clock: test.ctx.clock,
+      isActiveDevice: (id) => !!test.ctx.repos.devices.getById(id),
+      lookups: {
+        botName: () => "OpenBot",
+        approval: () => undefined,
+        input: () => undefined,
+        message: () => undefined,
+      },
+      transport: async (request) => {
+        sent.push(request);
+        return { status: 200, body: "" };
+      },
+    });
+
+    const client = await Session.create(framingKey);
+    const proof = async () =>
+      sealSecret(
+        framingKey,
+        Buffer.from(
+          JSON.stringify({
+            token: paired.token,
+            nonce: randomBytes(24).toString("base64url"),
+            issuedAt: Date.now(),
+          }),
+        ),
+      );
+    const phoneToken = "ab".repeat(32);
+    const register = await server.inject({
+      method: "PUT",
+      url: "/api/devices/me/push",
+      remoteAddress: REMOTE_IP,
+      headers: {
+        "x-openbot-device": paired.device.id,
+        "x-openbot-device-token": await proof(),
+        "x-openbot-e2e-session": "push-test-session",
+        "content-type": "application/x-openbot-e2e",
+      },
+      payload: await client.encryptRequest(Buffer.from(JSON.stringify({ token: phoneToken }))),
+    });
+    expect(register.statusCode).toBe(200);
+    expect(JSON.parse((await client.decryptResponse(register.body)).toString("utf8"))).toEqual({
+      registered: true,
+      configured: false,
+    });
+
+    const { privateKey } = await import("node:crypto").then((crypto) =>
+      crypto.generateKeyPairSync("ec", { namedCurve: "prime256v1" }),
+    );
+    const configure = await server.inject({
+      method: "PUT",
+      url: "/api/remote/push",
+      payload: {
+        keyP8: privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
+        keyId: "ABC123DEFG",
+        teamId: "TEAM123456",
+      },
+    });
+    expect(configure.json()).toMatchObject({ configured: true, devices: 1 });
+    expect(configure.body).not.toContain("PRIVATE KEY");
+
+    const testPush = await server.inject({ method: "POST", url: "/api/remote/push/test" });
+    expect(testPush.json()).toEqual({ sent: 1, failed: 0, reasons: [] });
+    expect(sent[0]!.path).toBe(`/3/device/${phoneToken}`);
+
+    const phoneCannotConfigure = await server.inject({
+      method: "GET",
+      url: "/api/remote/push",
+      remoteAddress: REMOTE_IP,
+    });
+    expect(phoneCannotConfigure.statusCode).toBe(401);
+  });
+});

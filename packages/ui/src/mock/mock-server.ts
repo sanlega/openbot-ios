@@ -154,6 +154,14 @@ export class MockClientApiServer {
   private routineRuns = structuredClone(SEED_ROUTINE_RUNS);
   private takeoverByBot = new Map<string, boolean>();
   private connections: ConnectionView[] = [];
+  private push: {
+    configured: boolean;
+    keyId?: string;
+    teamId?: string;
+    bundleId: string;
+    previews: boolean;
+    devices: number;
+  } = { configured: false, bundleId: "ai.openbot.mobile", previews: true, devices: 1 };
   private remote: {
     enabled: boolean;
     via?: "lan" | "tailscale" | "cloudflare";
@@ -505,6 +513,37 @@ export class MockClientApiServer {
     if (method === "POST" && path === "/api/remote/tailscale/disable") {
       this.remote = { enabled: false, via: undefined, urls: [] };
       return sendJson(res, 200, { ok: true });
+    }
+    if (method === "GET" && path === "/api/remote/push") {
+      return sendJson(res, 200, this.push);
+    }
+    if (method === "PUT" && path === "/api/remote/push") {
+      const body = await readJson<{
+        keyP8?: string;
+        keyId?: string;
+        teamId?: string;
+        previews?: boolean;
+      }>(req);
+      if (!/^[A-Z0-9]{10}$/.test(body.keyId ?? "") || !/^[A-Z0-9]{10}$/.test(body.teamId ?? "")) {
+        return sendJson(res, 400, {
+          error: "invalid_request",
+          reason: "The Key ID is the 10-character ID shown next to the key.",
+        });
+      }
+      if (!this.push.configured && !body.keyP8?.includes("PRIVATE KEY")) {
+        return sendJson(res, 400, { error: "invalid_request", reason: "Add your .p8 key." });
+      }
+      this.push = {
+        ...this.push,
+        configured: true,
+        keyId: body.keyId,
+        teamId: body.teamId,
+        previews: body.previews ?? this.push.previews,
+      };
+      return sendJson(res, 200, this.push);
+    }
+    if (method === "POST" && path === "/api/remote/push/test") {
+      return sendJson(res, 200, { sent: this.push.devices, failed: 0, reasons: [] });
     }
     if (method === "GET" && path === "/api/inputs") {
       return sendJson(res, 200, { inputs: [] });

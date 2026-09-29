@@ -70,7 +70,14 @@ export class HttpTransport implements Transport {
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     if (!res.ok) {
-      throw new Error(`${method} ${path} failed: ${res.status}`);
+      const error = new Error(`${method} ${path} failed: ${res.status}`) as Error & {
+        status?: number;
+        body?: unknown;
+      };
+      error.status = res.status;
+      // The server's `{ error, reason }` lets screens show why, not just that it failed.
+      error.body = await res.json().catch(() => undefined);
+      throw error;
     }
     return (await res.json()) as T;
   }

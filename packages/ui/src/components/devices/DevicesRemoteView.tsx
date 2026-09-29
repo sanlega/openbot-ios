@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { LanAccessRow } from "./LanAccessRow.js";
+import { PhoneNotifications } from "./PhoneNotifications.js";
 import { Check, Copy, Globe, Link2, QrCode, RefreshCw, Smartphone, Tablet } from "lucide-react";
 import type { DevicesResponse, PairQrResponse } from "../../api/types.js";
 import { remoteStatusView, type HarnessRemoteStatus } from "../../api/adapters.js";
@@ -150,6 +151,7 @@ export function DevicesRemoteView() {
           </SettingsSection>
 
           <RemoteAccess remote={remote} onChanged={() => void refresh()} />
+          <PhoneNotifications />
         </div>
       </div>
     </div>

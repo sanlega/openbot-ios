@@ -759,3 +759,36 @@ a.pair-url:hover {
   color: var(--text);
   font-size: var(--text-base);
 }
+
+/* Phone notifications: APNs key form. */
+.push-key-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.push-key-form .push-key-field,
+.push-key-form .set-actions {
+  grid-column: 1 / -1;
+}
+
+.push-key-form textarea {
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+  min-height: 84px;
+  resize: vertical;
+}
+
+.push-key-form .field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.set-actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}

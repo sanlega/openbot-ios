@@ -7,6 +7,8 @@ import type { DeviceRole } from "@openbot/contracts";
 import { E2E_CONTENT_TYPE } from "./framing.js";
 import { computeSharedSecret, deriveFramingKey, openSecret, sealSecret } from "./crypto.js";
 import { PairingError } from "./pairing.js";
+import { PushService } from "./push/service.js";
+import { PushStore } from "./push/store.js";
 import {
   collectPairingUrls,
   createRemoteServices,
@@ -50,9 +52,27 @@ export interface RemoteCoreContext {
       get(): unknown;
       patch(p: Record<string, unknown>): void;
     };
+    bots: { getById(id: string): { name: string; label?: string } | undefined };
+    approvals: {
+      getById(id: string): { summary: string; detail: string; kind: string } | undefined;
+    };
+    inputRequests: { getById(id: string): { title: string } | undefined };
+    messages: {
+      getById(
+        id: string,
+      ): { author: { type: string }; text: string; proactive?: boolean } | undefined;
+    };
   };
   eventBus: {
     publish(input: { type: string; payload: Record<string, unknown> }): Promise<unknown>;
+    subscribe?(
+      onEvent: (event: {
+        type: string;
+        botId?: string;
+        threadId?: string;
+        payload: Record<string, unknown>;
+      }) => void,
+    ): () => void;
   };
   validators: Record<string, (value?: string) => Promise<{ ok: boolean; reason?: string }>>;
   remote?: RemoteServices;
@@ -78,9 +98,37 @@ export async function attachRemoteServices(
 ): Promise<RemoteServices> {
   const remote = services ?? (await createRemoteServices({ clock: ctx.clock, vault: ctx.vault }));
   ctx.remote = remote;
+  remote.push ??= attachPush(ctx);
   ctx.validators.tailscale = (value) => remote.tailscale.validateKey(value);
   ctx.validators.cloudflare = (value) => remote.cloudflare.validateToken(value);
   return remote;
+}
+
+/** Builds the APNs service and feeds it every event on the bus. */
+function attachPush(ctx: RemoteCoreContext): PushService {
+  const push = new PushService({
+    store: new PushStore(ctx.config.openbotHome),
+    vault: ctx.vault,
+    clock: ctx.clock,
+    isActiveDevice: (id) => {
+      const device = ctx.repos.devices.getById(id);
+      return !!device && !device.revokedAt;
+    },
+    lookups: {
+      botName: (id) => {
+        const bot = id ? ctx.repos.bots.getById(id) : undefined;
+        return bot?.label ?? bot?.name ?? "OpenBot";
+      },
+      approval: (id) => ctx.repos.approvals.getById(id),
+      input: (id) => ctx.repos.inputRequests.getById(id),
+      message: (id) => ctx.repos.messages.getById(id),
+    },
+    log: (message) => console.warn(`[push] ${message}`),
+  });
+  ctx.eventBus.subscribe?.((event) => {
+    void push.handle(event).catch(() => undefined);
+  });
+  return push;
 }
 
 /** Registers QR pairing routes, E2E hooks, and `/app` PWA static assets. */
@@ -92,6 +140,7 @@ export async function registerRemoteIntegration(
   if (!ctx.remote) throw new Error("call attachRemoteServices() first");
 
   registerPairingRoutes(app, ctx);
+  registerPushRoutes(app, ctx);
   registerE2EHooks(app, ctx);
   await registerPwaStatic(app, pwaRoot);
 }
@@ -250,6 +299,84 @@ function registerPairingRoutes(app: FastifyInstance, ctx: RemoteCoreContext): vo
       urls: session.urls,
       expiresAt: session.expiresAt,
     };
+  });
+}
+
+function requirePairedDevice(request: FastifyRequest, reply: FastifyReply): string | undefined {
+  const deviceId = request.device?.deviceId;
+  if (!deviceId || deviceId === "local") {
+    reply.code(request.device ? 403 : 401).send({ error: "paired_device_required" });
+    return undefined;
+  }
+  return deviceId;
+}
+
+/** A paired phone registers its APNs token; the owner sets up the APNs key. */
+function registerPushRoutes(app: FastifyInstance, ctx: RemoteCoreContext): void {
+  const push = () => ctx.remote!.push!;
+  const fail = (reply: FastifyReply, error: unknown) =>
+    reply.code(400).send({
+      error: "invalid_request",
+      reason: error instanceof Error ? error.message : "invalid request",
+    });
+
+  app.get("/api/devices/me/push", async (request, reply) => {
+    const deviceId = requirePairedDevice(request, reply);
+    if (!deviceId) return;
+    const status = await push().status();
+    return { registered: push().isRegistered(deviceId), configured: status.configured };
+  });
+
+  app.put("/api/devices/me/push", async (request, reply) => {
+    const deviceId = requirePairedDevice(request, reply);
+    if (!deviceId) return;
+    const token = (request.body as { token?: unknown } | undefined)?.token;
+    if (typeof token !== "string") return reply.code(400).send({ error: "token_required" });
+    try {
+      await push().register(deviceId, token);
+    } catch (error) {
+      return fail(reply, error);
+    }
+    return { registered: true, configured: (await push().status()).configured };
+  });
+
+  app.delete("/api/devices/me/push", async (request, reply) => {
+    const deviceId = requirePairedDevice(request, reply);
+    if (!deviceId) return;
+    await push().unregister(deviceId);
+    return { registered: false };
+  });
+
+  app.get("/api/remote/push", async (request, reply) => {
+    if (!requireOwnerDevice(request, reply)) return;
+    return push().status();
+  });
+
+  app.put("/api/remote/push", async (request, reply) => {
+    if (!requireOwnerDevice(request, reply)) return;
+    const body = (request.body ?? {}) as Record<string, unknown>;
+    const text = (key: string) =>
+      typeof body[key] === "string" ? (body[key] as string) : undefined;
+    try {
+      return await push().configure({
+        keyP8: text("keyP8") || undefined,
+        keyId: text("keyId") ?? "",
+        teamId: text("teamId") ?? "",
+        bundleId: text("bundleId"),
+        previews: typeof body.previews === "boolean" ? body.previews : undefined,
+      });
+    } catch (error) {
+      return fail(reply, error);
+    }
+  });
+
+  app.post("/api/remote/push/test", async (request, reply) => {
+    if (!requireOwnerDevice(request, reply)) return;
+    try {
+      return await push().sendTest();
+    } catch (error) {
+      return fail(reply, error);
+    }
   });
 }
 
