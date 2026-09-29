@@ -23,6 +23,12 @@ function safeSend(socket: WebSocket, payload: unknown): void {
   socket.send(JSON.stringify(payload));
 }
 
+/** E2E frames are already Base64 text; sending them JSON-quoted breaks strict decoders. */
+function safeSendFrame(socket: WebSocket, frame: string): void {
+  if (socket.readyState !== socket.OPEN) return;
+  socket.send(frame);
+}
+
 /**
  * `/api/ws` (plan §4.7): `{subscribe, since}` replays from that point with no
  * gaps (events are read from the same durable log `EventBus.replaySince`
@@ -45,12 +51,18 @@ export function registerWebSocketRoute(app: FastifyInstance, ctx: CoreContext): 
     // notifications themselves may arrive out of seq order, so nothing else is.
     let subscribed = false;
     let replayedUpTo = -1;
+    // Every outbound frame (events, command results, errors) shares this queue:
+    // E2E frames are a secretstream, so they must be encrypted and sent in order.
     let queue: Promise<void> = Promise.resolve();
-    const sendEvent = (event: OBEvent) => {
+    const send = (payload: unknown): Promise<void> => {
       queue = queue
-        .then(() => sendToClient(socket, ctx, request, device.deviceId, { type: "event", event }))
+        .then(() => sendToClient(socket, ctx, request, device.deviceId, payload))
         .catch(() => undefined);
+      return queue;
     };
+    const sendEvent = (event: OBEvent) => void send({ type: "event", event });
+    // Inbound frames are decrypted in arrival order for the same reason.
+    let inbound: Promise<void> = Promise.resolve();
     const unsubscribe = ctx.eventBus.subscribe((event: OBEvent) => {
       if (subscribed && event.seq > replayedUpTo) sendEvent(event);
     });
@@ -59,69 +71,72 @@ export function registerWebSocketRoute(app: FastifyInstance, ctx: CoreContext): 
     socket.on("error", () => unsubscribe());
 
     socket.on("message", (raw: Buffer | string) => {
-      void (async () => {
-        if (device.deviceId !== "local") {
-          const activeDevice = ctx.repos.devices.getById(device.deviceId);
-          if (!activeDevice || activeDevice.revokedAt) {
-            socket.close(4403, "device revoked");
-            unsubscribe();
+      inbound = inbound
+        .then(async () => {
+          if (device.deviceId !== "local") {
+            const activeDevice = ctx.repos.devices.getById(device.deviceId);
+            if (!activeDevice || activeDevice.revokedAt) {
+              socket.close(4403, "device revoked");
+              unsubscribe();
+              return;
+            }
+          }
+          let text = raw.toString();
+          const deviceRecord = ctx.repos.devices.getById(device.deviceId);
+          if (
+            shouldUseE2E(request, deviceRecord?.publicKey) &&
+            ctx.remote &&
+            deviceRecord?.publicKey
+          ) {
+            const framingKey = ctx.remote.framing.deriveKey(
+              ctx.remote.hostKeys.privateKey,
+              deviceRecord.publicKey,
+            );
+            const session = await ctx.remote.framing.ensureSession(
+              device.deviceId,
+              framingKey,
+              remoteE2EScope(request),
+            );
+            text = await session.decryptWs(text);
+          }
+
+          let command: ClientCommand;
+          try {
+            command = JSON.parse(text) as ClientCommand;
+          } catch {
+            void send({ type: "error", error: "invalid_json" });
             return;
           }
-        }
-        let text = raw.toString();
-        const deviceRecord = ctx.repos.devices.getById(device.deviceId);
-        if (
-          shouldUseE2E(request, deviceRecord?.publicKey) &&
-          ctx.remote &&
-          deviceRecord?.publicKey
-        ) {
-          const framingKey = ctx.remote.framing.deriveKey(
-            ctx.remote.hostKeys.privateKey,
-            deviceRecord.publicKey,
-          );
-          const session = await ctx.remote.framing.ensureSession(
-            device.deviceId,
-            framingKey,
-            remoteE2EScope(request),
-          );
-          text = await session.decryptWs(text);
-        }
 
-        let command: ClientCommand;
-        try {
-          command = JSON.parse(text) as ClientCommand;
-        } catch {
-          safeSend(socket, { type: "error", error: "invalid_json" });
-          return;
-        }
+          if (command.type === "subscribe") {
+            const since = command.since ?? -1;
+            // Synchronously: read the backlog, start listening, and queue the
+            // backlog in one step, so later live events queue behind it.
+            const backlog = ctx.eventBus.replaySince(since);
+            replayedUpTo = backlog.length > 0 ? backlog[backlog.length - 1]!.seq : since;
+            subscribed = true;
+            for (const event of backlog) sendEvent(event);
+            await queue;
+            return;
+          }
 
-        if (command.type === "subscribe") {
-          const since = command.since ?? -1;
-          // Synchronously: read the backlog, start listening, and queue the
-          // backlog in one step, so later live events queue behind it.
-          const backlog = ctx.eventBus.replaySince(since);
-          replayedUpTo = backlog.length > 0 ? backlog[backlog.length - 1]!.seq : since;
-          subscribed = true;
-          for (const event of backlog) sendEvent(event);
-          await queue;
-          return;
-        }
+          if (command.type === "command") {
+            // Run the command outside the inbound chain so a long command never
+            // blocks the next frame; its result still goes through the send queue.
+            void handleCommand(ctx, command, device.role)
+              .catch((error: unknown) => ({
+                ok: false,
+                reason: error instanceof Error ? error.message : "command failed",
+              }))
+              .then((result) =>
+                send({ type: "command.result", command: command.command, ...result }),
+              );
+            return;
+          }
 
-        if (command.type === "command") {
-          const result = await handleCommand(ctx, command, device.role);
-          await sendToClient(socket, ctx, request, device.deviceId, {
-            type: "command.result",
-            command: command.command,
-            ...result,
-          });
-          return;
-        }
-
-        await sendToClient(socket, ctx, request, device.deviceId, {
-          type: "error",
-          error: "unknown_message_type",
-        });
-      })();
+          await send({ type: "error", error: "unknown_message_type" });
+        })
+        .catch(() => undefined);
     });
   });
 }
@@ -145,7 +160,7 @@ async function sendToClient(
       remoteE2EScope(request),
     );
     const encrypted = await session.encryptWs(JSON.stringify(payload));
-    safeSend(socket, encrypted);
+    safeSendFrame(socket, encrypted);
     return;
   }
   safeSend(socket, payload);

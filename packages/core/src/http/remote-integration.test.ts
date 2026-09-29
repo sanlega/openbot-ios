@@ -238,3 +238,113 @@ describe("WS11 remote pairing integration", () => {
     expect(invalidProof.statusCode).toBe(401);
   });
 });
+
+describe("encrypted WebSocket ordering", () => {
+  it("keeps event frames and command results in one decryptable stream", async () => {
+    const { app: server, test } = await boot();
+    await server.inject({
+      method: "POST",
+      url: "/api/devices/pair",
+      payload: { name: "owner", role: "owner" },
+    });
+    const qr = await server.inject({ method: "POST", url: "/api/devices/pair/qr" });
+    const deviceKeys = generateX25519KeyPair();
+    const framingKey = deriveFramingKey(
+      computeSharedSecret(test.ctx.remote!.hostKeys.privateKey, deviceKeys.publicKeyBase64),
+    );
+    const complete = await server.inject({
+      method: "POST",
+      url: "/api/devices/pair/complete",
+      remoteAddress: REMOTE_IP,
+      headers: { "x-openbot-pair-pub": deviceKeys.publicKeyBase64 },
+      payload: {
+        sealed: await sealSecret(
+          framingKey,
+          Buffer.from(
+            JSON.stringify({
+              pairSecret: qr.json<{ pairSecret: string }>().pairSecret,
+              devicePub: deviceKeys.publicKeyBase64,
+              name: "phone",
+              via: "lan",
+            }),
+          ),
+        ),
+      },
+    });
+    const paired = JSON.parse(
+      (await openSecret(framingKey, complete.json<{ sealed: string }>().sealed)).toString("utf8"),
+    ) as { token: string; device: { id: string } };
+    const proof = await sealSecret(
+      framingKey,
+      Buffer.from(
+        JSON.stringify({
+          token: paired.token,
+          nonce: randomBytes(24).toString("base64url"),
+          issuedAt: Date.now(),
+        }),
+      ),
+    );
+
+    const address = await server.listen({ port: 0, host: "127.0.0.1" });
+    const { default: WebSocket } = await import("ws");
+    const socket = new WebSocket(address.replace("http://", "ws://") + "/api/ws", {
+      headers: {
+        "x-openbot-device": paired.device.id,
+        "x-openbot-device-token": proof,
+        "x-openbot-e2e-session": "ws-order-test-scope",
+      },
+    });
+    await new Promise((resolve, reject) => {
+      socket.once("open", resolve);
+      socket.once("error", reject);
+    });
+    const client = await ClientE2ESession.create(framingKey);
+    const received: { type: string; command?: string }[] = [];
+    const failures: unknown[] = [];
+    let decrypting = Promise.resolve();
+    socket.on("message", (raw) => {
+      decrypting = decrypting.then(async () => {
+        try {
+          const frame = raw.toString();
+          // Frames are bare Base64: strict decoders (libsodium on iOS) reject quotes.
+          if (!/^[A-Za-z0-9+/]+=*$/.test(frame))
+            throw new Error(`not a bare frame: ${frame.slice(0, 12)}`);
+          const clear = await client.decryptResponse(frame);
+          received.push(JSON.parse(clear.toString("utf8")) as { type: string });
+        } catch (error) {
+          failures.push(error);
+        }
+      });
+    });
+    const sendEncrypted = async (payload: unknown) =>
+      socket.send(await client.encryptRequest(Buffer.from(JSON.stringify(payload))));
+
+    await sendEncrypted({ type: "subscribe", since: test.ctx.eventBus.latestSeq() });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const bursts = Array.from({ length: 30 }, () =>
+      test.ctx.eventBus.publish({ type: "usage.recorded", payload: {} }),
+    );
+    await sendEncrypted({
+      type: "command",
+      command: "approval.resolve",
+      payload: { id: "apr_missing", resolution: "allow" },
+    });
+    await Promise.all(bursts);
+
+    const deadline = Date.now() + 3000;
+    while (
+      Date.now() < deadline &&
+      !(
+        received.some((item) => item.type === "command.result") &&
+        received.filter((item) => item.type === "event").length >= 30
+      )
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    await decrypting;
+    socket.close();
+    expect(failures).toEqual([]);
+    expect(received.some((item) => item.type === "command.result")).toBe(true);
+    expect(received.filter((item) => item.type === "event").length).toBeGreaterThanOrEqual(30);
+  });
+});
