@@ -12,6 +12,9 @@
       "bundleIdentifier": "ai.openbot.mobile",
       "config": {
         "usesNonExemptEncryption": true
+      },
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "OpenBot connects to your desktop over this Wi-Fi to show your Bots, chats, and approvals."
       }
     },
     "plugins": [

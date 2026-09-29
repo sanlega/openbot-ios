@@ -1,6 +1,9 @@
 import type { Bot } from "@openbot/contracts";
 import { SymbolView, type SFSymbol } from "expo-symbols";
-import { useEffect, useRef, type ReactNode } from "react";
+import { blobatar } from "blobatar";
+import { thinking, unsure } from "blobatar/expression";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { SvgXml } from "react-native-svg";
 import {
   ActivityIndicator,
   Animated,
@@ -12,7 +15,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { botHue, initials, type BotStatus } from "@/lib/format";
+import type { BotStatus } from "@/lib/format";
 import { makeStyles, radius, space, type, useTheme, type Palette } from "@/theme";
 
 /** A tab root: large title, optional trailing action, pull to refresh. */
@@ -281,7 +284,16 @@ export function Icon({
   return <SymbolView name={name} size={size} tintColor={color} weight={weight} />;
 }
 
-/** Same look as the desktop's `BotAvatar`: gradient disc, initials or crown, status dot. */
+/** Mid, saturated tones: pale ones wash out on the dark theme (same as desktop). */
+const BOT_LOOK = { traits: { tone: [0.45, 0.55, 0.65, 0.75] } };
+/** The Chief of Staff wears the app's accent and a round body. */
+const COS_LOOK = { hue: 285, traits: { shape: 0.11, tone: 0.6 } };
+
+/**
+ * Same as the desktop's `BotAvatar`: a blobatar generated from the Bot's id (a
+ * rename keeps the face) on a theme disc, whose expression shows its state —
+ * thinking while it works, unsure while it waits for you.
+ */
 export function BotAvatar({
   bot,
   size = 40,
@@ -293,11 +305,20 @@ export function BotAvatar({
 }) {
   const styles = useStyles();
   const { colors } = useTheme();
-  const hue = botHue(bot);
-  const gradient = bot.isChiefOfStaff
-    ? "linear-gradient(135deg, #8b7bff, #5a48e6)"
-    : `linear-gradient(135deg, hsl(${hue}, 70%, 62%), hsl(${hue + 18}, 64%, 48%))`;
   const emoji = bot.avatar && /\p{Extended_Pictographic}/u.test(bot.avatar) ? bot.avatar : null;
+  const expression = status === "working" ? thinking : status === "needs-you" ? unsure : undefined;
+  const svg = useMemo(
+    () =>
+      emoji
+        ? null
+        : blobatar(bot.id, {
+            size,
+            background: false,
+            expression,
+            ...(bot.isChiefOfStaff ? COS_LOOK : BOT_LOOK),
+          }),
+    [bot.id, bot.isChiefOfStaff, emoji, expression, size],
+  );
   const dotColor =
     status === "working" ? colors.accent : status === "needs-you" ? colors.amber : undefined;
   const dot = Math.max(10, Math.round(size * 0.28));
@@ -310,20 +331,30 @@ export function BotAvatar({
             width: size,
             height: size,
             borderRadius: size / 2,
-            experimental_backgroundImage: gradient,
+            backgroundColor: colors.surfaceRaised,
           },
         ]}
       >
         {emoji ? (
-          <Text style={{ fontSize: Math.round(size * 0.5) }}>{emoji}</Text>
-        ) : bot.isChiefOfStaff ? (
-          <Icon name="crown" size={Math.round(size * 0.5)} color="#FFFFFF" weight="semibold" />
-        ) : (
-          <Text style={[styles.avatarText, { fontSize: Math.round(size * 0.4) }]}>
-            {initials(bot.name)}
-          </Text>
-        )}
+          <Text style={{ fontSize: Math.round(size * 0.6) }}>{emoji}</Text>
+        ) : svg ? (
+          <SvgXml xml={svg} width={size} height={size} />
+        ) : null}
       </View>
+      {bot.isChiefOfStaff ? (
+        <View
+          style={{
+            position: "absolute",
+            top: -size * 0.3,
+            left: 0,
+            right: 0,
+            alignItems: "center",
+            transform: [{ rotate: "-8deg" }],
+          }}
+        >
+          <Icon name="crown.fill" size={Math.max(8, Math.round(size * 0.3))} color={colors.amber} />
+        </View>
+      ) : null}
       {dotColor ? (
         <StatusDot
           size={dot}
@@ -493,8 +524,7 @@ const useStyles = makeStyles((c) => ({
   buttonSecondary: { backgroundColor: c.surfaceRaised, borderWidth: 1, borderColor: c.border },
   buttonText: { fontSize: type.body, fontWeight: "600" },
   buttonTextCompact: { fontSize: type.subhead },
-  avatar: { alignItems: "center", justifyContent: "center" },
-  avatarText: { color: "#FFFFFF", fontWeight: "600", letterSpacing: 0.2 },
+  avatar: { alignItems: "center", justifyContent: "center", overflow: "hidden" },
   empty: {
     alignItems: "center",
     paddingVertical: space[8],
