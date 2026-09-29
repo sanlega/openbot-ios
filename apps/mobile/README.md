@@ -43,11 +43,26 @@ development client, build and install the Debug configuration again.
 
 ## Push notifications
 
-Push is not required for the app to work. iOS suspends background JavaScript and
-WebSockets, so the app refreshes its authoritative state when opened or foregrounded.
-Reliable push requires a server that can send to APNs after receiving and storing the
-device's APNs token. OpenBot does not run a hosted backend. A future implementation
-can let an owner configure their own APNs provider credentials on the desktop host or
-connect an optional self-hosted relay. A signing key must not be embedded in the
-OpenBot app binary. Until then, approvals and failures appear when the user opens the
-app and reconnects.
+The desktop sends notifications straight to Apple (APNs) with **your own** key; there
+is no OpenBot relay and no key inside the app. It needs a paid Apple Developer team
+(free Personal Team builds cannot receive push).
+
+1. In the Apple Developer portal, under Certificates, Identifiers & Profiles → Keys,
+   create a key with "Apple Push Notifications service (APNs)" enabled. Download the
+   `.p8` file (Apple lets you download it once) and note its Key ID and your Team ID.
+2. On the desktop: Settings → Devices → Phone notifications. Paste the Key ID, Team ID,
+   and the `.p8`. The key is stored in the desktop vault.
+3. Build the app with your paid team and the push entitlements:
+
+   ```sh
+   xcodebuild -workspace OpenBot.xcworkspace -scheme OpenBot -configuration Release \
+     -destination 'id=<device-udid>' -derivedDataPath build/device-release \
+     DEVELOPMENT_TEAM=<paid-team-id> CODE_SIGN_STYLE=Automatic \
+     CODE_SIGN_ENTITLEMENTS=OpenBot/OpenBotPush.entitlements -allowProvisioningUpdates build
+   ```
+
+4. On the iPhone: Settings → Notifications → on, then "Send a test" on the desktop.
+
+You are notified about approvals, Bot questions, updates the Chief of Staff decides to
+push, and replies to your messages. Replies from the chat you have open stay quiet.
+Turn off "Show message text" on the desktop to keep message text out of notifications.

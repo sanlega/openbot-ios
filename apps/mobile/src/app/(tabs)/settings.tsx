@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import { Alert, Text, View } from "react-native";
 import { ConnectionChip } from "@/components/ConnectionStatus";
+import { NotificationsRow } from "@/components/NotificationsRow";
 import { Icon, Row, RowGroup, Screen, Section } from "@/components/ui";
 import { useConnection } from "@/connection/ConnectionProvider";
 import { useHealth, useRoutines } from "@/lib/queries";
@@ -63,6 +64,14 @@ export default function SettingsScreen() {
       </Section>
 
       {connected ? (
+        <Section title="Notifications">
+          <RowGroup>
+            <NotificationsRow />
+          </RowGroup>
+        </Section>
+      ) : null}
+
+      {connected ? (
         <Section title="Automation">
           <RowGroup>
             <Row
@@ -92,12 +101,6 @@ export default function SettingsScreen() {
             leading={<Badge icon="key.fill" color={colors.amber} colors={colors} />}
             title="Stored in Keychain"
             subtitle="This iPhone keeps only its pairing keys. Conversations and Bot work stay on your desktop."
-            numberOfLines={3}
-          />
-          <Row
-            leading={<Badge icon="bell.badge" color={colors.muted} colors={colors} />}
-            title="Notifications"
-            subtitle="OpenBot has no cloud relay, so updates arrive while the app is open."
             numberOfLines={3}
           />
         </RowGroup>

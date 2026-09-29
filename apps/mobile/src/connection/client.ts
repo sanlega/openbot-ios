@@ -63,6 +63,7 @@ const InputList = z.object({ inputs: z.array(InputRequest) });
 const InputResponse = z.object({ input: InputRequest.optional() });
 const RoutineList = z.object({ routines: z.array(Routine) });
 const RoutineResponse = z.object({ routine: Routine.optional() });
+const PushStatus = z.object({ registered: z.boolean(), configured: z.boolean().optional() });
 const RunResponse = z.object({ run: z.object({ id: z.string() }).passthrough() });
 
 export type MobileThread = z.infer<typeof ThreadList>["threads"][number];
@@ -219,6 +220,19 @@ export class MobileClient {
     );
   }
 
+  async getPushStatus() {
+    return this.request("GET", "/api/devices/me/push", PushStatus);
+  }
+
+  /** Hands the desktop this iPhone's APNs device token (hex). */
+  async registerPush(token: string) {
+    return this.request("PUT", "/api/devices/me/push", PushStatus, { token });
+  }
+
+  async unregisterPush() {
+    return this.request("DELETE", "/api/devices/me/push", PushStatus, {});
+  }
+
   connectEvents(
     since: number,
     callbacks: {
@@ -315,7 +329,7 @@ export class MobileClient {
   }
 
   private async request<T>(
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "PUT" | "DELETE",
     path: string,
     schema: z.ZodType<T>,
     body?: unknown,

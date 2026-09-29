@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <!-- Push needs a paid Apple Developer team. Build with
+         CODE_SIGN_ENTITLEMENTS=OpenBot/OpenBotPush.entitlements (see apps/mobile/README.md).
+         Xcode switches this to "production" when exporting for distribution. -->
+    <key>aps-environment</key>
+    <string>development</string>
+  </dict>
+</plist>

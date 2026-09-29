@@ -1,7 +1,7 @@
 import type { Message } from "@openbot/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Stack, useLocalSearchParams } from "expo-router";
-import { useMemo, useState } from "react";
+import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -17,6 +17,7 @@ import { InputCard } from "@/components/InputCard";
 import { Markdown } from "@/components/Markdown";
 import { BotAvatar, EmptyState, ErrorText, Icon } from "@/components/ui";
 import { useConnection } from "@/connection/ConnectionProvider";
+import { setVisibleChat } from "@/connection/push";
 import { STATUS_LABEL, clockTime, dayLabel, sameDay } from "@/lib/format";
 import {
   useApprovals,
@@ -52,6 +53,12 @@ export default function ChatScreen() {
   const statuses = useBotStatuses(bot ? [bot] : []);
   const status = bot ? statuses[bot.id] : undefined;
   const [text, setText] = useState("");
+  useFocusEffect(
+    useCallback(() => {
+      setVisibleChat(botId);
+      return () => setVisibleChat(undefined);
+    }, [botId]),
+  );
   const [pending, setPending] = useState<{ id: string; text: string }[]>([]);
   const connected = state.status === "connected";
 

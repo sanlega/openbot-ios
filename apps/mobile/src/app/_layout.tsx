@@ -3,6 +3,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import { DevBridge } from "@/components/DevBridge";
+import { PushRouter } from "@/components/PushRouter";
 import { ConnectionProvider } from "@/connection/ConnectionProvider";
 import { useTheme } from "@/theme";
 
@@ -16,6 +17,7 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <ConnectionProvider>
         {__DEV__ ? <DevBridge /> : null}
+        <PushRouter />
         <StatusBar style={scheme === "dark" ? "light" : "dark"} />
         <Stack
           screenOptions={{

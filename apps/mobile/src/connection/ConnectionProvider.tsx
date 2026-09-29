@@ -5,6 +5,7 @@ import type { ConnectionState } from "@/lib/connection-state";
 import { advanceEventCursor, reconnectDelay } from "@/lib/connection-state";
 import { keysForEvent, reduceLiveText, type LiveText } from "@/lib/live";
 import { pairFromQr } from "./pair";
+import { refreshPushToken } from "./push";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import {
@@ -90,6 +91,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
           attempt.current = 0;
           setState({ status: "connected", since: Date.now() });
           void queryClient.invalidateQueries({ queryKey: ["openbot"] });
+          if (next) void refreshPushToken(next).catch(() => undefined);
         },
         onClose: () => {
           if (active.current && currentClient.current === next) scheduleReconnect();
