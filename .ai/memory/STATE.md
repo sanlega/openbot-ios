@@ -3,6 +3,13 @@
 _Last updated: 2026-09-29 by Claude_
 
 ## In progress
+- Push status: the iPhone runs a Release build signed with the owner's now-paid team and
+  the push entitlement (profile valid for a year). The owner's APNs key was verified
+  against Apple (sandbox and production). Host changes for the Windows desktop are on
+  `sanlega/OpenBot` branch `claude/iphone-push` (WebSocket frame fix + APNs push, rebased
+  on main v0.1.6, full pipeline green); the desktop's own agent merges and releases it.
+  Then the owner pastes the key in Devices → Phone notifications and turns notifications
+  on in the iPhone app. The earlier `claude/product-polish` branch on that repo is obsolete.
 - iPhone push notifications (plan `.ai/memory/plans/2026-09-29-iphone-push.md`, T1-T4 done):
   the desktop sends straight to APNs with the owner's `.p8` key (Devices → Phone
   notifications); the phone opts in under Settings → Notifications. Needs a paid Apple
