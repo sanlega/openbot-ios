@@ -9,6 +9,10 @@ _Last updated: 2026-09-29 by Claude_
   protocol`; full checks and integration E2E pass there). Remaining: push that
   commit, rebuild/install the Windows app from it, and repeat a fresh-QR pairing
   on the physical iPhone (plan T5).
+- Uncommitted `apps/mobile/.gitignore` and `apps/mobile/expo-env.d.ts` edits are
+  rewritten by Expo CLI on each Metro start (it wants `expo-env.d.ts` ignored).
+  They predate this session; left uncommitted pending an owner decision on
+  untracking `expo-env.d.ts`.
 - Verify pairing to a Windows host from the physical iPhone. The iOS app now uses
   standard Base64 for the host wire format, a native random session ID, and patched
   libsodium X25519/secretstream bindings. The patched native build is installed and
