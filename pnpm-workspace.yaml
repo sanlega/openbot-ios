@@ -13,3 +13,5 @@ onlyBuiltDependencies:
   - electron
   - esbuild
   - react-native-libsodium
+patchedDependencies:
+  react-native-libsodium@1.7.0: patches/react-native-libsodium@1.7.0.patch

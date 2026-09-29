@@ -2518,7 +2518,7 @@ DEPENDENCIES:
   - "React-microtasksnativemodule (from `../../../node_modules/.pnpm/react-native@0.86.3_@babel+core@7.29.7_@react-native+metro-config@0.87.1_@babel+core@7._86fe373da1e1014b6d42a9e1c1cbfce8/node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)"
   - "React-mutationobservernativemodule (from `../../../node_modules/.pnpm/react-native@0.86.3_@babel+core@7.29.7_@react-native+metro-config@0.87.1_@babel+core@7._86fe373da1e1014b6d42a9e1c1cbfce8/node_modules/react-native/ReactCommon/react/nativemodule/mutationobserver`)"
   - "react-native-get-random-values (from `../../../node_modules/.pnpm/react-native-get-random-values@2.0.0_react-native@0.86.3_@babel+core@7.29.7_@react-nati_afa48a8c5d38bfc77f419f8c60aec0dd/node_modules/react-native-get-random-values`)"
-  - "react-native-libsodium (from `../../../node_modules/.pnpm/react-native-libsodium@1.7.0_react-native@0.86.3_@babel+core@7.29.7_@react-native+metro_ce074d5bb984b6a5bb6aad1fece03efb/node_modules/react-native-libsodium`)"
+  - "react-native-libsodium (from `../../../node_modules/.pnpm/react-native-libsodium@1.7.0_patch_hash=d67a02d221ac565cac3377ef024f2d9be4c374971ecd016_b13891a685981f2e3b2ef54dff356596/node_modules/react-native-libsodium`)"
   - "react-native-safe-area-context (from `../../../node_modules/.pnpm/react-native-safe-area-context@5.7.0_react-native@0.86.3_@babel+core@7.29.7_@react-nati_31ee00c07de3effed51a53cad0200315/node_modules/react-native-safe-area-context`)"
   - "React-NativeModulesApple (from `../../../node_modules/.pnpm/react-native@0.86.3_@babel+core@7.29.7_@react-native+metro-config@0.87.1_@babel+core@7._86fe373da1e1014b6d42a9e1c1cbfce8/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)"
   - "React-networking (from `../../../node_modules/.pnpm/react-native@0.86.3_@babel+core@7.29.7_@react-native+metro-config@0.87.1_@babel+core@7._86fe373da1e1014b6d42a9e1c1cbfce8/node_modules/react-native/ReactCommon/react/networking`)"
@@ -2701,7 +2701,7 @@ EXTERNAL SOURCES:
   react-native-get-random-values:
     :path: "../../../node_modules/.pnpm/react-native-get-random-values@2.0.0_react-native@0.86.3_@babel+core@7.29.7_@react-nati_afa48a8c5d38bfc77f419f8c60aec0dd/node_modules/react-native-get-random-values"
   react-native-libsodium:
-    :path: "../../../node_modules/.pnpm/react-native-libsodium@1.7.0_react-native@0.86.3_@babel+core@7.29.7_@react-native+metro_ce074d5bb984b6a5bb6aad1fece03efb/node_modules/react-native-libsodium"
+    :path: "../../../node_modules/.pnpm/react-native-libsodium@1.7.0_patch_hash=d67a02d221ac565cac3377ef024f2d9be4c374971ecd016_b13891a685981f2e3b2ef54dff356596/node_modules/react-native-libsodium"
   react-native-safe-area-context:
     :path: "../../../node_modules/.pnpm/react-native-safe-area-context@5.7.0_react-native@0.86.3_@babel+core@7.29.7_@react-nati_31ee00c07de3effed51a53cad0200315/node_modules/react-native-safe-area-context"
   React-NativeModulesApple:

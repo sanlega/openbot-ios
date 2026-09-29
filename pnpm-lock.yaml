@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  react-native-libsodium@1.7.0:
+    hash: d67a02d221ac565cac3377ef024f2d9be4c374971ecd016c36a6b1e224cfb120
+    path: patches/react-native-libsodium@1.7.0.patch
+
 importers:
 
   .:
@@ -111,6 +116,9 @@ importers:
       expo-status-bar:
         specifier: ~57.0.0
         version: 57.0.1(expo@57.0.25)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.0)(react@19.2.3))(react@19.2.3)
+      expo-symbols:
+        specifier: ~57.0.3
+        version: 57.0.3(expo-font@57.0.4)(expo@57.0.25)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.0)(react@19.2.3))(react@19.2.3)
       react:
         specifier: 19.2.3
         version: 19.2.3
@@ -122,7 +130,7 @@ importers:
         version: 2.0.0(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.0)(react@19.2.3))
       react-native-libsodium:
         specifier: 1.7.0
-        version: 1.7.0(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.0)(react@19.2.3))(react@19.2.3)
+        version: 1.7.0(patch_hash=d67a02d221ac565cac3377ef024f2d9be4c374971ecd016c36a6b1e224cfb120)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.0)(react@19.2.3))(react@19.2.3)
       react-native-safe-area-context:
         specifier: ~5.7.0
         version: 5.7.0(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.0)(react@19.2.3))(react@19.2.3)
@@ -13224,7 +13232,7 @@ snapshots:
       react: 19.2.3
       react-native: 0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.0)(react@19.2.3)
 
-  react-native-libsodium@1.7.0(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.0)(react@19.2.3))(react@19.2.3):
+  react-native-libsodium@1.7.0(patch_hash=d67a02d221ac565cac3377ef024f2d9be4c374971ecd016c36a6b1e224cfb120)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.0)(react@19.2.3))(react@19.2.3):
     dependencies:
       '@noble/hashes': 1.8.0
       libsodium-wrappers: 0.8.4

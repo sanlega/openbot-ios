@@ -2,6 +2,7 @@ import { Tabs } from "expo-router";
 import { colors } from "@/theme";
 import { useQuery } from "@tanstack/react-query";
 import { useConnection } from "@/connection/ConnectionProvider";
+import { SymbolView, type SFSymbol } from "expo-symbols";
 
 const tabTitle: Record<string, string> = {
   index: "Home",
@@ -9,6 +10,13 @@ const tabTitle: Record<string, string> = {
   activity: "Activity",
   bots: "Bots",
   settings: "Settings",
+};
+const tabSymbol: Record<string, SFSymbol> = {
+  index: "house",
+  threads: "bubble.left.and.bubble.right",
+  activity: "bell",
+  bots: "person.2",
+  settings: "gearshape",
 };
 
 export default function TabLayout() {
@@ -35,6 +43,14 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.muted,
         tabBarLabelStyle: { fontSize: 10, fontWeight: "600" },
+        tabBarIcon: ({ color, focused }) => (
+          <SymbolView
+            name={tabSymbol[route.name] ?? "circle"}
+            size={22}
+            tintColor={color}
+            weight={focused ? "semibold" : "regular"}
+          />
+        ),
       })}
     >
       <Tabs.Screen name="index" options={{ tabBarLabel: "Home" }} />

@@ -119,11 +119,17 @@ export default function HomeScreen() {
         </>
       ) : (
         <View style={styles.offline}>
+          <Text style={styles.eyebrow}>GET STARTED</Text>
           <Text style={styles.offlineTitle}>Pair your OpenBot desktop</Text>
           <Text style={styles.caption}>
             Scan its pairing QR code to monitor Bots, follow conversations, and handle approvals
             from your phone.
           </Text>
+          <Link href="/scan" asChild>
+            <Pressable style={styles.pairButton}>
+              <Text style={styles.pairButtonLabel}>Scan pairing code</Text>
+            </Pressable>
+          </Link>
         </View>
       )}
     </Screen>
@@ -131,8 +137,25 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  offline: { gap: 7, paddingVertical: 5 },
-  offlineTitle: { color: colors.text, fontSize: 19, fontWeight: "700" },
+  offline: {
+    gap: 12,
+    padding: 22,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  eyebrow: { color: colors.accent, fontSize: 11, fontWeight: "700", letterSpacing: 1.2 },
+  offlineTitle: { color: colors.text, fontSize: 23, fontWeight: "700" },
   caption: { color: colors.muted, fontSize: 13, lineHeight: 19 },
+  pairButton: {
+    marginTop: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    borderRadius: 12,
+    backgroundColor: colors.accent,
+  },
+  pairButtonLabel: { color: colors.background, fontSize: 15, fontWeight: "700" },
   link: { color: colors.accent, fontWeight: "700", paddingVertical: 7 },
 });

@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colors } from "@/theme";
 import { parsePairingQr } from "@/lib/pairing";
@@ -10,20 +10,20 @@ export default function PairingScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [error, setError] = useState<string>();
   const [scanned, setScanned] = useState(false);
+  const scanLocked = useRef(false);
   const { pair } = useConnection();
 
   const onBarcodeScanned = ({ data }: { data: string }) => {
-    if (scanned) return;
+    if (scanLocked.current) return;
+    scanLocked.current = true;
     setScanned(true);
     try {
       parsePairingQr(data);
       void pair(data).catch((cause: unknown) => {
         setError(cause instanceof Error ? cause.message : "Pairing failed. Try again.");
-        setScanned(false);
       });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "That QR code could not be read.");
-      setScanned(false);
     }
   };
 
@@ -54,6 +54,18 @@ export default function PairingScanScreen() {
         <Text style={styles.hint}>
           {error ?? (scanned ? "Pairing securely…" : "Point your camera at the pairing QR code")}
         </Text>
+        {error && (
+          <Pressable
+            onPress={() => {
+              setError(undefined);
+              setScanned(false);
+              scanLocked.current = false;
+            }}
+            style={styles.button}
+          >
+            <Text style={styles.buttonLabel}>Scan again</Text>
+          </Pressable>
+        )}
         <Pressable onPress={() => router.back()}>
           <Text style={styles.cancel}>Cancel</Text>
         </Pressable>

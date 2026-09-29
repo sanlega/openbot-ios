@@ -5,6 +5,7 @@ const X25519_SPKI_PREFIX = new Uint8Array([
   0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x6e, 0x03, 0x21, 0x00,
 ]);
 const utf8 = new TextEncoder();
+const WIRE_BASE64 = sodium.base64_variants.ORIGINAL;
 
 export interface MobileDeviceKeys {
   privateKey: Uint8Array;
@@ -25,7 +26,10 @@ export async function makeDeviceKeys(privateKey?: Uint8Array): Promise<MobileDev
   const keyPair = privateKey
     ? { privateKey, publicKey: sodium.crypto_scalarmult_base(privateKey) }
     : sodium.crypto_box_keypair();
-  const publicKeySpki = sodium.to_base64(concat(X25519_SPKI_PREFIX, keyPair.publicKey));
+  const publicKeySpki = sodium.to_base64(
+    concat(X25519_SPKI_PREFIX, keyPair.publicKey),
+    WIRE_BASE64,
+  );
   return {
     privateKey: keyPair.privateKey,
     publicKey: keyPair.publicKey,
@@ -34,7 +38,7 @@ export async function makeDeviceKeys(privateKey?: Uint8Array): Promise<MobileDev
 }
 
 export async function framingKeyFor(hostPubSpki: string, devicePrivateKey: Uint8Array) {
-  const hostSpki = sodium.from_base64(hostPubSpki);
+  const hostSpki = sodium.from_base64(hostPubSpki, WIRE_BASE64);
   if (!hasPrefix(hostSpki, X25519_SPKI_PREFIX) || hostSpki.length !== 44) {
     throw new Error("The pairing QR contains an invalid OpenBot host key.");
   }
@@ -48,11 +52,11 @@ export async function framingKeyFor(hostPubSpki: string, devicePrivateKey: Uint8
 export function seal(key: Uint8Array, clear: Uint8Array): string {
   const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES);
   const ciphertext = sodium.crypto_secretbox_easy(clear, nonce, key);
-  return sodium.to_base64(concat(nonce, ciphertext));
+  return sodium.to_base64(concat(nonce, ciphertext), WIRE_BASE64);
 }
 
 export function open(key: Uint8Array, sealed: string): Uint8Array {
-  const packed = sodium.from_base64(sealed);
+  const packed = sodium.from_base64(sealed, WIRE_BASE64);
   const nonceBytes = sodium.crypto_secretbox_NONCEBYTES;
   if (packed.length < nonceBytes + 16)
     throw new Error("The encrypted OpenBot response is incomplete.");
@@ -81,11 +85,15 @@ export function decodeText(value: Uint8Array): string {
 }
 
 export function toBase64(value: Uint8Array): string {
-  return sodium.to_base64(value);
+  return sodium.to_base64(value, WIRE_BASE64);
 }
 
 export function fromBase64(value: string): Uint8Array {
-  return sodium.from_base64(value);
+  return sodium.from_base64(value, WIRE_BASE64);
+}
+
+export function randomScopeId(): string {
+  return sodium.to_base64(sodium.randombytes_buf(24), sodium.base64_variants.URLSAFE_NO_PADDING);
 }
 
 export function createPushStream(key: Uint8Array): PushStream {
@@ -114,11 +122,11 @@ export function createPullStream(key: Uint8Array, header: Uint8Array): PullStrea
 }
 
 export function joinFrame(header: Uint8Array, ciphertext: Uint8Array): string {
-  return sodium.to_base64(concat(header, ciphertext));
+  return sodium.to_base64(concat(header, ciphertext), WIRE_BASE64);
 }
 
 export function unpackFrame(encoded: string): { header: Uint8Array; ciphertext: Uint8Array } {
-  const bytes = sodium.from_base64(encoded);
+  const bytes = sodium.from_base64(encoded, WIRE_BASE64);
   if (bytes.length < 25) throw new Error("Encrypted frame is too short.");
   return { header: bytes.slice(0, 24), ciphertext: bytes.slice(24) };
 }

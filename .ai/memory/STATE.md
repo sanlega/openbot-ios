@@ -3,6 +3,12 @@
 _Last updated: 2026-09-29 by Codex_
 
 ## In progress
+- Verify QR pairing on the physical iPhone with a fresh code. The iOS app now uses
+  standard Base64 for the host wire format, a native random session ID, and patched
+  libsodium X25519/secretstream bindings. The patched native build is installed and
+  launches; Home now has a dark background and distinct tab icons. A live pairing
+  attempt and connected-screen walkthrough remain. Plan:
+  `.ai/memory/plans/2026-09-29-iphone-pairing-ui.md`.
 - Build the native iOS companion using `.ai/memory/plans/2026-09-28-native-ios-companion.md`.
   Existing Bot/thread/message/activity/approval APIs are reused. Expo screens, sealed QR
   pairing/auth, SecureStore, independent E2E streams, reconnect, and remote actions are
@@ -156,8 +162,8 @@ _Last updated: 2026-09-29 by Codex_
   format and `mh check` passed. Lint has three pre-existing warnings and no errors.
 
 ## Known gaps
-- Physical iPhone launch is verified on iOS 27 with Metro. App functionality beyond
-  loading the Settings screen still needs a hands-on pairing/conversation walkthrough.
+- Physical iPhone launch and the unpaired Home screen are verified on iOS 27 with Metro.
+  QR pairing and connected screens still need a hands-on walkthrough.
   See `.ai/local/mobile-ios-device-session.md` for machine-specific device setup.
 - `mh check` reports stale generated `.agents` skill files; this checkout omits those
   read-only source files, so generated metaharness files were left untouched.

@@ -1,4 +1,4 @@
-import { framingKeyFor, fromBase64 } from "./native-crypto";
+import { framingKeyFor, fromBase64, randomScopeId } from "./native-crypto";
 import { ApiError, MobileClient } from "./client";
 import { clearCredentials, loadCredentials, loadEventCursor, saveEventCursor } from "./storage";
 import type { ConnectionState } from "@/lib/connection-state";
@@ -72,7 +72,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
       }
       const devicePrivateKey = fromBase64(credentials.devicePrivateKey);
       const key = await framingKeyFor(credentials.hostPub, devicePrivateKey);
-      const sessionId = globalThis.crypto.randomUUID().replaceAll("-", "");
+      const sessionId = randomScopeId();
       next = new MobileClient(credentials, key, sessionId);
       currentClient.current?.close();
       currentClient.current = next;

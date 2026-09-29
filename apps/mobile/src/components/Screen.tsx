@@ -4,7 +4,7 @@ import { colors } from "@/theme";
 
 export function Screen({ children }: { children: ReactNode }) {
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
       {children}
       <View style={styles.footer}>
         <View style={styles.footerDot} />
@@ -28,6 +28,7 @@ export function EmptyCard({ title, detail }: { title: string; detail: string }) 
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
   content: { padding: 20, paddingBottom: 34, gap: 16 },
   sectionTitle: { color: colors.text, fontSize: 17, fontWeight: "700", marginTop: 8 },
   emptyCard: {

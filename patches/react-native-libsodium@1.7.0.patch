@@ -1,0 +1,199 @@
+diff --git a/cpp/react-native-libsodium.cpp b/cpp/react-native-libsodium.cpp
+index a97e74b23936377c8279bf99defe4389d8e0ff8e..12e320b36d904a8f48f434487639d69cdebdeb80 100644
+--- a/cpp/react-native-libsodium.cpp
++++ b/cpp/react-native-libsodium.cpp
+@@ -185,6 +185,125 @@ namespace ReactNativeLibsodium
+ 
+     void installLibsodium(jsi::Runtime &jsiRuntime)
+     {
++        auto jsi_crypto_scalarmult = jsi::Function::createFromHostFunction(
++            jsiRuntime, jsi::PropNameID::forUtf8(jsiRuntime, "crypto_scalarmult"), 2,
++            [](jsi::Runtime &runtime, const jsi::Value &, const jsi::Value *arguments, size_t) -> jsi::Value
++            {
++                auto secret = arguments[0].asObject(runtime).getArrayBuffer(runtime);
++                auto point = arguments[1].asObject(runtime).getArrayBuffer(runtime);
++                if (secret.length(runtime) != crypto_scalarmult_SCALARBYTES || point.length(runtime) != crypto_scalarmult_BYTES)
++                    throw jsi::JSError(runtime, "invalid crypto_scalarmult key length");
++                std::vector<uint8_t> result(crypto_scalarmult_BYTES);
++                throwOnBadResult("crypto_scalarmult", runtime,
++                    crypto_scalarmult(result.data(), secret.data(runtime), point.data(runtime)));
++                return arrayBufferAsObject(runtime, result);
++            });
++        jsiRuntime.global().setProperty(jsiRuntime, "jsi_crypto_scalarmult", std::move(jsi_crypto_scalarmult));
++
++        auto jsi_crypto_scalarmult_base = jsi::Function::createFromHostFunction(
++            jsiRuntime, jsi::PropNameID::forUtf8(jsiRuntime, "crypto_scalarmult_base"), 1,
++            [](jsi::Runtime &runtime, const jsi::Value &, const jsi::Value *arguments, size_t) -> jsi::Value
++            {
++                auto secret = arguments[0].asObject(runtime).getArrayBuffer(runtime);
++                if (secret.length(runtime) != crypto_scalarmult_SCALARBYTES)
++                    throw jsi::JSError(runtime, "invalid crypto_scalarmult scalar length");
++                std::vector<uint8_t> result(crypto_scalarmult_BYTES);
++                throwOnBadResult("crypto_scalarmult_base", runtime,
++                    crypto_scalarmult_base(result.data(), secret.data(runtime)));
++                return arrayBufferAsObject(runtime, result);
++            });
++        jsiRuntime.global().setProperty(jsiRuntime, "jsi_crypto_scalarmult_base", std::move(jsi_crypto_scalarmult_base));
++
++        auto jsi_secretstream_init_push = jsi::Function::createFromHostFunction(
++            jsiRuntime, jsi::PropNameID::forUtf8(jsiRuntime, "secretstream_init_push"), 1,
++            [](jsi::Runtime &runtime, const jsi::Value &, const jsi::Value *arguments, size_t) -> jsi::Value
++            {
++                auto key = arguments[0].asObject(runtime).getArrayBuffer(runtime);
++                if (key.length(runtime) != crypto_secretstream_xchacha20poly1305_KEYBYTES)
++                    throw jsi::JSError(runtime, "invalid secretstream key length");
++                crypto_secretstream_xchacha20poly1305_state state;
++                std::vector<uint8_t> header(crypto_secretstream_xchacha20poly1305_HEADERBYTES);
++                throwOnBadResult("secretstream_init_push", runtime,
++                    crypto_secretstream_xchacha20poly1305_init_push(&state, header.data(), key.data(runtime)));
++                std::vector<uint8_t> stateBytes(sizeof(state));
++                memcpy(stateBytes.data(), &state, sizeof(state));
++                auto result = jsi::Object(runtime);
++                result.setProperty(runtime, "state", arrayBufferAsObject(runtime, stateBytes));
++                result.setProperty(runtime, "header", arrayBufferAsObject(runtime, header));
++                sodium_memzero(&state, sizeof(state));
++                return result;
++            });
++        jsiRuntime.global().setProperty(jsiRuntime, "jsi_secretstream_init_push", std::move(jsi_secretstream_init_push));
++
++        auto jsi_secretstream_init_pull = jsi::Function::createFromHostFunction(
++            jsiRuntime, jsi::PropNameID::forUtf8(jsiRuntime, "secretstream_init_pull"), 2,
++            [](jsi::Runtime &runtime, const jsi::Value &, const jsi::Value *arguments, size_t) -> jsi::Value
++            {
++                auto header = arguments[0].asObject(runtime).getArrayBuffer(runtime);
++                auto key = arguments[1].asObject(runtime).getArrayBuffer(runtime);
++                if (header.length(runtime) != crypto_secretstream_xchacha20poly1305_HEADERBYTES ||
++                    key.length(runtime) != crypto_secretstream_xchacha20poly1305_KEYBYTES)
++                    throw jsi::JSError(runtime, "invalid secretstream header or key length");
++                crypto_secretstream_xchacha20poly1305_state state;
++                throwOnBadResult("secretstream_init_pull", runtime,
++                    crypto_secretstream_xchacha20poly1305_init_pull(&state, header.data(runtime), key.data(runtime)));
++                std::vector<uint8_t> stateBytes(sizeof(state));
++                memcpy(stateBytes.data(), &state, sizeof(state));
++                sodium_memzero(&state, sizeof(state));
++                return arrayBufferAsObject(runtime, stateBytes);
++            });
++        jsiRuntime.global().setProperty(jsiRuntime, "jsi_secretstream_init_pull", std::move(jsi_secretstream_init_pull));
++
++        auto jsi_secretstream_push = jsi::Function::createFromHostFunction(
++            jsiRuntime, jsi::PropNameID::forUtf8(jsiRuntime, "secretstream_push"), 3,
++            [](jsi::Runtime &runtime, const jsi::Value &, const jsi::Value *arguments, size_t) -> jsi::Value
++            {
++                auto stateBytes = arguments[0].asObject(runtime).getArrayBuffer(runtime);
++                auto message = arguments[1].asObject(runtime).getArrayBuffer(runtime);
++                if (stateBytes.length(runtime) != sizeof(crypto_secretstream_xchacha20poly1305_state))
++                    throw jsi::JSError(runtime, "invalid secretstream state length");
++                const auto tag = static_cast<unsigned char>(arguments[2].asNumber());
++                crypto_secretstream_xchacha20poly1305_state state;
++                memcpy(&state, stateBytes.data(runtime), sizeof(state));
++                std::vector<uint8_t> ciphertext(message.length(runtime) + crypto_secretstream_xchacha20poly1305_ABYTES);
++                unsigned long long written = 0;
++                int status = crypto_secretstream_xchacha20poly1305_push(&state, ciphertext.data(), &written,
++                    message.data(runtime), message.length(runtime), nullptr, 0, tag);
++                if (status == 0) memcpy(stateBytes.data(runtime), &state, sizeof(state));
++                sodium_memzero(&state, sizeof(state));
++                throwOnBadResult("secretstream_push", runtime, status);
++                ciphertext.resize(written);
++                return arrayBufferAsObject(runtime, ciphertext);
++            });
++        jsiRuntime.global().setProperty(jsiRuntime, "jsi_secretstream_push", std::move(jsi_secretstream_push));
++
++        auto jsi_secretstream_pull = jsi::Function::createFromHostFunction(
++            jsiRuntime, jsi::PropNameID::forUtf8(jsiRuntime, "secretstream_pull"), 2,
++            [](jsi::Runtime &runtime, const jsi::Value &, const jsi::Value *arguments, size_t) -> jsi::Value
++            {
++                auto stateBytes = arguments[0].asObject(runtime).getArrayBuffer(runtime);
++                auto ciphertext = arguments[1].asObject(runtime).getArrayBuffer(runtime);
++                if (stateBytes.length(runtime) != sizeof(crypto_secretstream_xchacha20poly1305_state) ||
++                    ciphertext.length(runtime) < crypto_secretstream_xchacha20poly1305_ABYTES)
++                    throw jsi::JSError(runtime, "invalid secretstream state or frame length");
++                crypto_secretstream_xchacha20poly1305_state state;
++                memcpy(&state, stateBytes.data(runtime), sizeof(state));
++                std::vector<uint8_t> message(ciphertext.length(runtime) - crypto_secretstream_xchacha20poly1305_ABYTES);
++                unsigned long long written = 0;
++                unsigned char tag = 0;
++                int status = crypto_secretstream_xchacha20poly1305_pull(&state, message.data(), &written, &tag,
++                    ciphertext.data(runtime), ciphertext.length(runtime), nullptr, 0);
++                if (status == 0) memcpy(stateBytes.data(runtime), &state, sizeof(state));
++                sodium_memzero(&state, sizeof(state));
++                if (status != 0) return jsi::Value(false);
++                message.resize(written);
++                auto result = jsi::Object(runtime);
++                result.setProperty(runtime, "message", arrayBufferAsObject(runtime, message));
++                result.setProperty(runtime, "tag", static_cast<int>(tag));
++                return result;
++            });
++        jsiRuntime.global().setProperty(jsiRuntime, "jsi_secretstream_pull", std::move(jsi_secretstream_pull));
++
+         jsiRuntime.global().setProperty(jsiRuntime, "jsi_crypto_secretbox_KEYBYTES", static_cast<int>(crypto_secretbox_KEYBYTES));
+         jsiRuntime.global().setProperty(jsiRuntime, "jsi_crypto_secretbox_NONCEBYTES", static_cast<int>(crypto_secretbox_NONCEBYTES));
+         jsiRuntime.global().setProperty(jsiRuntime, "jsi_crypto_pwhash_SALTBYTES", static_cast<int>(crypto_pwhash_SALTBYTES));
+diff --git a/src/lib.native.ts b/src/lib.native.ts
+index bfa7ea8ba73ed71b544b5c6de90296e4b9055321..08333715764aa2c94db88cf6bc0685779814479c 100644
+--- a/src/lib.native.ts
++++ b/src/lib.native.ts
+@@ -34,6 +34,12 @@ if (Libsodium && typeof Libsodium.install === 'function') {
+ }
+ 
+ declare global {
++  function jsi_crypto_scalarmult(secret: ArrayBuffer, point: ArrayBuffer): ArrayBuffer;
++  function jsi_crypto_scalarmult_base(secret: ArrayBuffer): ArrayBuffer;
++  function jsi_secretstream_init_push(key: ArrayBuffer): { state: ArrayBuffer; header: ArrayBuffer };
++  function jsi_secretstream_init_pull(header: ArrayBuffer, key: ArrayBuffer): ArrayBuffer;
++  function jsi_secretstream_push(state: ArrayBuffer, message: ArrayBuffer, tag: number): ArrayBuffer;
++  function jsi_secretstream_pull(state: ArrayBuffer, ciphertext: ArrayBuffer): false | { message: ArrayBuffer; tag: number };
+   var jsi_crypto_auth_BYTES: number;
+   var jsi_crypto_auth_KEYBYTES: number;
+   var jsi_crypto_secretbox_KEYBYTES: number;
+@@ -871,10 +877,51 @@ export function _unstable_crypto_kdf_hkdf_sha256_expand(
+ // add no-op ready to match the libsodium-wrappers API
+ export const ready: Promise<void> = new Promise((resolve) => resolve());
+ 
++export const crypto_secretstream_xchacha20poly1305_TAG_MESSAGE = 0;
++
++export function crypto_scalarmult(secret: Uint8Array, point: Uint8Array): Uint8Array {
++  return new Uint8Array(global.jsi_crypto_scalarmult(toArrayBuffer(secret), toArrayBuffer(point)));
++}
++
++export function crypto_scalarmult_base(secret: Uint8Array): Uint8Array {
++  return new Uint8Array(global.jsi_crypto_scalarmult_base(toArrayBuffer(secret)));
++}
++
++export function crypto_secretstream_xchacha20poly1305_init_push(key: Uint8Array) {
++  const result = global.jsi_secretstream_init_push(toArrayBuffer(key));
++  return { state: new Uint8Array(result.state), header: new Uint8Array(result.header) };
++}
++
++export function crypto_secretstream_xchacha20poly1305_init_pull(header: Uint8Array, key: Uint8Array) {
++  return new Uint8Array(global.jsi_secretstream_init_pull(toArrayBuffer(header), toArrayBuffer(key)));
++}
++
++export function crypto_secretstream_xchacha20poly1305_push(
++  state: Uint8Array, message: Uint8Array, additionalData: Uint8Array | null, tag: number
++): Uint8Array {
++  if (additionalData !== null) throw new Error('secretstream additional data is unsupported');
++  return new Uint8Array(global.jsi_secretstream_push(toArrayBuffer(state), toArrayBuffer(message), tag));
++}
++
++export function crypto_secretstream_xchacha20poly1305_pull(
++  state: Uint8Array, ciphertext: Uint8Array, additionalData: Uint8Array | null
++): false | { message: Uint8Array; tag: number } {
++  if (additionalData !== null) throw new Error('secretstream additional data is unsupported');
++  const result = global.jsi_secretstream_pull(toArrayBuffer(state), toArrayBuffer(ciphertext));
++  return result === false ? false : { message: new Uint8Array(result.message), tag: result.tag };
++}
++
+ // add no-op ready to match the react-nativ-libsodium API for web
+ export const loadSumoVersion = () => undefined;
+ 
+ export default {
++  crypto_scalarmult,
++  crypto_scalarmult_base,
++  crypto_secretstream_xchacha20poly1305_TAG_MESSAGE,
++  crypto_secretstream_xchacha20poly1305_init_push,
++  crypto_secretstream_xchacha20poly1305_init_pull,
++  crypto_secretstream_xchacha20poly1305_push,
++  crypto_secretstream_xchacha20poly1305_pull,
+   crypto_auth,
+   crypto_auth_verify,
+   crypto_auth_BYTES,
