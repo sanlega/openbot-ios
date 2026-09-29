@@ -1,55 +1,148 @@
-import { Link } from "expo-router";
-import { Alert, Pressable, StyleSheet, Text } from "react-native";
-import { ConnectionNotice } from "@/components/ConnectionNotice";
-import { EmptyCard, Screen, SectionTitle } from "@/components/Screen";
+import { router } from "expo-router";
+import { Alert, Text, View } from "react-native";
+import { ConnectionChip } from "@/components/ConnectionStatus";
+import { Icon, Row, RowGroup, Screen, Section } from "@/components/ui";
 import { useConnection } from "@/connection/ConnectionProvider";
-import { colors } from "@/theme";
+import { useHealth, useRoutines } from "@/lib/queries";
+import { makeStyles, space, type, useTheme, type Palette } from "@/theme";
+import type { SFSymbol } from "expo-symbols";
+import app from "../../../app.json";
 
 export default function SettingsScreen() {
-  const { forget, state } = useConnection();
-  const clear = () =>
-    Alert.alert("Forget this phone?", "You will need to scan a pairing QR to connect again.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Forget", style: "destructive", onPress: () => void forget() },
-    ]);
+  const styles = useStyles();
+  const { colors } = useTheme();
+  const { forget, state, client } = useConnection();
+  const health = useHealth();
+  const routines = useRoutines();
+  const connected = state.status === "connected";
+  const paired = state.status !== "disconnected" && state.status !== "revoked";
+  const host = client ? new URL(client.baseUrl).host : undefined;
+
+  const confirmForget = () =>
+    Alert.alert(
+      "Unpair this iPhone?",
+      "It will stop receiving updates. You can pair again at any time with a new QR code.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Unpair", style: "destructive", onPress: () => void forget() },
+      ],
+    );
+
   return (
-    <Screen>
-      <SectionTitle>Connection</SectionTitle>
-      <ConnectionNotice />
-      {state.status === "connected" ? (
-        <Pressable onPress={clear} style={styles.button}>
-          <Text style={styles.buttonText}>Forget this phone</Text>
-        </Pressable>
-      ) : (
-        <Link href="/scan" asChild>
-          <Pressable style={styles.button}>
-            <Text style={styles.buttonText}>Pair with desktop</Text>
-          </Pressable>
-        </Link>
-      )}
-      <SectionTitle>Notifications</SectionTitle>
-      <EmptyCard
-        title="Push notifications are optional"
-        detail="OpenBot has no hosted relay. Approvals and updates remain available when you open the app and reconnect; reliable remote push would need an optional APNs sender or relay running with your desktop."
-      />
-      <SectionTitle>Privacy</SectionTitle>
-      <EmptyCard
-        title="OpenBot remains the source of truth"
-        detail="This phone stores only its paired device credentials in iOS Keychain. Bot conversations and agent execution remain on your desktop."
-      />
+    <Screen title="Settings">
+      <Section title="Desktop">
+        <RowGroup>
+          <Row
+            leading={<Badge icon="desktopcomputer" color={colors.accent} colors={colors} />}
+            title={paired ? "OpenBot desktop" : "No desktop paired"}
+            subtitle={
+              paired
+                ? [host, health.data?.version ? `v${health.data.version}` : undefined]
+                    .filter(Boolean)
+                    .join(" · ")
+                : "Scan a QR code from your desktop to connect."
+            }
+            trailing={<ConnectionChip />}
+          />
+          {paired ? (
+            <Row
+              leading={<Badge icon="qrcode" color={colors.muted} colors={colors} />}
+              title="Pair a different desktop"
+              onPress={() => router.push("/scan")}
+              chevron
+            />
+          ) : (
+            <Row
+              leading={<Badge icon="qrcode.viewfinder" color={colors.accent} colors={colors} />}
+              title="Pair a desktop"
+              onPress={() => router.push("/scan")}
+              chevron
+            />
+          )}
+        </RowGroup>
+      </Section>
+
+      {connected ? (
+        <Section title="Automation">
+          <RowGroup>
+            <Row
+              leading={<Badge icon="clock.arrow.circlepath" color={colors.green} colors={colors} />}
+              title="Routines"
+              subtitle={
+                routines.data
+                  ? `${routines.data.routines.filter((r) => r.enabled).length} active of ${routines.data.routines.length}`
+                  : undefined
+              }
+              onPress={() => router.push("/routines")}
+              chevron
+            />
+          </RowGroup>
+        </Section>
+      ) : null}
+
+      <Section title="Privacy">
+        <RowGroup>
+          <Row
+            leading={<Badge icon="lock.fill" color={colors.green} colors={colors} />}
+            title="End-to-end encrypted"
+            subtitle="Every request and live update between this iPhone and your desktop is encrypted with keys only the two of them hold."
+            numberOfLines={4}
+          />
+          <Row
+            leading={<Badge icon="key.fill" color={colors.amber} colors={colors} />}
+            title="Stored in Keychain"
+            subtitle="This iPhone keeps only its pairing keys. Conversations and Bot work stay on your desktop."
+            numberOfLines={3}
+          />
+          <Row
+            leading={<Badge icon="bell.badge" color={colors.muted} colors={colors} />}
+            title="Notifications"
+            subtitle="OpenBot has no cloud relay, so updates arrive while the app is open."
+            numberOfLines={3}
+          />
+        </RowGroup>
+      </Section>
+
+      {paired ? (
+        <Section>
+          <RowGroup>
+            <Row title="Unpair this iPhone" destructive onPress={confirmForget} />
+          </RowGroup>
+        </Section>
+      ) : null}
+
+      <View style={styles.footer}>
+        <Icon name="sparkles" size={14} color={colors.subtle} />
+        <Text style={styles.footerText}>OpenBot for iPhone {app.expo.version}</Text>
+      </View>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  button: {
-    minHeight: 46,
+function Badge({ icon, color, colors }: { icon: SFSymbol; color: string; colors: Palette }) {
+  return (
+    <View
+      style={{
+        width: 30,
+        height: 30,
+        borderRadius: 8,
+        backgroundColor: colors.surfaceRaised,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Icon name={icon} size={15} color={color} />
+    </View>
+  );
+}
+
+const useStyles = makeStyles((c) => ({
+  footer: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: 13,
+    gap: space[2],
+    paddingTop: space[2],
   },
-  buttonText: { color: colors.text, fontWeight: "700" },
-});
+  footerText: { color: c.subtle, fontSize: type.footnote },
+}));

@@ -1,70 +1,36 @@
-import { Tabs } from "expo-router";
-import { colors } from "@/theme";
-import { useQuery } from "@tanstack/react-query";
-import { useConnection } from "@/connection/ConnectionProvider";
-import { SymbolView, type SFSymbol } from "expo-symbols";
-
-const tabTitle: Record<string, string> = {
-  index: "Home",
-  threads: "Threads",
-  activity: "Activity",
-  bots: "Bots",
-  settings: "Settings",
-};
-const tabSymbol: Record<string, SFSymbol> = {
-  index: "house",
-  threads: "bubble.left.and.bubble.right",
-  activity: "bell",
-  bots: "person.2",
-  settings: "gearshape",
-};
+import { NativeTabs } from "expo-router/unstable-native-tabs";
+import { useApprovals, useInputs } from "@/lib/queries";
+import { useTheme } from "@/theme";
 
 export default function TabLayout() {
-  const { client } = useConnection();
-  const approvals = useQuery({
-    queryKey: ["openbot", "approvals"],
-    queryFn: () => client!.getApprovals("pending"),
-    enabled: !!client,
-  });
+  const { colors } = useTheme();
+  const approvals = useApprovals();
+  const inputs = useInputs();
+  const waiting = (approvals.data?.approvals.length ?? 0) + (inputs.data?.inputs.length ?? 0);
   return (
-    <Tabs
-      screenOptions={({ route }) => ({
-        title: tabTitle[route.name] ?? route.name,
-        headerStyle: { backgroundColor: colors.background },
-        headerTintColor: colors.text,
-        headerTitleStyle: { fontWeight: "700" },
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
-          height: 84,
-          paddingTop: 9,
-          paddingBottom: 24,
-        },
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.muted,
-        tabBarLabelStyle: { fontSize: 10, fontWeight: "600" },
-        tabBarIcon: ({ color, focused }) => (
-          <SymbolView
-            name={tabSymbol[route.name] ?? "circle"}
-            size={22}
-            tintColor={color}
-            weight={focused ? "semibold" : "regular"}
-          />
-        ),
-      })}
-    >
-      <Tabs.Screen name="index" options={{ tabBarLabel: "Home" }} />
-      <Tabs.Screen name="threads" options={{ tabBarLabel: "Threads" }} />
-      <Tabs.Screen
-        name="activity"
-        options={{
-          tabBarLabel: "Activity",
-          tabBarBadge: approvals.data?.approvals.length || undefined,
-          tabBarBadgeStyle: { backgroundColor: colors.accent, color: "#071425" },
-        }}
-      />
-      <Tabs.Screen name="bots" options={{ tabBarLabel: "Bots" }} />
-      <Tabs.Screen name="settings" options={{ tabBarLabel: "Settings" }} />
-    </Tabs>
+    <NativeTabs tintColor={colors.accent} minimizeBehavior="onScrollDown">
+      <NativeTabs.Trigger name="index">
+        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: "house", selected: "house.fill" }} />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="chats">
+        <NativeTabs.Trigger.Label>Chats</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{
+            default: "bubble.left.and.bubble.right",
+            selected: "bubble.left.and.bubble.right.fill",
+          }}
+        />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="inbox">
+        <NativeTabs.Trigger.Label>Inbox</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: "tray", selected: "tray.fill" }} />
+        {waiting ? <NativeTabs.Trigger.Badge>{String(waiting)}</NativeTabs.Trigger.Badge> : null}
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="settings">
+        <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} />
+      </NativeTabs.Trigger>
+    </NativeTabs>
   );
 }

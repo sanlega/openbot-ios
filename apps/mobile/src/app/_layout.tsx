@@ -2,27 +2,39 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { colors } from "@/theme";
+import { DevBridge } from "@/components/DevBridge";
 import { ConnectionProvider } from "@/connection/ConnectionProvider";
+import { useTheme } from "@/theme";
 
 export default function RootLayout() {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(
+    () => new QueryClient({ defaultOptions: { queries: { staleTime: 5_000, retry: 1 } } }),
+  );
+  const { colors, scheme } = useTheme();
 
   return (
     <QueryClientProvider client={queryClient}>
       <ConnectionProvider>
-        <StatusBar style="light" />
+        {__DEV__ ? <DevBridge /> : null}
+        <StatusBar style={scheme === "dark" ? "light" : "dark"} />
         <Stack
           screenOptions={{
-            headerStyle: { backgroundColor: colors.background },
-            headerTintColor: colors.text,
-            headerTitleStyle: { fontWeight: "700" },
+            headerTransparent: true,
+            headerShadowVisible: false,
+            headerTintColor: colors.accent,
+            headerTitleStyle: { color: colors.text, fontWeight: "600" },
+            headerLargeTitleStyle: { color: colors.text },
+            headerBackButtonDisplayMode: "minimal",
             contentStyle: { backgroundColor: colors.background },
           }}
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="scan" options={{ title: "Pair a device", presentation: "modal" }} />
-          <Stack.Screen name="thread/[id]" options={{ title: "Conversation" }} />
+          <Stack.Screen
+            name="scan"
+            options={{ headerShown: false, presentation: "fullScreenModal", animation: "fade" }}
+          />
+          <Stack.Screen name="chat/[botId]" options={{ title: "" }} />
+          <Stack.Screen name="routines" options={{ title: "Routines", headerLargeTitle: true }} />
         </Stack>
       </ConnectionProvider>
     </QueryClientProvider>

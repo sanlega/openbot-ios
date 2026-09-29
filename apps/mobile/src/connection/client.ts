@@ -1,4 +1,14 @@
-import { Approval, Bot, Message, OBEvent, Thread, Turn } from "@openbot/contracts";
+import type { InputAnswer } from "@openbot/contracts";
+import {
+  Approval,
+  Bot,
+  InputRequest,
+  Message,
+  OBEvent,
+  Routine,
+  Thread,
+  Turn,
+} from "@openbot/contracts";
 import { z } from "zod";
 import {
   authProof,
@@ -12,6 +22,7 @@ import {
   unpackFrame,
 } from "./native-crypto";
 import type { DeviceCredentials } from "./storage";
+import { bareFrame } from "@/lib/frames";
 
 export class ApiError extends Error {
   constructor(
@@ -35,11 +46,24 @@ const ThreadList = z.object({
   ),
 });
 const MessageList = z.object({ messages: z.array(Message) });
-const ApprovalList = z.object({ approvals: z.array(Approval) });
+// The desktop serializes an unresolved approval's `resolution` as null; the shared
+// contract only allows it to be absent.
+const WireApproval = Approval.extend({
+  resolution: z
+    .enum(["allow", "deny", "expired"])
+    .nullish()
+    .transform((value) => value ?? undefined),
+});
+const ApprovalList = z.object({ approvals: z.array(WireApproval) });
 const TurnList = z.object({ turns: z.array(Turn) });
 const Health = z.object({ connected: z.boolean(), version: z.string() });
-const ApprovalResponse = z.object({ approval: Approval });
+const ApprovalResponse = z.object({ approval: WireApproval });
 const StopResponse = z.object({ stopped: z.boolean().optional(), ok: z.boolean().optional() });
+const InputList = z.object({ inputs: z.array(InputRequest) });
+const InputResponse = z.object({ input: InputRequest.optional() });
+const RoutineList = z.object({ routines: z.array(Routine) });
+const RoutineResponse = z.object({ routine: Routine.optional() });
+const RunResponse = z.object({ run: z.object({ id: z.string() }).passthrough() });
 
 export type MobileThread = z.infer<typeof ThreadList>["threads"][number];
 export type InboundMessage =
@@ -107,6 +131,10 @@ export class MobileClient {
     this.wsChannel = new E2EChannel(key, `${sessionId}w`);
   }
 
+  get baseUrl(): string {
+    return this.credentials.baseUrl;
+  }
+
   async getBots() {
     return this.request("GET", "/api/bots", BotList);
   }
@@ -157,6 +185,40 @@ export class MobileClient {
     );
   }
 
+  async getInputs(status: "pending" | "answered" | "dismissed" = "pending") {
+    return this.request("GET", `/api/inputs?status=${status}`, InputList);
+  }
+
+  async answerInput(id: string, answers: Record<string, InputAnswer>) {
+    return this.request("POST", `/api/inputs/${encodeURIComponent(id)}/answer`, InputResponse, {
+      answers,
+    });
+  }
+
+  async dismissInput(id: string) {
+    return this.request("POST", `/api/inputs/${encodeURIComponent(id)}/dismiss`, InputResponse, {});
+  }
+
+  async getRoutines() {
+    return this.request("GET", "/api/routines", RoutineList);
+  }
+
+  /** A dry run plans without side effects; live runs need the routine to be approved for live. */
+  async runRoutine(id: string, dryRun: boolean) {
+    return this.request("POST", `/api/routines/${encodeURIComponent(id)}/run`, RunResponse, {
+      dryRun,
+    });
+  }
+
+  async setRoutinePaused(id: string, paused: boolean) {
+    return this.request(
+      "POST",
+      `/api/routines/${encodeURIComponent(id)}/${paused ? "pause" : "resume"}`,
+      RoutineResponse,
+      {},
+    );
+  }
+
   connectEvents(
     since: number,
     callbacks: {
@@ -185,7 +247,9 @@ export class MobileClient {
     };
     ws.onmessage = (event) => {
       try {
-        const payload = JSON.parse(this.wsChannel.decrypt(String(event.data))) as unknown;
+        const payload = JSON.parse(
+          this.wsChannel.decrypt(bareFrame(String(event.data))),
+        ) as unknown;
         const parsed = z
           .union([
             z.object({ type: z.literal("event"), event: OBEvent }),
@@ -221,12 +285,16 @@ export class MobileClient {
     return ws;
   }
 
-  sendMessage(botId: string, threadId: string, text: string): Promise<void> {
+  /** Without a `threadId` the desktop opens (or reuses) the Bot's conversation. */
+  sendMessage(botId: string, threadId: string | undefined, text: string): Promise<void> {
     if (this.pendingCommand) return Promise.reject(new Error("A message is already being sent."));
     return new Promise((resolve, reject) => {
       this.pendingCommand = { resolve, reject };
       try {
-        this.sendCommand({ command: "message.send", payload: { botId, threadId, text } });
+        this.sendCommand({
+          command: "message.send",
+          payload: threadId ? { botId, threadId, text } : { botId, text },
+        });
       } catch (error) {
         this.pendingCommand = undefined;
         reject(error instanceof Error ? error : new Error("OpenBot is reconnecting."));

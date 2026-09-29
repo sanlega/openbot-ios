@@ -3,6 +3,7 @@ import { ApiError, MobileClient } from "./client";
 import { clearCredentials, loadCredentials, loadEventCursor, saveEventCursor } from "./storage";
 import type { ConnectionState } from "@/lib/connection-state";
 import { advanceEventCursor, reconnectDelay } from "@/lib/connection-state";
+import { keysForEvent, reduceLiveText, type LiveText } from "@/lib/live";
 import { pairFromQr } from "./pair";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -22,6 +23,8 @@ interface ConnectionContextValue {
   state: ConnectionState;
   client?: MobileClient;
   events: OBEvent[];
+  /** Text each Bot is streaming right now, keyed by Bot id. */
+  live: LiveText;
   pair(qrUrl: string): Promise<void>;
   forget(): Promise<void>;
 }
@@ -34,6 +37,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<ConnectionState>({ status: "disconnected" });
   const [client, setClient] = useState<MobileClient>();
   const [events, setEvents] = useState<OBEvent[]>([]);
+  const [live, setLive] = useState<LiveText>({});
   const active = useRef(AppState.currentState === "active");
   const attempt = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -100,11 +104,16 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
             return;
           }
           cursor.current = advanceEventCursor(cursor.current, seen.current, event.seq);
-          setEvents((previous) =>
-            [event, ...previous.filter((item) => item.id !== event.id)].slice(0, 30),
-          );
-          void saveEventCursor(credentials.deviceId, cursor.current);
-          void queryClient.invalidateQueries({ queryKey: ["openbot"] });
+          setLive((previous) => reduceLiveText(previous, event));
+          if (event.type !== "message.delta") {
+            setEvents((previous) =>
+              [event, ...previous.filter((item) => item.id !== event.id)].slice(0, 30),
+            );
+            void saveEventCursor(credentials.deviceId, cursor.current);
+          }
+          for (const queryKey of keysForEvent(event.type)) {
+            void queryClient.invalidateQueries({ queryKey });
+          }
         },
       });
     } catch (error) {
@@ -176,7 +185,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <ConnectionContext.Provider value={{ state, client, events, pair, forget }}>
+    <ConnectionContext.Provider value={{ state, client, events, live, pair, forget }}>
       {children}
     </ConnectionContext.Provider>
   );
