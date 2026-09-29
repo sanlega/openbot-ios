@@ -7,10 +7,11 @@ _Last updated: 2026-09-29 by Codex_
   Existing Bot/thread/message/activity/approval APIs are reused. Expo screens, sealed QR
   pairing/auth, SecureStore, independent E2E streams, reconnect, and remote actions are
   implemented. Full tests, monorepo build and typecheck, lint, formatting, Expo iOS
-  bundle, and config validation pass. CocoaPods dependencies compile, but SDK 57's Swift
-  package requires Swift tools 6.2. Local testing on iOS 27 also requires Xcode 27, which
-  requires macOS 26.6 or later. Native launch remains unverified; current environment
-  preparation and resume notes are in ignored `.ai/local/mobile-ios-device-session.md`.
+  bundle, and config validation pass. macOS has now been upgraded to 27.0, but the active
+  Xcode is still 16.2 (iOS SDK 18.2), with no simulator runtimes available. CoreSimulator
+  is unavailable and CoreDevice timed out listing the attached phone. Native build/launch
+  remains unverified until a current Xcode and iOS runtime are installed; see
+  `.ai/local/mobile-ios-device-session.md` and the 2026-09-29 test session.
 - Prepare the first downloadable GitHub release (`v0.1.0`) and polish the public repository.
   Plan: `.ai/memory/plans/2026-09-27-github-release.md`.
 - Public-release README, contributor guide, issue/PR templates, changelog, and installer
