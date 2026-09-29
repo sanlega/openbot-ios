@@ -1,15 +1,16 @@
 # Project state
 
-_Last updated: 2026-09-28 by Codex_
+_Last updated: 2026-09-29 by Codex_
 
 ## In progress
 - Build the native iOS companion using `.ai/memory/plans/2026-09-28-native-ios-companion.md`.
   Existing Bot/thread/message/activity/approval APIs are reused. Expo screens, sealed QR
   pairing/auth, SecureStore, independent E2E streams, reconnect, and remote actions are
   implemented. Full tests, monorepo build and typecheck, lint, formatting, Expo iOS
-  bundle, and config validation pass. CocoaPods dependencies compile, but the native
-  build requires Xcode 26.4 (SDK 57's Swift package uses tools 6.2); this host has Xcode
-  16.2 / Swift 6.0, so simulator launch remains unverified.
+  bundle, and config validation pass. CocoaPods dependencies compile, but SDK 57's Swift
+  package requires Swift tools 6.2. Local testing on iOS 27 also requires Xcode 27, which
+  requires macOS 26.6 or later. Native launch remains unverified; current environment
+  preparation and resume notes are in ignored `.ai/local/mobile-ios-device-session.md`.
 - Prepare the first downloadable GitHub release (`v0.1.0`) and polish the public repository.
   Plan: `.ai/memory/plans/2026-09-27-github-release.md`.
 - Public-release README, contributor guide, issue/PR templates, changelog, and installer
@@ -150,8 +151,9 @@ _Last updated: 2026-09-28 by Codex_
   format and `mh check` passed. Lint has three pre-existing warnings and no errors.
 
 ## Known gaps
-- Native simulator launch is unverified: `expo run:ios` and CocoaPods setup work, but the
-  installed Xcode 16.2 cannot resolve a Swift package requiring tools 6.2. Use Xcode 26.4+.
+- Native iOS installation is unverified. SDK 57 needs Swift tools 6.2; deployment to
+  iOS 27 needs Xcode 27 and macOS 26.6 or later. See `.ai/local/mobile-ios-device-session.md`
+  for machine-specific upgrade progress and the next steps.
 - `mh check` reports stale generated `.agents` skill files; this checkout omits those
   read-only source files, so generated metaharness files were left untouched.
 - Real Claude/Codex and Jev credentials, Docker on other operating systems, and
