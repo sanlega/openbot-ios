@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/sanlega/OpenBot/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/sanlega/OpenBot/actions/workflows/ci.yml/badge.svg?branch=main" /></a>
+  <a href="https://github.com/sanlega/openbot-ios/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/sanlega/openbot-ios/actions/workflows/ci.yml/badge.svg?branch=main" /></a>
   <img alt="macOS, Windows, and Linux" src="https://img.shields.io/badge/desktop-macOS%20%7C%20Windows%20%7C%20Linux-6e6bf2" />
   <img alt="MIT license" src="https://img.shields.io/badge/license-MIT-6e6bf2" />
 </p>
@@ -47,7 +47,7 @@ no bundled credentials.
 ## Get OpenBot
 
 OpenBot is in active development. Download an installer from the
-[latest GitHub Release](https://github.com/sanlega/OpenBot/releases/latest):
+[latest GitHub Release](https://github.com/sanlega/openbot-ios/releases/latest):
 macOS DMGs are provided for Apple Silicon and Intel, Windows has an x64 installer,
 and Linux has AppImage and `.deb` packages. Installers are unsigned, so your
 operating system may show a security warning.
@@ -102,7 +102,7 @@ AI-assisted workflow included with the repository.
 The core desktop, chat, team, approval, routine, and computer workflows are wired
 and exercised in automated tests. OpenBot is still an early preview; real-provider
 and remote-access combinations continue to receive manual testing. See the
-[open issues](https://github.com/sanlega/OpenBot/issues) for current gaps.
+[open issues](https://github.com/sanlega/openbot-ios/issues) for current gaps.
 
 ## License
 

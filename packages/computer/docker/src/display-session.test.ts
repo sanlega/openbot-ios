@@ -41,14 +41,14 @@ describe("DisplaySessionManager", () => {
     const { sessions, commands } = setup();
     await sessions.observe("bot_1");
 
-    const result = await sessions.act("bot_1", { op: "type", target: 1, text: "sanlega" });
+    const result = await sessions.act("bot_1", { op: "type", target: 1, text: "openbot" });
 
     expect(result.ok).toBe(true);
     expect(commands).toEqual([
       "xdotool mousemove 500 25",
       "xdotool click 1",
       "xdotool key ctrl+a",
-      "xdotool type --delay 20 -- sanlega",
+      "xdotool type --delay 20 -- openbot",
     ]);
   });
 
@@ -67,10 +67,10 @@ describe("DisplaySessionManager", () => {
 
     const result = await sessions.act("bot_1", {
       op: "navigate",
-      url: "https://www.youtube.com/results?search_query=sanlega",
+      url: "https://www.youtube.com/results?search_query=openbot",
     });
 
     expect(result.ok).toBe(true);
-    expect(navigations).toEqual(["https://www.youtube.com/results?search_query=sanlega"]);
+    expect(navigations).toEqual(["https://www.youtube.com/results?search_query=openbot"]);
   });
 });
