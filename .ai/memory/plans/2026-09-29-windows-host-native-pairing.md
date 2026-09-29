@@ -1,6 +1,6 @@
 # Windows host: ship the native iPhone pairing protocol and fix LAN pairing UX
 
-- **Date**: 2026-09-29 · **Author**: claude (desktop repo session) · **Status**: draft, handed off
+- **Date**: 2026-09-29 · **Author**: claude (desktop repo session) · **Status**: T1-T4 done 2026-09-29 (desktop v0.1.2, iPhone connected live); T5 open
 - **Origin**: live attempt to pair the iPhone app with a Windows desktop build of
   `sanlega/OpenBot` v0.1.1 (tag `v0.1.1`, `d778a21`).
 
@@ -36,15 +36,15 @@ same Wi-Fi and reaches a connected Home screen plus a live WS event.
    to `false` on a torn read (`writeNetworkPrefs` is not atomic).
 
 ## Tasks
-- [ ] T1 (owner approval to push): push the sibling host commit, or re-apply it onto
+- [x] T1 (owner approval to push): push the sibling host commit, or re-apply it onto
   `sanlega/OpenBot` `main` (Windows checkout is at `d778a21`, clean). Verify: lint,
   format, build, typecheck, tests, integration E2E.
-- [ ] T2: carry over the QR scheme fix (item 3) on top of the ported `pairing.ts`.
-- [ ] T3: cut `v0.1.2` of the desktop app (release workflow on tag `v*`; bump every
+- [x] T2: carry over the QR scheme fix (item 3) on top of the ported `pairing.ts`.
+- [x] T3: cut `v0.1.2` of the desktop app (release workflow on tag `v*`; bump every
   `package.json` version + `SERVER_VERSION` in `apps/server/src/index.ts` and
   `packages/core/src/http/routes/health.ts`; CHANGELOG entry). Owner has NOT yet
   approved publishing; ask first.
-- [ ] T4: install the v0.1.2 `.exe` on the Windows PC (close the app first, check no
+- [x] T4: install the v0.1.2 `.exe` on the Windows PC (close the app first, check no
   running turns in `~/.openbot/openbot.db` `turns`), open Devices, generate a fresh QR
   (single use, expires), scan in the iPhone app. Verify Home + a WS event.
 - [ ] T5 (separate, smaller): "unpaired device" screen for 401s in the desktop/PWA UI;
