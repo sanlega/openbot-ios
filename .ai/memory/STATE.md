@@ -1,8 +1,24 @@
 # Project state
 
-_Last updated: 2026-09-29 by Claude_
+_Last updated: 2026-09-30 by Claude_
 
 ## In progress
+- Synced with the desktop (2026-09-30): host packages/apps/e2e/CI now mirror
+  `sanlega/OpenBot` v0.1.16 (commit "Sync the host code..."); only `apps/mobile`, the
+  libsodium patch and workspace config are iOS-specific. Re-sync the same way (rsync of
+  packages/, apps/{desktop,server,pwa}, e2e, images, scripts, docs, CI) when the desktop
+  moves on; the desktop is the source of truth for host code.
+- iPhone app now shows delegations (task strip + worker approvals in the requester's
+  chat), engine names, turn failure reasons (redacted), and Settings > Saved logins
+  (list/remove, owner devices). Verified in the simulator against a fake-engine harness.
+  Out of scope by owner decision: Computer/Docker control on the phone (live view needs a
+  desktop change: noVNC binds 127.0.0.1:6080 only).
+- TestFlight: `apps/mobile/scripts/testflight.sh` (TEAM_ID env) archives with the push
+  entitlements, time-based build number, and uploads as internal-testing only. A
+  `--no-upload` run succeeded (Apple Distribution signature, aps-environment production).
+  Waiting on the owner: create the App Store Connect app record for `ai.openbot.mobile`,
+  decide the export-compliance answer (app.json has `usesNonExemptEncryption: true`, so
+  App Store Connect will ask for compliance before testing), and confirm the first upload.
 - Push status: the iPhone runs a Release build signed with the owner's now-paid team and
   the push entitlement (profile valid for a year). The owner's APNs key was verified
   against Apple (sandbox and production). Host changes for the Windows desktop are on

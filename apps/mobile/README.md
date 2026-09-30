@@ -41,6 +41,22 @@ xcrun devicectl device install app --device <device-udid> \
 certificate (`security find-identity -v -p codesigning`). To go back to the
 development client, build and install the Debug configuration again.
 
+## TestFlight (install and update without a cable)
+
+With a paid team, TestFlight installs and updates the app over the air, from anywhere,
+and each build lasts 90 days. Once per app: create the app in App Store Connect
+(bundle ID `ai.openbot.mobile`), sign in to Xcode with that Apple ID, and install the
+TestFlight app on the iPhone. Then, for each new version:
+
+```sh
+TEAM_ID=<your-team-id> apps/mobile/scripts/testflight.sh
+```
+
+It archives a Release build, gives it a time-based build number, and uploads it as an
+internal-testing build. After Apple processes it (usually 5-15 minutes), update from
+TestFlight on the phone. Pass `--no-upload` to only archive and export. TestFlight
+builds get production push tokens; the desktop detects this on its own.
+
 ## Push notifications
 
 The desktop sends notifications straight to Apple (APNs) with **your own** key; there
