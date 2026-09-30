@@ -6,6 +6,8 @@ import {
   botHue,
   botNamer,
   botStatus,
+  engineName,
+  failureDetail,
   initials,
   plainText,
   relativeTime,
@@ -57,5 +59,25 @@ describe("mobile format helpers", () => {
     const now = new Date("2026-09-29T12:00:00.000Z");
     expect(relativeTime("2026-09-29T11:59:30.000Z", now)).toBe("Just now");
     expect(relativeTime("2026-09-29T11:15:00.000Z", now)).toBe("45m ago");
+  });
+});
+
+describe("engines and failures", () => {
+  it("counts a failure reported only as an event", () => {
+    expect(botStatus({ status: "completed" }, false, true)).toBe("failed");
+    expect(botStatus({ status: "running" }, false, true)).toBe("working");
+  });
+
+  it("names built-in and owner-added engines", () => {
+    expect(engineName("claude")).toBe("Claude Code");
+    expect(engineName("opencode")).toBe("OpenCode");
+    expect(engineName("acp-my-agent")).toBe("My agent");
+  });
+
+  it("hides keys and tokens in failure reasons", () => {
+    expect(failureDetail("401 Bearer abc.def")).toBe("401 Bearer [redacted]");
+    expect(failureDetail("bad key sk-ant-0123456789abcdefXYZ")).toBe("bad key [redacted key]");
+    expect(failureDetail("")).toMatch(/stopped before it could reply/);
+    expect(failureDetail("x".repeat(400))).toHaveLength(298);
   });
 });

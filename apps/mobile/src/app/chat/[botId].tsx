@@ -1,6 +1,6 @@
 import type { Message } from "@openbot/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { Stack, router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -18,7 +18,15 @@ import { Markdown } from "@/components/Markdown";
 import { BotAvatar, EmptyState, ErrorText, Icon } from "@/components/ui";
 import { useConnection } from "@/connection/ConnectionProvider";
 import { setVisibleChat } from "@/connection/push";
-import { STATUS_LABEL, clockTime, dayLabel, sameDay } from "@/lib/format";
+import {
+  STATUS_LABEL,
+  clockTime,
+  dayLabel,
+  engineName,
+  failureDetail,
+  sameDay,
+} from "@/lib/format";
+import type { OpenDelegation } from "@/lib/live";
 import {
   useApprovals,
   useBotStatuses,
@@ -33,14 +41,15 @@ import { makeStyles, radius, space, type, useTheme } from "@/theme";
 type Item =
   | { kind: "message"; message: Message; showDay: boolean }
   | { kind: "pending"; id: string; text: string }
-  | { kind: "live"; text: string };
+  | { kind: "live"; text: string }
+  | { kind: "failure"; text: string };
 
 export default function ChatScreen() {
   const { botId } = useLocalSearchParams<{ botId: string }>();
   const styles = useStyles();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { client, state, live } = useConnection();
+  const { client, state, live, delegations, failures } = useConnection();
   const queryClient = useQueryClient();
   const bots = useBots();
   const bot = bots.data?.bots.find((item) => item.id === botId);
@@ -86,12 +95,20 @@ export default function ChatScreen() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["openbot"] }),
   });
 
-  const botApprovals = (approvals.data?.approvals ?? []).filter((item) => item.botId === botId);
+  // Tasks this Bot handed to teammates: their approval cards show here, where the user is talking.
+  const delegated = Object.values(delegations).filter(
+    (item) => !!thread && item.ownerThreadId === thread.id,
+  );
+  const delegatedTo = new Set(delegated.map((item) => item.assigneeBotId));
+  const botApprovals = (approvals.data?.approvals ?? []).filter(
+    (item) => item.botId === botId || delegatedTo.has(item.botId),
+  );
   const botInputs = (inputs.data?.inputs ?? []).filter((item) => item.botId === botId);
   const working = status === "working";
   // Deltas can arrive after the final message (event order is not guaranteed),
   // so streamed text only shows while the turn is still running.
   const streaming = working ? live[botId] : undefined;
+  const failure = status === "failed" ? failureDetail(failures[botId]) : undefined;
 
   // Newest first: the list is inverted so it opens at the latest message.
   const items = useMemo<Item[]>(() => {
@@ -106,8 +123,9 @@ export default function ChatScreen() {
     }));
     for (const item of pending) rows.push({ kind: "pending", ...item });
     if (working) rows.push({ kind: "live", text: streaming ?? "" });
+    else if (failure) rows.push({ kind: "failure", text: failure });
     return rows.reverse();
-  }, [messages.data, pending, streaming, working]);
+  }, [messages.data, pending, streaming, working, failure]);
 
   const title = bot ? (bot.label ?? bot.name) : "Chat";
   const canSend = connected && !!text.trim() && !send.isPending;
@@ -130,9 +148,12 @@ export default function ChatScreen() {
                     ? "Offline"
                     : streaming
                       ? "Typing…"
-                      : status
-                        ? STATUS_LABEL[status]
-                        : ""}
+                      : [
+                          status ? STATUS_LABEL[status] : undefined,
+                          bot?.routing.engine ? engineName(bot.routing.engine) : undefined,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
                 </Text>
               </View>
             </View>
@@ -161,13 +182,20 @@ export default function ChatScreen() {
           inverted
           data={items}
           keyExtractor={(item) =>
-            item.kind === "message" ? item.message.id : item.kind === "pending" ? item.id : "live"
+            item.kind === "message"
+              ? item.message.id
+              : item.kind === "pending"
+                ? item.id
+                : item.kind
           }
           contentContainerStyle={styles.list}
           keyboardDismissMode="interactive"
           ListHeaderComponent={
-            botApprovals.length || botInputs.length ? (
+            botApprovals.length || botInputs.length || delegated.length ? (
               <View style={styles.attention}>
+                {delegated.map((task) => (
+                  <DelegationRow key={task.id} task={task} />
+                ))}
                 {botApprovals.map((approval) => (
                   <ApprovalCard key={approval.id} approval={approval} compact />
                 ))}
@@ -191,6 +219,14 @@ export default function ChatScreen() {
             ) : null
           }
           renderItem={({ item }) => {
+            if (item.kind === "failure") {
+              return (
+                <View style={styles.failure} accessibilityRole="alert">
+                  <Icon name="exclamationmark.triangle.fill" size={13} color={colors.red} />
+                  <Text style={styles.failureText}>{item.text}</Text>
+                </View>
+              );
+            }
             if (item.kind === "live") {
               return (
                 <View style={[styles.bubble, styles.theirs]}>
@@ -272,7 +308,66 @@ export default function ChatScreen() {
   );
 }
 
+/** A task this Bot handed to a teammate; tap to open the teammate's chat. */
+function DelegationRow({ task }: { task: OpenDelegation }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
+  const namer = useNamer();
+  const assignee = namer.get(task.assigneeBotId);
+  const label =
+    task.state === "input_required"
+      ? "Needs an answer"
+      : task.state === "submitted"
+        ? "Queued"
+        : "Working";
+  return (
+    <Pressable
+      onPress={() =>
+        router.push({ pathname: "/chat/[botId]", params: { botId: task.assigneeBotId } })
+      }
+      accessibilityRole="button"
+      accessibilityLabel={`${namer.name(task.assigneeBotId)} is on ${task.title}. ${label}.`}
+      style={({ pressed }) => [styles.delegation, pressed && { opacity: 0.7 }]}
+    >
+      {assignee ? <BotAvatar bot={assignee} size={26} status="working" /> : null}
+      <View style={{ flex: 1 }}>
+        <Text style={styles.delegationTitle} numberOfLines={1}>
+          {namer.name(task.assigneeBotId)} · {task.title}
+        </Text>
+        <Text style={styles.delegationDetail} numberOfLines={1}>
+          {task.statusMessage ? `${label} · ${namer.humanize(task.statusMessage)}` : label}
+        </Text>
+      </View>
+      <Icon name="chevron.right" size={12} color={colors.subtle} />
+    </Pressable>
+  );
+}
+
 const useStyles = makeStyles((c) => ({
+  delegation: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space[2],
+    paddingHorizontal: space[3],
+    paddingVertical: space[2],
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: c.border,
+    backgroundColor: c.surface,
+  },
+  delegationTitle: { color: c.text, fontSize: type.subhead, fontWeight: "600" },
+  delegationDetail: { color: c.muted, fontSize: type.caption },
+  failure: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    gap: space[2],
+    maxWidth: "88%",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.lg,
+    backgroundColor: c.redSoft,
+  },
+  failureText: { color: c.red, fontSize: type.footnote, lineHeight: 18, flexShrink: 1 },
   root: { flex: 1, backgroundColor: c.background },
   list: { paddingHorizontal: space[3], paddingVertical: space[3], gap: 6, flexGrow: 1 },
   flip: { transform: [{ scaleY: -1 }], flex: 1, justifyContent: "center" },

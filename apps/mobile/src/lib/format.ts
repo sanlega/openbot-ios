@@ -216,10 +216,14 @@ export function initials(name: string): string {
 export type BotStatus = "idle" | "working" | "needs-you" | "failed";
 
 /** What a Bot is doing now, from its latest turn and whether something waits on the user. */
-export function botStatus(latest: Pick<Turn, "status"> | undefined, needsYou: boolean): BotStatus {
+export function botStatus(
+  latest: Pick<Turn, "status"> | undefined,
+  needsYou: boolean,
+  failedSince = false,
+): BotStatus {
   if (needsYou) return "needs-you";
   if (latest?.status === "running" || latest?.status === "queued") return "working";
-  if (latest?.status === "failed") return "failed";
+  if (latest?.status === "failed" || failedSince) return "failed";
   return "idle";
 }
 
@@ -229,3 +233,31 @@ export const STATUS_LABEL: Record<BotStatus, string> = {
   "needs-you": "Needs you",
   failed: "Failed",
 };
+
+const ENGINE_NAMES: Record<string, string> = {
+  claude: "Claude Code",
+  codex: "Codex CLI",
+  opencode: "OpenCode",
+  cursor: "Cursor",
+  gemini: "Gemini CLI",
+  grok: "Grok Build",
+  fake: "Test engine",
+};
+
+/** A friendly engine name, as on the desktop; owner-added ACP agents are `acp-<slug>`. */
+export function engineName(id: string): string {
+  const known = ENGINE_NAMES[id];
+  if (known) return known;
+  const words = id.replace(/^acp-/, "").replace(/[_-]+/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** Why a turn failed, with bearer tokens and API keys hidden (same rules as the desktop). */
+export function failureDetail(message?: string): string {
+  const detail = message?.trim();
+  if (!detail) return "The engine stopped before it could reply. Check Activity on your desktop.";
+  const redacted = detail
+    .replace(/\bBearer\s+\S+/gi, "Bearer [redacted]")
+    .replace(/\bsk-(?:ant-|proj-)?[A-Za-z0-9_-]{16,}/g, "[redacted key]");
+  return redacted.length > 300 ? `${redacted.slice(0, 297)}…` : redacted;
+}

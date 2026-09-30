@@ -37,6 +37,7 @@ export default function RootLayout() {
           />
           <Stack.Screen name="chat/[botId]" options={{ title: "" }} />
           <Stack.Screen name="routines" options={{ title: "Routines", headerLargeTitle: true }} />
+          <Stack.Screen name="logins" options={{ title: "Saved logins", headerLargeTitle: true }} />
         </Stack>
       </ConnectionProvider>
     </QueryClientProvider>

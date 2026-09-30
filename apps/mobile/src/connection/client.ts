@@ -64,8 +64,20 @@ const InputResponse = z.object({ input: InputRequest.optional() });
 const RoutineList = z.object({ routines: z.array(Routine) });
 const RoutineResponse = z.object({ routine: Routine.optional() });
 const PushStatus = z.object({ registered: z.boolean(), configured: z.boolean().optional() });
+const LoginList = z.object({
+  logins: z.array(
+    z.object({
+      site: z.string(),
+      username: z.string().optional(),
+      hasPassword: z.boolean(),
+      updatedAt: z.string(),
+    }),
+  ),
+});
+const OkResponse = z.object({ ok: z.boolean() });
 const RunResponse = z.object({ run: z.object({ id: z.string() }).passthrough() });
 
+export type SavedLogin = z.infer<typeof LoginList>["logins"][number];
 export type MobileThread = z.infer<typeof ThreadList>["threads"][number];
 export type InboundMessage =
   | { type: "event"; event: z.infer<typeof OBEvent> }
@@ -218,6 +230,15 @@ export class MobileClient {
       RoutineResponse,
       {},
     );
+  }
+
+  /** Website logins saved on the desktop (owner devices only); never includes a password. */
+  async getLogins() {
+    return this.request("GET", "/api/logins", LoginList);
+  }
+
+  async deleteLogin(site: string) {
+    return this.request("DELETE", `/api/logins/${encodeURIComponent(site)}`, OkResponse, {});
   }
 
   async getPushStatus() {

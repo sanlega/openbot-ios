@@ -23,6 +23,7 @@ export const useInputs = () => useClientQuery(["inputs"], (c) => c.getInputs("pe
 export const useActivity = () => useClientQuery(["activity"], (c) => c.getActivity());
 export const useHealth = () => useClientQuery(["health"], (c) => c.getHealth());
 export const useRoutines = () => useClientQuery(["routines"], (c) => c.getRoutines());
+export const useLogins = () => useClientQuery(["logins"], (c) => c.getLogins());
 export const useMessages = (threadId: string | undefined) =>
   useClientQuery(["messages", threadId ?? ""], (c) =>
     threadId ? c.getMessages(threadId) : Promise.resolve({ messages: [] }),
@@ -53,7 +54,7 @@ export function useNamer() {
 
 /** Each Bot's current status from its latest turn and what waits on the user. */
 export function useBotStatuses(bots: Bot[]): Record<string, BotStatus> {
-  const { client } = useConnection();
+  const { client, failures } = useConnection();
   const approvals = useApprovals();
   const inputs = useInputs();
   const turns = useQueries({
@@ -68,7 +69,8 @@ export function useBotStatuses(bots: Bot[]): Record<string, BotStatus> {
     const needsYou =
       !!approvals.data?.approvals.some((item) => item.botId === bot.id) ||
       !!inputs.data?.inputs.some((item) => item.botId === bot.id);
-    statuses[bot.id] = botStatus(turns[index]?.data?.turns.at(-1), needsYou);
+    // A turn that failed before it started is only an event, not a stored turn.
+    statuses[bot.id] = botStatus(turns[index]?.data?.turns.at(-1), needsYou, bot.id in failures);
   });
   return statuses;
 }

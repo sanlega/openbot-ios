@@ -85,6 +85,13 @@ export default function SettingsScreen() {
               onPress={() => router.push("/routines")}
               chevron
             />
+            <Row
+              leading={<Badge icon="key.fill" color={colors.amber} colors={colors} />}
+              title="Saved logins"
+              subtitle="Websites Bots can sign in to"
+              onPress={() => router.push("/logins")}
+              chevron
+            />
           </RowGroup>
         </Section>
       ) : null}

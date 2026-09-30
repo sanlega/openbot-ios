@@ -3,7 +3,15 @@ import { ApiError, MobileClient } from "./client";
 import { clearCredentials, loadCredentials, loadEventCursor, saveEventCursor } from "./storage";
 import type { ConnectionState } from "@/lib/connection-state";
 import { advanceEventCursor, reconnectDelay } from "@/lib/connection-state";
-import { keysForEvent, reduceLiveText, type LiveText } from "@/lib/live";
+import {
+  keysForEvent,
+  reduceDelegations,
+  reduceFailures,
+  reduceLiveText,
+  type Delegations,
+  type Failures,
+  type LiveText,
+} from "@/lib/live";
 import { pairFromQr } from "./pair";
 import { refreshPushToken } from "./push";
 import { useQueryClient } from "@tanstack/react-query";
@@ -26,6 +34,10 @@ interface ConnectionContextValue {
   events: OBEvent[];
   /** Text each Bot is streaming right now, keyed by Bot id. */
   live: LiveText;
+  /** Tasks Bots handed to each other that are still open, keyed by delegation id. */
+  delegations: Delegations;
+  /** Why each Bot's latest turn failed (empty when the desktop gave no reason), keyed by Bot id. */
+  failures: Failures;
   pair(qrUrl: string): Promise<void>;
   forget(): Promise<void>;
 }
@@ -39,6 +51,8 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
   const [client, setClient] = useState<MobileClient>();
   const [events, setEvents] = useState<OBEvent[]>([]);
   const [live, setLive] = useState<LiveText>({});
+  const [delegations, setDelegations] = useState<Delegations>({});
+  const [failures, setFailures] = useState<Failures>({});
   const active = useRef(AppState.currentState === "active");
   const attempt = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -107,6 +121,8 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
           }
           cursor.current = advanceEventCursor(cursor.current, seen.current, event.seq);
           setLive((previous) => reduceLiveText(previous, event));
+          setDelegations((previous) => reduceDelegations(previous, event));
+          setFailures((previous) => reduceFailures(previous, event));
           if (event.type !== "message.delta") {
             setEvents((previous) =>
               [event, ...previous.filter((item) => item.id !== event.id)].slice(0, 30),
@@ -183,11 +199,15 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
     if (timer.current) clearTimeout(timer.current);
     timer.current = undefined;
     await clearCredentials();
+    setDelegations({});
+    setFailures({});
     setState({ status: "disconnected" });
   }, []);
 
   return (
-    <ConnectionContext.Provider value={{ state, client, events, live, pair, forget }}>
+    <ConnectionContext.Provider
+      value={{ state, client, events, live, delegations, failures, pair, forget }}
+    >
       {children}
     </ConnectionContext.Provider>
   );
