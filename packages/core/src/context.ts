@@ -1,8 +1,10 @@
 import { mkdir } from "node:fs/promises";
 import type {
   Clock,
+  ComputerImageManager,
   ComputerProvider,
   DecisionService,
+  EngineDescriptor,
   EngineId,
   EngineStatus,
   ModelInfo,
@@ -15,6 +17,7 @@ import type { RemoteServices } from "@openbot/remote";
 import {
   ApprovalsRepo,
   InputRequestsRepo,
+  DelegationsRepo,
   BotsRepo,
   CapCountersRepo,
   ChainsRepo,
@@ -52,6 +55,7 @@ export interface CoreRepos {
   turns: TurnsRepo;
   approvals: ApprovalsRepo;
   inputRequests: InputRequestsRepo;
+  delegations: DelegationsRepo;
   rules: RulesRepo;
   devices: DevicesRepo;
   connections: ConnectionsRepo;
@@ -115,6 +119,8 @@ export interface TurnMailbox {
     text: string;
     /** Explicit engine override (the route chip); otherwise the Bot's pin or Jev's route. */
     engine?: EngineId;
+    /** The turn works on this delegation: it stays on the delegation's engine and settles it. */
+    delegationId?: string;
   }): Promise<{
     ok: boolean;
     reason?: string;
@@ -151,6 +157,8 @@ export interface CoreContext {
   decisionService?: DecisionService;
   /** Wired in by WS9; computer status/start/live-view/takeover routes 501 until this is set. */
   computerProvider?: ComputerProvider;
+  /** Wired by bootstrap when the provider is docker; gets/resets the desktop image (D-020, plan `2026-09-28-computer-image-settings.md`). Image routes 501 until this is set. */
+  computerImageManager?: ComputerImageManager;
   /** Wired in by WS10; connector catalog/connect/triggers routes 501 until this is set. */
   connectorService?: ConnectorService;
   /** Setup-wizard validators for engine/connector/remote kinds; WS3/WS10/WS11 register theirs at boot. */
@@ -170,12 +178,30 @@ export interface CoreContext {
   /** Wired in by WS13 bootstrap; populated for `/api/engines` and routing. */
   availableEngines?: EngineId[];
   engineStatuses?: Partial<Record<EngineId, EngineStatus>>;
+  /** What each known engine is (label, kind, login command), also the ones not installed. */
+  engineDescriptors?: Partial<Record<EngineId, EngineDescriptor>>;
+  /** Owner-added ACP agents (`~/.openbot/engines.json`); a change applies after a restart. */
+  customEngines?: CustomEnginesControl;
   /** The address the server listens on (set by `serve` before listening). */
   bindHost?: string;
   /** Wired by bootstrap: live computer tasks (progress, steering, cancel) for the UI. */
   computerTasks?: ComputerTasksControl;
   /** Models of each available engine, for `/api/models` (Bot profile model picker). */
   listModels?: () => Promise<Array<{ engine: EngineId; models: ModelInfo[] }>>;
+}
+
+/** An ACP agent the owner added by command line (D-031); its engine id is `acp-<slug>`. */
+export interface CustomEngineSpec {
+  slug: string;
+  label: string;
+  command: string;
+  args: string[];
+}
+
+/** Reads/writes `~/.openbot/engines.json` (wired by bootstrap). */
+export interface CustomEnginesControl {
+  list(): CustomEngineSpec[];
+  save(engines: CustomEngineSpec[]): Promise<void>;
 }
 
 /** Minimal WS12 surface exposed on CoreContext to avoid a core↔routines import cycle. */
@@ -237,6 +263,7 @@ export async function createCoreContext(
       turns: new TurnsRepo(db),
       approvals: new ApprovalsRepo(db),
       inputRequests: new InputRequestsRepo(db),
+      delegations: new DelegationsRepo(db),
       rules: new RulesRepo(db),
       devices: new DevicesRepo(db),
       connections: new ConnectionsRepo(db),

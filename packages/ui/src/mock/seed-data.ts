@@ -363,12 +363,48 @@ export const SEED_ENGINES = [
     installed: true,
     version: "2.1.283",
     login: { ok: true, account: "user@example.com" },
+    available: true,
+    descriptor: { label: "Claude Code", kind: "native", loginCommand: "claude auth login" },
   },
   {
     id: "codex",
     installed: true,
     version: "0.157.1",
     login: { ok: true, account: "user@example.com" },
+    available: true,
+    descriptor: { label: "Codex", kind: "native", loginCommand: "codex login" },
+  },
+  {
+    id: "opencode",
+    installed: true,
+    version: "1.18.31",
+    login: { ok: true },
+    available: true,
+    descriptor: {
+      label: "OpenCode",
+      kind: "acp",
+      loginCommand: "opencode auth login",
+      summary: "Many cloud providers, free models, and local models (Ollama, LM Studio).",
+    },
+  },
+  {
+    id: "cursor",
+    installed: true,
+    version: "2026.09.12",
+    login: { ok: false },
+    available: false,
+    descriptor: { label: "Cursor", kind: "acp", loginCommand: "cursor-agent login" },
+  },
+  {
+    id: "gemini",
+    installed: false,
+    login: { ok: false },
+    available: false,
+    descriptor: {
+      label: "Gemini CLI",
+      kind: "acp",
+      installUrl: "https://github.com/google-gemini/gemini-cli",
+    },
   },
 ];
 

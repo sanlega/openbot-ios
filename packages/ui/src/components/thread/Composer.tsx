@@ -6,12 +6,14 @@ interface ComposerProps {
   running: boolean;
   onSend: (text: string) => Promise<void> | void;
   onStop: () => void;
+  /** Disconnected from OpenBot: keep the draft, don't send. */
+  offline?: boolean;
 }
 
 const MAX_HEIGHT = 200;
 
 /** Enter sends, Shift+Enter adds a line; grows with the text up to ~8 lines. */
-export function Composer({ botName, running, onSend, onStop }: ComposerProps) {
+export function Composer({ botName, running, onSend, onStop, offline = false }: ComposerProps) {
   const [draft, setDraft] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -25,9 +27,14 @@ export function Composer({ botName, running, onSend, onStop }: ComposerProps) {
   const send = async (e?: FormEvent) => {
     e?.preventDefault();
     const text = draft.trim();
-    if (!text) return;
+    if (!text || offline) return;
     setDraft("");
-    await onSend(text);
+    try {
+      await onSend(text);
+    } catch {
+      // Not sent (e.g. the connection dropped): give the text back.
+      setDraft((current) => current || text);
+    }
     ref.current?.focus();
   };
 
@@ -64,15 +71,19 @@ export function Composer({ botName, running, onSend, onStop }: ComposerProps) {
           <button
             type="submit"
             className="composer-btn"
-            disabled={!draft.trim()}
+            disabled={!draft.trim() || offline}
             aria-label="Send"
-            title="Send (Enter)"
+            title={offline ? "Reconnecting to OpenBot…" : "Send (Enter)"}
           >
             <ArrowUp size={16} strokeWidth={2.5} />
           </button>
         )}
       </div>
-      <p className="composer-hint">Enter to send · Shift+Enter for a new line</p>
+      <p className="composer-hint" data-offline={offline || undefined}>
+        {offline
+          ? "Reconnecting… your message will wait here"
+          : "Enter to send · Shift+Enter for a new line"}
+      </p>
     </form>
   );
 }

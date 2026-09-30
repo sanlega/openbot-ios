@@ -1,5 +1,7 @@
+import { isValidElement, useState, type ReactNode } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Check, Copy } from "lucide-react";
 
 /**
  * Bot text is Markdown (engines answer in it). Raw HTML in it is not rendered,
@@ -17,10 +19,49 @@ export function MessageText({ text, markdown }: { text: string; markdown: boolea
               {children}
             </a>
           ),
+          pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
         }}
       >
         {separateLists(text)}
       </Markdown>
+    </div>
+  );
+}
+
+/** A fenced code block with its language and a Copy button. */
+function CodeBlock({ children }: { children: ReactNode }) {
+  const [copied, setCopied] = useState(false);
+  const code = isValidElement<{ className?: string; children?: ReactNode }>(children)
+    ? children
+    : undefined;
+  const language = /language-([\w+-]+)/.exec(code?.props.className ?? "")?.[1];
+  const text = String(code?.props.children ?? "").replace(/\n$/, "");
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard blocked (e.g. no focus): nothing to report in the chat.
+    }
+  };
+
+  return (
+    <div className="code-block">
+      <div className="code-block-head">
+        <span className="code-block-lang">{language ?? "code"}</span>
+        <button
+          type="button"
+          className="code-block-copy"
+          onClick={() => void copy()}
+          aria-label={copied ? "Copied" : "Copy code"}
+        >
+          {copied ? <Check size={13} aria-hidden /> : <Copy size={13} aria-hidden />}
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <pre>{children}</pre>
     </div>
   );
 }

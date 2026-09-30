@@ -21,13 +21,15 @@ export const CreateBotBody = z.object({
   isChiefOfStaff: z.boolean().default(false),
   routing: EngineRouting.default({ mode: "auto" }),
   auth: EngineAuthOverride.optional(),
-  permissionPreset: PermissionPreset.default("workspace_write"),
-  computer: ComputerAccess.default("none"),
+  // Bots run with full permissions inside the virtual machine unless configured otherwise (#9).
+  permissionPreset: PermissionPreset.default("full"),
+  computer: ComputerAccess.default("docker"),
   connectors: z.array(z.string()).default([]),
   limits: z
     .object({
       dailyUsd: z.number().nonnegative().optional(),
       dailyTokens: z.number().int().nonnegative().optional(),
+      unrestrictedRoutineBudget: z.boolean().optional(),
     })
     .default({}),
 });
@@ -49,6 +51,7 @@ export const UpdateBotBody = z.object({
     .object({
       dailyUsd: z.number().nonnegative().optional(),
       dailyTokens: z.number().int().nonnegative().optional(),
+      unrestrictedRoutineBudget: z.boolean().optional(),
     })
     .optional(),
 });
@@ -146,8 +149,17 @@ export const TakeoverBody = z.object({
   on: z.boolean(),
 });
 
+export const ComputerImageBuildBody = z.object({
+  source: z.enum(["registry", "local"]).default("registry"),
+});
+
+export const ComputerImageResetBody = z.object({
+  removeImage: z.boolean().default(true),
+});
+
 export const CloudflareTunnelBody = z.object({
-  token: z.string().min(1),
+  /** Omitted to (re)start with the token already saved in the vault. */
+  token: z.string().min(1).optional(),
 });
 
 export const DecisionsQuery = z.object({

@@ -1,6 +1,6 @@
 {
   "name": "@openbot/engines-conformance",
-  "version": "0.1.0",
+  "version": "0.1.16",
   "private": true,
   "type": "module",
   "scripts": {

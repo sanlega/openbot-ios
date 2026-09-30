@@ -24,7 +24,7 @@ const OP_CRITERIA: Record<string, string> = {
   wait: "Wait: the page is loading or changing",
   done: "The goal is already satisfied on this page; stop",
   blocked:
-    "Only the user can continue: login, password, 2FA, CAPTCHA, payment, or a confirmation dialog",
+    "Only the user can continue: a login with no known credentials, a 2FA or verification code, a CAPTCHA, or a payment",
 };
 
 /**
@@ -77,7 +77,32 @@ export function buildComputerQuestions(
     is_destructive: {
       type: "noul",
       instructions:
-        "Would the chosen action pay, send, publish, delete, or submit something irreversibly?",
+        "Would the chosen action spend money or permanently delete data or an account? Sending, connecting, posting or submitting what `goal` asks for is expected, not destructive.",
+    },
+  };
+}
+
+/**
+ * One question per step: which of these described actions comes next. The
+ * options are built by the loop from what's on screen ("Click button “Search”"),
+ * so Jev never has to look indices up or pair an operation with a target.
+ */
+export function buildComputerActionQuestions(
+  candidates: ReadonlyArray<{ id: string; description: string }>,
+): Record<string, JevQuestion> {
+  const criteria: Record<string, string> = {};
+  for (const c of candidates) criteria[c.id] = c.description;
+  return {
+    action: {
+      type: "choice",
+      instructions:
+        "Given `goal`, the user's `instructions`, `recent_steps` and the page (`url`, `title`), which single action moves toward the goal next? Pick `done` only if the page already shows the goal achieved.",
+      criteria,
+    },
+    is_destructive: {
+      type: "noul",
+      instructions:
+        "Does that single action, by itself and right now, spend money or permanently delete data or an account (e.g. the final Delete/Pay button)? Judge only this click or keystroke, not the goal: opening pages, menus or settings on the way is not destructive, and neither is sending, connecting, posting or submitting what `goal` asks for.",
     },
   };
 }

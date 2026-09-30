@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CURATED_CONNECTORS, toCatalogEntry } from "./catalog/curated.js";
 import { REMOTE_LAUNCHER_PATH, renderServer, templateKeys } from "./catalog/template.js";
 import { matchTool, serverBaseName } from "./connector-service.js";
-import { registryEntry, registryPlan, type RegistryServer } from "./mcp-registry.js";
+import { publisherName, registryEntry, registryPlan, type RegistryServer } from "./mcp-registry.js";
 import { assertNoSecrets, containsLikelySecret, redactSecrets } from "./redaction.js";
 
 describe("redaction", () => {
@@ -166,7 +166,7 @@ describe("MCP Registry mapping", () => {
     expect(entry).toMatchObject({
       id: "registry:io.github.acme/weather",
       name: "weather",
-      publisher: "io.github.acme",
+      publisher: "GitHub · acme",
       category: "Community",
       kind: "local",
       auth: "token",
@@ -192,5 +192,14 @@ describe("MCP Registry mapping", () => {
     };
     expect(registryPlan(docker)).toBeUndefined();
     expect(registryEntry(docker).setup?.steps?.[0]).toMatch(/cannot run/);
+  });
+});
+
+describe("publisherName", () => {
+  it("turns reverse-DNS namespaces into something readable", () => {
+    expect(publisherName("io.github.jane")).toBe("GitHub · jane");
+    expect(publisherName("com.stripe")).toBe("stripe.com");
+    expect(publisherName("ac.inference.sh")).toBe("ac.inference.sh");
+    expect(publisherName("")).toBe("Community");
   });
 });

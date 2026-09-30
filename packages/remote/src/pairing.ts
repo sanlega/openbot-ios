@@ -79,14 +79,18 @@ export class PairingService {
     return session;
   }
 
-  buildQrUrl(primaryHost: string, session: PairingSession): string {
+  buildQrUrl(
+    primaryHost: string,
+    session: PairingSession,
+    scheme: "http" | "https" = "https",
+  ): string {
     const payload: QrPairPayload = {
       hostPub: session.hostPub,
       pairSecret: session.pairSecret,
       urls: session.urls,
     };
     const fragment = encodeURIComponent(JSON.stringify(payload));
-    return `https://${primaryHost}/app#pair=${fragment}`;
+    return `${scheme}://${primaryHost}/app#pair=${fragment}`;
   }
 
   /** Validates `pairSecret`, performs X25519, marks the secret used. Throws on failure. */

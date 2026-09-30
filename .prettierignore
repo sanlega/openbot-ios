@@ -16,3 +16,4 @@ apps/mobile/ios/build/**
 **/fixtures/**
 **/migrations/**
 images/**
+apps/mobile/expo-env.d.ts

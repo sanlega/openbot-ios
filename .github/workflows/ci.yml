@@ -1,9 +1,15 @@
 name: CI
 
+# Minutes are billed per OS (macOS 10x, Windows 2x), so pull requests run on
+# Linux only; the full macOS/Windows/Linux matrix and packaging run on main and
+# on demand (Actions > CI > Run workflow). Docs and memory-only changes skip CI.
 on:
   push:
     branches: [main]
+    paths-ignore: ["docs/**", ".ai/memory/**", "README.md", "CHANGELOG.md"]
   pull_request:
+    paths-ignore: ["docs/**", ".ai/memory/**", "README.md", "CHANGELOG.md"]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -13,10 +19,11 @@ jobs:
   test:
     name: test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-2022, macos-latest]
+        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || '["ubuntu-latest","windows-2022","macos-latest"]') }}
     steps:
       - uses: actions/checkout@v4
 
@@ -58,10 +65,11 @@ jobs:
   desktop-e2e:
     name: desktop e2e (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-2022, macos-latest]
+        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || '["ubuntu-latest","windows-2022","macos-latest"]') }}
     steps:
       - uses: actions/checkout@v4
 
@@ -107,6 +115,7 @@ jobs:
   integration-e2e:
     name: integration e2e
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -135,7 +144,10 @@ jobs:
 
   desktop-package:
     name: desktop package (${{ matrix.os }})
+    # Packaging is the slowest job on the priciest runners: main and manual runs only.
+    if: github.event_name != 'pull_request'
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -177,6 +189,14 @@ jobs:
           OPENBOT_FAKE_ENGINES: "1"
           OPENBOT_FAKE_COMPUTER: "1"
 
+      - name: Smoke test packaged app (macOS)
+        if: runner.os == 'macOS'
+        run: pnpm --filter @openbot/desktop run smoke:packaged:mac
+        env:
+          OPENBOT_FAKE_JEV: "1"
+          OPENBOT_FAKE_ENGINES: "1"
+          OPENBOT_FAKE_COMPUTER: "1"
+
       - name: Upload desktop artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -189,3 +209,4 @@ jobs:
             apps/desktop/release/*.exe
             apps/desktop/release/*-unpacked/**
           if-no-files-found: ignore
+          retention-days: 7

@@ -58,17 +58,27 @@ describe("SENSITIVE_COMPUTER_TARGET_RE", () => {
   it.each([
     "Pay",
     "Buy now",
-    "Send",
     "Delete account",
     "Transfer funds",
     "Submit order",
-    "Confirm",
+    "Place your order",
+    "Pagar ahora",
   ])("matches %s", (label) => {
     expect(SENSITIVE_COMPUTER_TARGET_RE.test(label)).toBe(true);
   });
 
-  it("does not match an unrelated label", () => {
-    expect(SENSITIVE_COMPUTER_TARGET_RE.test("Refresh")).toBe(false);
+  it.each([
+    "Refresh",
+    "Send",
+    "Send without a note",
+    "Confirm",
+    "Connect",
+    "Send invitation",
+    "Sign in with PayPal",
+    "Sender settings",
+    "Post",
+  ])("does not match %s: the request already implies it", (label) => {
+    expect(SENSITIVE_COMPUTER_TARGET_RE.test(label)).toBe(false);
   });
 });
 

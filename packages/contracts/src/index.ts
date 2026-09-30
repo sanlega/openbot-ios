@@ -8,3 +8,4 @@ export * from "./computer.js";
 export * from "./connector.js";
 export * from "./trigger-source.js";
 export * from "./inputs.js";
+export * from "./prompts.js";

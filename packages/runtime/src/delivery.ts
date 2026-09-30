@@ -22,6 +22,8 @@ export interface SendBotToBotInput {
   toThreadId: string;
   text: string;
   mode: ChainMode;
+  /** The delegation this message belongs to; its report comes back to the sender. */
+  delegationId?: string;
 }
 
 export type DeliveryOutcome = "delivered" | "simulated" | "refused";
@@ -135,7 +137,11 @@ export class DeliveryService {
       type: "handoff.sent",
       botId: input.fromBotId,
       chainId: input.chainId,
-      payload: { toBotId: input.toBotId, messageId: message.id },
+      payload: {
+        toBotId: input.toBotId,
+        messageId: message.id,
+        delegationId: input.delegationId,
+      },
     });
     this.opts.chains.recordBotMessage(input.chainId, nextHop);
     return { outcome: "delivered", message };

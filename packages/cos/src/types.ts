@@ -74,9 +74,14 @@ export interface SpawnThresholds {
   routeConfidenceMin: number;
   existingCanDoMax: number;
   oneOffMax: number;
+  /** A one-off task that is substantial work still gets a bot: the Chief stays free for the user. */
+  substantialWorkMin: number;
   duplicatesExistingMax: number;
   recurringOwnershipMin: number;
   distinctBoundaryMin: number;
+  /** Above this route confidence, `existingCanDoOverrideMax` replaces `existingCanDoMax` — a very sure "new_bot" tolerates more doubt in one secondary signal. */
+  routeConfidenceOverrideMin: number;
+  existingCanDoOverrideMax: number;
 }
 
 export interface NotifyThresholds {

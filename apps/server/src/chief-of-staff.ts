@@ -26,8 +26,8 @@ export function ensureChiefOfStaff(ctx: CoreContext): Bot | undefined {
     isChiefOfStaff: true,
     createdBy: "user",
     routing: { mode: "auto" },
-    permissionPreset: "workspace_write",
-    computer: "none",
+    permissionPreset: "full",
+    computer: "docker",
     connectors: [],
     limits: {},
   };

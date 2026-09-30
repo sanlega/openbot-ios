@@ -1,10 +1,10 @@
 import { EventEmitter } from "node:events";
+import { appendFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import type { EngineEvent, ToolApprovalRequest, TurnHooks, TurnInput } from "@openbot/contracts";
 import { resolveCliCommand } from "@openbot/engines-common";
 import type {
-  CodexApprovalDecision,
   CodexJsonRpcNotification,
   CodexJsonRpcRequest,
   CodexJsonRpcResponse,
@@ -12,6 +12,7 @@ import type {
   ThreadStartResult,
   TurnStartResult,
 } from "./generated/protocol.js";
+import { mapApprovalRequest, threadParams } from "./thread-params.js";
 import {
   handleCodexNotification,
   handleCodexResponse,
@@ -22,6 +23,12 @@ import {
 export interface CodexAppServerOptions {
   codexPath?: string | null;
   env?: NodeJS.ProcessEnv;
+  /** Where Codex keeps its config and login: OpenBot's private home, not the owner's `~/.codex`. */
+  codexHome?: string;
+  /** Runs before the process starts (prepare the private home, bring the login in). */
+  beforeStart?: () => Promise<void>;
+  /** Runs when the process is stopped (hand a refreshed login back). */
+  afterStop?: () => Promise<void>;
 }
 
 type Pending = {
@@ -38,6 +45,8 @@ export class CodexAppServer {
   private initialized = false;
   private initPromise: Promise<void> | null = null;
   private readonly options: CodexAppServerOptions;
+  /** Paths of each file-change item, so its approval names what it will touch. */
+  private readonly fileChangePaths = new Map<string, string[]>();
 
   constructor(options: CodexAppServerOptions = {}) {
     this.options = options;
@@ -58,16 +67,34 @@ export class CodexAppServer {
   private async start(): Promise<void> {
     const codexPath = this.options.codexPath ?? (await resolveCliCommand("codex"));
     if (!codexPath) throw new Error("codex CLI not installed");
+    await this.options.beforeStart?.();
 
     const { spawn } = await import("node:child_process");
     this.child = spawn(codexPath, ["app-server"], {
-      env: { ...process.env, ...this.options.env },
+      env: {
+        ...process.env,
+        ...(this.options.codexHome ? { CODEX_HOME: this.options.codexHome } : {}),
+        ...this.options.env,
+      },
       stdio: ["pipe", "pipe", "pipe"],
     }) as ChildProcessWithoutNullStreams;
 
     const rl = createInterface({ input: this.child.stdout });
+    // Opt-in raw trace for diagnosing protocol drift: every line the app-server sends.
+    const traceFile = process.env.OPENBOT_CODEX_TRACE_FILE;
     rl.on("line", (line) => {
       if (!line.trim()) return;
+      if (traceFile) {
+        try {
+          appendFileSync(
+            traceFile,
+            `${line}
+`,
+          );
+        } catch {
+          // tracing must never affect a turn
+        }
+      }
       try {
         this.handleLine(JSON.parse(line) as Record<string, unknown>);
       } catch {
@@ -83,22 +110,53 @@ export class CodexAppServer {
     this.initialized = true;
   }
 
+  /**
+   * Skills the owner installed, Codex bundles, or the account's plugins sync in (Google Drive,
+   * templates...) are instructions the Bot never asked for: switched off. Plugin skills show up a few
+   * seconds after Codex starts, so this runs before every thread and every turn, not once.
+   */
+  async quietSkills(cwd: string): Promise<void> {
+    try {
+      const listed = (await this.request("skills/list", { cwds: [cwd], forceReload: true })) as {
+        data?: Array<{ skills?: Array<{ path?: string; enabled?: boolean }> }>;
+      };
+      for (const entry of listed.data ?? []) {
+        for (const skill of entry.skills ?? []) {
+          if (skill.path && skill.enabled !== false) {
+            await this.request("skills/config/write", { path: skill.path, enabled: false });
+          }
+        }
+      }
+    } catch {
+      // Older Codex versions have no skills API; then there is nothing to switch off.
+    }
+  }
+
+  /** Skills still switched on for this folder (tests and diagnostics). */
+  async enabledSkills(cwd: string): Promise<string[]> {
+    const listed = (await this.request("skills/list", { cwds: [cwd], forceReload: true })) as {
+      data?: Array<{ skills?: Array<{ name?: string; enabled?: boolean }> }>;
+    };
+    return (listed.data ?? [])
+      .flatMap((entry) => entry.skills ?? [])
+      .filter((skill) => skill.enabled !== false)
+      .map((skill) => String(skill.name));
+  }
+
   async threadStart(input: TurnInput): Promise<string> {
     await this.ensureStarted();
-    const config = buildThreadConfig(input);
-    const result = (await this.request("thread/start", {
-      cwd: input.cwd,
-      model: input.model,
-      config,
-    })) as ThreadStartResult;
+    await this.quietSkills(input.cwd);
+    const result = (await this.request("thread/start", threadParams(input))) as ThreadStartResult;
     const threadId = result.thread.id;
     await this.listMcpServerStatus(threadId);
     return threadId;
   }
 
-  async threadResume(threadId: string): Promise<string> {
+  /** Resumes with the same instructions, sandbox and MCP config a fresh thread would get. */
+  async threadResume(threadId: string, input?: TurnInput): Promise<string> {
     await this.ensureStarted();
     const result = (await this.request("thread/resume", {
+      ...(input ? threadParams(input) : {}),
       threadId,
       excludeTurns: true,
     })) as ThreadStartResult;
@@ -123,7 +181,8 @@ export class CodexAppServer {
     return models;
   }
 
-  async turnStart(threadId: string, text: string): Promise<string> {
+  async turnStart(threadId: string, text: string, cwd?: string): Promise<string> {
+    if (cwd) await this.quietSkills(cwd);
     const result = (await this.request("turn/start", {
       threadId,
       input: [{ type: "text", text }],
@@ -149,14 +208,21 @@ export class CodexAppServer {
     id: number | string,
   ): Promise<void> {
     const params = notification.params ?? {};
-    const summary = notification.method;
-    const decision = await requestApproval({
-      toolName: summary,
-      input: params,
+    const mapped = mapApprovalRequest(notification.method, params, (itemId) =>
+      this.fileChangePaths.get(itemId),
+    );
+    if (mapped.autoAnswer !== undefined) {
+      this.respondToServerRequest(id, mapped.autoAnswer);
+      return;
+    }
+    const answer = await requestApproval({
+      toolName: mapped.toolName,
+      input: mapped.input,
       toolUseId: String(id),
     });
-    const mapped: CodexApprovalDecision = decision === "allow" ? "accept" : "decline";
-    this.respondToServerRequest(id, { decision: mapped });
+    this.respondToServerRequest(id, mapped.respond(answer === "allow"));
+    const itemId = params.itemId;
+    if (typeof itemId === "string") this.fileChangePaths.delete(itemId);
   }
 
   watchTurn(
@@ -164,8 +230,15 @@ export class CodexAppServer {
     hooks: Pick<TurnHooks, "emit" | "requestApproval">,
   ): () => void {
     return this.onNotification(async (notification) => {
+      // Server requests (approvals) name their thread: answer only our own turn's.
+      const owner = (notification.params as { threadId?: unknown } | undefined)?.threadId;
+      const foreign =
+        typeof owner === "string" && state.threadId !== undefined && owner !== state.threadId;
+
       if (notification.id != null && typeof notification.id === "number") {
-        await this.handleApprovalRequest(notification, hooks.requestApproval, notification.id);
+        if (!foreign) {
+          await this.handleApprovalRequest(notification, hooks.requestApproval, notification.id);
+        }
         return;
       }
 
@@ -175,7 +248,7 @@ export class CodexAppServer {
         notification.method === "item/permissions/requestApproval"
       ) {
         const reqId = (notification as unknown as { id?: number }).id;
-        if (reqId != null) {
+        if (reqId != null && !foreign) {
           await this.handleApprovalRequest(notification, hooks.requestApproval, reqId);
         }
         return;
@@ -225,8 +298,21 @@ export class CodexAppServer {
       if (line.id != null) {
         (notification as CodexJsonRpcNotification & { id?: number }).id = Number(line.id);
       }
+      this.rememberFileChange(notification);
       this.notifications.emit("msg", notification);
     }
+  }
+
+  private rememberFileChange(notification: CodexJsonRpcNotification): void {
+    if (notification.method !== "item/started") return;
+    const item = (
+      notification.params as { item?: { type?: string; id?: string; changes?: unknown } }
+    )?.item;
+    if (item?.type !== "fileChange" || !item.id || !Array.isArray(item.changes)) return;
+    const paths = item.changes
+      .map((change) => (change as { path?: unknown }).path)
+      .filter((path): path is string => typeof path === "string");
+    if (paths.length > 0) this.fileChangePaths.set(item.id, paths);
   }
 
   private async request(method: string, params: Record<string, unknown>): Promise<unknown> {
@@ -272,20 +358,8 @@ export class CodexAppServer {
     this.initialized = false;
     this.initPromise = null;
     this.pending.clear();
+    await this.options.afterStop?.();
   }
-}
-
-function buildThreadConfig(input: TurnInput): Record<string, unknown> {
-  if (input.mcpServers.length === 0) return {};
-  const mcp_servers: Record<string, unknown> = {};
-  for (const server of input.mcpServers) {
-    mcp_servers[server.name] = {
-      command: server.command,
-      args: server.args ?? [],
-      env: server.env ?? {},
-    };
-  }
-  return { mcp_servers };
 }
 
 /** Fixture-backed app-server for golden replay tests. */
@@ -325,7 +399,7 @@ export class FixtureCodexAppServer {
     return extractThreadId(this.fixtureLines) ?? "fixture-thread";
   }
 
-  async threadResume(threadId: string): Promise<string> {
+  async threadResume(threadId: string, _input?: TurnInput): Promise<string> {
     await this.ensureStarted();
     return extractThreadId(this.fixtureLines, threadId) ?? threadId;
   }
@@ -351,7 +425,7 @@ export class FixtureCodexAppServer {
     return [];
   }
 
-  async turnStart(_threadId: string, _text: string): Promise<string> {
+  async turnStart(_threadId: string, _text: string, _cwd?: string): Promise<string> {
     return "fixture-turn";
   }
 

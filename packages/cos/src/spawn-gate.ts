@@ -40,16 +40,34 @@ export function evaluateSpawnRule(
   const recurringOwnership = noul(answers, "recurring_ownership");
   const distinctBoundary = noul(answers, "distinct_boundary");
   const duplicatesExisting = noul(answers, "duplicates_existing");
+  const substantialWork = noul(answers, "substantial_work");
+  // Delegating is the default: a one-off is fine when it is real work, not a quick answer.
+  const oneOffOk =
+    oneOff <= thresholds.oneOffMax || substantialWork >= thresholds.substantialWorkMin;
+  const hasOwnerReason =
+    recurringOwnership >= thresholds.recurringOwnershipMin ||
+    distinctBoundary >= thresholds.distinctBoundaryMin ||
+    substantialWork >= thresholds.substantialWorkMin;
+
+  // A very confident "new_bot" tolerates more doubt in existingCanDo alone — the other
+  // signals (one-off, duplicates, recurring/boundary) still gate it the same either way.
+  const veryConfidentNewBot =
+    route.choice === "new_bot" &&
+    route.confidence >= thresholds.routeConfidenceOverrideMin &&
+    existingCanDo <= thresholds.existingCanDoOverrideMax &&
+    oneOffOk &&
+    duplicatesExisting <= thresholds.duplicatesExistingMax &&
+    hasOwnerReason;
 
   const allow =
     userRequested >= thresholds.userRequestedMin ||
+    veryConfidentNewBot ||
     (route.choice === "new_bot" &&
       route.confidence >= thresholds.routeConfidenceMin &&
       existingCanDo <= thresholds.existingCanDoMax &&
-      oneOff <= thresholds.oneOffMax &&
+      oneOffOk &&
       duplicatesExisting <= thresholds.duplicatesExistingMax &&
-      (recurringOwnership >= thresholds.recurringOwnershipMin ||
-        distinctBoundary >= thresholds.distinctBoundaryMin));
+      hasOwnerReason);
 
   const suggestion = allow ? null : route.choice === "new_bot" ? "cos_itself" : route.choice;
 

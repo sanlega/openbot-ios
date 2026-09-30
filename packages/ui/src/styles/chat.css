@@ -432,6 +432,56 @@
   font-size: inherit;
 }
 
+/* Code block: language + Copy on top, the code below in one bordered box. */
+.code-block {
+  margin: 0 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  overflow: hidden;
+}
+
+.code-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px 4px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-xs);
+  color: var(--text-3);
+}
+
+.code-block-lang {
+  font-family: var(--mono);
+  text-transform: lowercase;
+}
+
+.code-block-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  cursor: pointer;
+}
+
+.code-block-copy:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.code-block .message-markdown pre,
+.message-markdown .code-block pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .message-markdown blockquote {
   border-left: 3px solid var(--border-strong);
   padding-left: 12px;
@@ -456,11 +506,16 @@
   border: 1px solid var(--border);
   padding: 6px 10px;
   text-align: left;
+  /* Words stay whole; a wide table scrolls sideways instead. */
+  overflow-wrap: normal;
+  word-break: normal;
+  min-width: 4ch;
 }
 
 .message-markdown th {
   background: var(--surface-1);
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .message-markdown a {
@@ -575,9 +630,38 @@
 
 .turn-step-list li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   min-width: 0;
+}
+
+/* A computer task's own steps, under it, as they happen. */
+.turn-step-list .turn-substeps {
+  flex-basis: 100%;
+  margin: 2px 0 2px 30px;
+  padding: 0 0 0 12px;
+  border-left: 1px solid var(--border);
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.turn-step-list .turn-substeps li {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--text-2);
+}
+
+.turn-step-list .turn-substeps li[data-outcome="escalated"],
+.turn-step-list .turn-substeps li[data-outcome="blocked"],
+.turn-step-list .turn-substeps li[data-outcome="denied"] {
+  color: var(--warning);
+}
+
+.turn-step-list .turn-substeps li[data-outcome="done"] {
+  color: var(--success);
 }
 
 .turn-step-icon {
@@ -689,7 +773,8 @@
   font-family: var(--mono);
   font-size: var(--text-sm);
   white-space: pre-wrap;
-  word-break: break-all;
+  /* Wrap at spaces first; split a token only if it can't fit at all. */
+  overflow-wrap: anywhere;
   max-height: 160px;
   overflow: auto;
 }
@@ -699,6 +784,30 @@
   font-size: var(--text-sm);
   color: var(--text-2);
   width: fit-content;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.approval-details summary::-webkit-details-marker {
+  display: none;
+}
+
+/* A chevron like the turn steps', turning when open. */
+.approval-details summary::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--fast) var(--ease);
+  margin-right: 2px;
+}
+
+.approval-details[open] summary::before {
+  transform: rotate(45deg);
 }
 
 .approval-details pre {
@@ -818,6 +927,10 @@
   background: var(--text-2);
 }
 
+.composer-hint[data-offline] {
+  color: var(--warning);
+}
+
 .composer-hint {
   margin: 6px 0 0;
   text-align: center;
@@ -841,6 +954,9 @@
   }
   .composer-hint {
     display: none;
+  }
+  .composer-hint[data-offline] {
+    display: block;
   }
   .turn-steps {
     margin-left: 0;

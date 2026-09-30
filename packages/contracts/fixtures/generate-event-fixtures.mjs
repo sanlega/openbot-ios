@@ -40,6 +40,7 @@ const payloads = {
   "approval.resolved": { botId: "bot_01ARZ3NDEKTSV4RRFFQ69G5FAV", payload: { approvalId: "apr_01ARZ3NDEKTSV4RRFFQ69G5FAV", resolution: "allow" } },
   "handoff.sent": { botId: "bot_01ARZ3NDEKTSV4RRFFQ69G5FAV", payload: { toBotId: "bot_01ARZ3NDEKTSV4RRFFQ69G5FAX" } },
   "handoff.received": { botId: "bot_01ARZ3NDEKTSV4RRFFQ69G5FAX", payload: { fromBotId: "bot_01ARZ3NDEKTSV4RRFFQ69G5FAV" } },
+  "delegation.updated": { botId: "bot_01ARZ3NDEKTSV4RRFFQ69G5FAX", payload: { delegation: { id: "dlg_01ARZ3NDEKTSV4RRFFQ69G5FAV", state: "working" } } },
   "bot.created": { botId: "bot_01ARZ3NDEKTSV4RRFFQ69G5FAV", payload: { createdBy: "user" } },
   "bot.updated": { botId: "bot_01ARZ3NDEKTSV4RRFFQ69G5FAV", payload: { fields: ["description"] } },
   "bot.archived": { botId: "bot_01ARZ3NDEKTSV4RRFFQ69G5FAV", payload: {} },

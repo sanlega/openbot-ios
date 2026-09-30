@@ -24,7 +24,7 @@ describe("WS5 extended screens", () => {
 
   afterEach(async () => {
     cleanup();
-    await new Promise((r) => setTimeout(r, 25));
+    await transport.close();
     await server.close();
   });
 

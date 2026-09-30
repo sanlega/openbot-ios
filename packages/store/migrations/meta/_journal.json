@@ -15,6 +15,20 @@
       "when": 1790531765857,
       "tag": "0001_flowery_prodigy",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790636326072,
+      "tag": "0002_lethal_madelyne_pryor",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790712459588,
+      "tag": "0003_perpetual_bruce_banner",
+      "breakpoints": true
     }
   ]
 }

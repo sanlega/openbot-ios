@@ -139,12 +139,18 @@ export class JevClient {
           continue;
         }
         if (error instanceof Error && error.name === "AbortError") {
-          throw new JevClientError(
+          // A timeout is retryable like any other: the first call of a run also
+          // pays for the TLS handshake and can miss a tight deadline.
+          lastError = new JevClientError(
             `Jev request timed out after ${call.timeoutMs}ms`,
             408,
             undefined,
             true,
           );
+          if (attempt >= this.maxRetries || Date.now() >= retryDeadline) throw lastError;
+          await this.sleepBeforeRetry(undefined, attempt, retryDeadline);
+          attempt += 1;
+          continue;
         }
         throw error;
       }
@@ -211,5 +217,6 @@ function parseRetryAfterMs(res?: Response): number | undefined {
 }
 
 export function jevTimeoutMs(purpose: string): number {
-  return purpose === "computer" ? 400 : 1500;
+  // Jev answers in ~300 ms; a new connection adds a TLS handshake on top.
+  return purpose === "computer" ? 3000 : 1500;
 }

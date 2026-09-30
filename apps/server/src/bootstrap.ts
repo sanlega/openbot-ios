@@ -1,7 +1,7 @@
 import type { Approval, Chain, ComputerProvider, Message, Rule, Turn } from "@openbot/contracts";
 import { newId, type Clock } from "@openbot/contracts";
 import { wireConnectors } from "@openbot/connectors";
-import type { CoreContext } from "@openbot/core";
+import { delegationsOf, type CoreContext } from "@openbot/core";
 import {
   CapCounterService,
   DEFAULT_AUTONOMY_CAPS,
@@ -47,6 +47,7 @@ import {
   createTurnMailbox,
   RepoSessionStore,
   wakeOnBotMessages,
+  wakeRequesterOnDelegations,
 } from "./turn-mailbox.js";
 
 export interface BootstrapOptions {
@@ -71,6 +72,8 @@ export async function bootstrapHarness(
 
   // One shared object: the gates and prompts read it on every call, and it is
   // refreshed in place when the user changes settings, so no restart is needed.
+  // Once, at start-up: not on every settings change, or the owner could never pick 6 / 2 / 30.
+  upgradeUntouchedSpawnCaps(ctx);
   const autonomyCaps = loadAutonomyCaps(ctx);
   ctx.eventBus.subscribe((event) => {
     if (event.type !== "setup.changed") return;
@@ -121,13 +124,18 @@ export async function bootstrapHarness(
   const buildTurn = createTurnBuilder(ctx, turnDeps);
   ctx.mailbox = createTurnMailbox(ctx, turnDeps, buildTurn);
   wakeOnBotMessages(ctx, turnDeps, buildTurn);
+  wakeRequesterOnDelegations(ctx, turnDeps, buildTurn);
   pinModelOnSpawn(ctx, createEngineChooser(ctx, turnDeps));
   ctx.listModels = modelLister(ctx, turnDeps);
+  // Warm the model lists so the first profile opened shows every engine at once.
+  void ctx.listModels().catch(() => undefined);
   ctx.onApprovalResolved = (approvalId, resolution) => {
     runtime.broker.settleResolved(approvalId, resolution);
     applyRoutineLiveApproval(ctx, approvalId, resolution);
+    void tellBotItsApprovalAnswer(ctx, approvalId, resolution);
   };
   ctx.computerProvider = options.computerProvider ?? providers.computerProvider;
+  if (!options.computerProvider) ctx.computerImageManager = providers.computerImageManager;
 
   wireConnectors(ctx);
   await attachRemoteServices(ctx);
@@ -171,6 +179,29 @@ function cosSpawnTimes(ctx: CoreContext): Date[] {
     .filter((at): at is string => Boolean(at))
     .map((at) => new Date(at))
     .sort((a, b) => a.getTime() - b.getTime());
+}
+
+/**
+ * Installs that never touched the spawn limits hold the old defaults (6 bots, 2 per day, 30 min
+ * cooldown) in their settings row, which would keep the Chief from delegating (D-023). Move
+ * exactly that untouched triple to the new defaults; anything the owner changed is kept.
+ */
+export function upgradeUntouchedSpawnCaps(ctx: CoreContext): void {
+  const settings = ctx.repos.settings.get();
+  const caps = settings?.caps;
+  if (!settings || !caps) return;
+  if (caps.s1_cosBotsCap === 6 && caps.s2_newBotsPer24h === 2 && caps.s3_spawnCooldownMin === 30) {
+    ctx.repos.settings.upsert({
+      ...settings,
+      caps: {
+        ...caps,
+        s1_cosBotsCap: DEFAULT_AUTONOMY_CAPS.cosCreatedBotsMax,
+        s2_newBotsPer24h: DEFAULT_AUTONOMY_CAPS.newBotsPerDay,
+        s3_spawnCooldownMin: DEFAULT_AUTONOMY_CAPS.spawnCooldownMin,
+      },
+      updatedAt: ctx.clock.now().toISOString(),
+    });
+  }
 }
 
 function loadAutonomyCaps(ctx: CoreContext): AutonomyCaps {
@@ -378,7 +409,8 @@ export class RepoTurnStore implements TurnStore {
     const turn: Turn = {
       ...input,
       id: input.id ?? newId("turn"),
-      status: "queued",
+      // The mailbox creates a turn as it starts it (right before turn.started).
+      status: "running",
       usage: { inputTokens: 0, outputTokens: 0, usd: 0 },
       createdAt: this.ctx.clock.now().toISOString(),
     };
@@ -437,4 +469,31 @@ async function closeOrphanedTurns(ctx: CoreContext): Promise<void> {
       payload: { errorMessage: "OpenBot restarted before this turn finished." },
     });
   }
+}
+
+/**
+ * A Bot that asked with `request_approval` ended its turn and is waiting: the user's answer is its
+ * next message. (A tool approval the broker parked is answered inside its own turn instead.)
+ */
+async function tellBotItsApprovalAnswer(
+  ctx: CoreContext,
+  approvalId: string,
+  resolution: "allow" | "deny",
+): Promise<void> {
+  const approval = ctx.repos.approvals.getById(approvalId);
+  if (!approval || approval.kind !== "bot_request" || !ctx.mailbox) return;
+  const tracker = delegationsOf(ctx);
+  const delegation = tracker.openFor(approval.botId);
+  const delegationId = delegation?.state === "input_required" ? delegation.id : undefined;
+  if (delegationId) {
+    await tracker.resume(delegationId);
+    tracker.expectTurn(delegationId);
+  }
+  const asked = approval.summary.slice(0, 120);
+  await ctx.mailbox.enqueue({
+    botId: approval.botId,
+    chainId: approval.chainId,
+    text: `The user ${resolution === "allow" ? "approved" : "declined"} your request: "${asked}".`,
+    delegationId,
+  });
 }

@@ -42,7 +42,15 @@ export function ThreadViewPanel({ onBack }: ThreadViewProps) {
   const bot = thread ? bots.find((b) => b.id === thread.botId) : undefined;
   const messages = thread ? messagesForThread(thread.id) : [];
   const route = thread ? routeForBot(thread.botId) : undefined;
-  const threadApprovals = pendingApprovals.filter((a) => a.botId === thread?.botId);
+  // A worker's approval card shows where the user is talking: its requester's thread.
+  const delegatedHere = new Set(
+    [...state.delegations.values()]
+      .filter((d) => d.ownerThreadId === thread?.id)
+      .map((d) => d.assigneeBotId),
+  );
+  const threadApprovals = pendingApprovals.filter(
+    (a) => a.botId === thread?.botId || delegatedHere.has(a.botId),
+  );
   const botTurns = [...state.turns.values()]
     .filter((t) => t.botId === thread?.botId)
     .sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt));
@@ -95,7 +103,13 @@ export function ThreadViewPanel({ onBack }: ThreadViewProps) {
       ? "Working…"
       : status === "needs-you"
         ? "Waiting for you"
-        : (bot.label ?? (bot.isChiefOfStaff ? "Chief of Staff" : oneLine(bot.description)));
+        : (bot.label ??
+          (bot.isChiefOfStaff
+            ? // Don't repeat the name: say the role only when it adds something.
+              bot.name === "Chief of Staff"
+              ? "Your first point of contact"
+              : "Chief of Staff"
+            : oneLine(bot.description)));
 
   return (
     <div className="thread">
@@ -111,7 +125,7 @@ export function ThreadViewPanel({ onBack }: ThreadViewProps) {
           onClick={() => setPanel("profile")}
           title="Open profile"
         >
-          <BotAvatar bot={bot} size={32} status={status} />
+          <BotAvatar bot={bot} size={32} status={status} motion="always" />
           <span className="thread-identity-text">
             <span className="thread-title">{thread.title || bot.name}</span>
             <span className="thread-subtitle" data-status={status}>
@@ -127,6 +141,7 @@ export function ThreadViewPanel({ onBack }: ThreadViewProps) {
           type="button"
           className="tab"
           data-active={panel === "chat"}
+          aria-current={panel === "chat" ? "page" : undefined}
           onClick={() => setPanel("chat")}
         >
           Chat
@@ -136,6 +151,7 @@ export function ThreadViewPanel({ onBack }: ThreadViewProps) {
             type="button"
             className="tab"
             data-active={panel === "computer"}
+            aria-current={panel === "computer" ? "page" : undefined}
             onClick={() => setPanel("computer")}
           >
             Computer
@@ -145,6 +161,7 @@ export function ThreadViewPanel({ onBack }: ThreadViewProps) {
           type="button"
           className="tab"
           data-active={panel === "profile"}
+          aria-current={panel === "profile" ? "page" : undefined}
           onClick={() => setPanel("profile")}
         >
           Profile
@@ -161,7 +178,13 @@ export function ThreadViewPanel({ onBack }: ThreadViewProps) {
               stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
             }}
           >
-            <div className="thread-messages" data-testid="thread-messages">
+            <div
+              className="thread-messages"
+              data-testid="thread-messages"
+              role="log"
+              aria-live="polite"
+              aria-label={`Conversation with ${bot.name}`}
+            >
               {messages.length === 0 && !runningTurn ? (
                 <ThreadIntro bot={bot} onPick={(text) => void sendMessage(text)} />
               ) : null}
@@ -216,6 +239,7 @@ export function ThreadViewPanel({ onBack }: ThreadViewProps) {
             running={Boolean(runningTurn)}
             onSend={(text) => sendMessage(text)}
             onStop={stop}
+            offline={!state.connected}
           />
         </>
       ) : null}
@@ -258,7 +282,7 @@ function ThreadIntro({ bot, onPick }: { bot: Bot; onPick: (text: string) => void
     : ["What can you do?", "Here's your first task:"];
   return (
     <div className="thread-intro">
-      <BotAvatar bot={bot} size={56} />
+      <BotAvatar bot={bot} size={56} motion="always" />
       <h2>{bot.isChiefOfStaff ? "Hi, I'm your Chief of Staff" : `Hi, I'm ${bot.name}`}</h2>
       <p>
         {bot.isChiefOfStaff

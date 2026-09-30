@@ -249,6 +249,9 @@ export class DefaultConnectorService implements ConnectorService {
     for (const connectionId of bot.connectors) {
       const connection = this.ctx.repos.connections.getById(connectionId);
       if (!connection || connection.status !== "connected") continue;
+      // A browser-automation server opens a browser on the owner's computer. A Bot whose computer
+      // is the virtual machine never gets one: its browser work goes through computer_task.
+      if (bot.computer !== "docker+local" && drivesHostBrowser(connection)) continue;
       const base = serverBaseName(connection.appId);
       let name = base;
       for (let i = 2; used.has(name); i++) name = `${base}_${i}`;
@@ -345,3 +348,16 @@ export function matchTool(
 }
 
 export type { ConnectorService, ConnectorSetupField };
+
+/** Playwright, Puppeteer, Selenium, Browserbase-style local servers: they drive a browser on this computer. */
+const HOST_BROWSER_SERVER_RE =
+  /playwright|puppeteer|selenium|chrome-devtools|browser-?use|webdriver/i;
+
+export function drivesHostBrowser(connection: Pick<Connection, "appId" | "displayName">): boolean {
+  const template = curatedById(connection.appId)?.template;
+  const command =
+    template && template.transport === "local"
+      ? `${template.command} ${(template.args ?? []).join(" ")}`
+      : "";
+  return HOST_BROWSER_SERVER_RE.test(`${connection.appId} ${connection.displayName} ${command}`);
+}

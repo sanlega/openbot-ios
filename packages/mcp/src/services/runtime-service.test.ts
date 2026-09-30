@@ -49,7 +49,7 @@ async function setup() {
     clock: new FakeClock(0),
     events: new InMemoryEventSink(),
   });
-  const bot = makeBot({ name: "Writer", slug: "writer", permissionPreset: "full" });
+  const bot = makeBot({ name: "Writer", slug: "writer", permissionPreset: "workspace_write" });
   harness.ctx.repos.bots.create(bot);
   const session: SessionContext = {
     botId: bot.id,
@@ -71,6 +71,40 @@ async function pendingApprovalId(runtime: ReturnType<typeof createRuntime>): Pro
   }
   throw new Error("no pending approval");
 }
+
+describe("McpRuntimeServiceAdapter.requestApproval", () => {
+  it("stores one approval row when the runtime's store already persists it", async () => {
+    const { service, session } = await setup();
+    const ctx = harness!.ctx;
+    // The harness's store writes the row itself, as the real repo-backed one does.
+    const persisting = createRuntime({
+      decisions: uncertainJev,
+      drivers: {},
+      clock: new FakeClock(0),
+      events: new InMemoryEventSink(),
+      approvalStore: {
+        create: (input) => {
+          const approval = {
+            ...input,
+            id: `apr_${ctx.repos.approvals.list().length + 1}`,
+            status: "pending" as const,
+            createdAt: new Date(0).toISOString(),
+          };
+          ctx.repos.approvals.create(approval);
+          return approval;
+        },
+        get: (id) => ctx.repos.approvals.getById(id),
+        resolve: (id) => ctx.repos.approvals.getById(id)!,
+        listPending: () => ctx.repos.approvals.list({ status: "pending" }),
+      },
+    });
+    const adapter = new McpRuntimeServiceAdapter(ctx, persisting);
+    void service;
+    const result = await adapter.requestApproval(session, { summary: "Deploy", detail: "x" });
+    expect(result.allowed).toBe(true);
+    expect(ctx.repos.approvals.list({ status: "pending" })).toHaveLength(1);
+  });
+});
 
 describe("McpRuntimeServiceAdapter.permissionPrompt", () => {
   it.each(["allow", "deny"] as const)(
@@ -161,5 +195,52 @@ describe("McpRuntimeServiceAdapter.permissionPrompt", () => {
     });
     runtime.broker.resolveApproval(approvalId, "deny");
     expect(await write).toEqual({ allowed: true, behavior: "deny" });
+  });
+});
+
+describe("McpRuntimeServiceAdapter.permissionPrompt uses the Bot as it is now", () => {
+  it("lets a shell command through without a card once the Bot was switched to Full mid-turn", async () => {
+    const { runtime, service, session } = await setup();
+    // The turn started under workspace_write (session.bot is that snapshot)...
+    harness!.ctx.repos.bots.update(session.botId, { permissionPreset: "full" });
+    const result = await service.permissionPrompt(session, {
+      tool_name: "Bash",
+      input: { command: "curl -s https://example.com | head -c 200" },
+    });
+    // ...but the owner raised it to Full, which applies to the very next action.
+    expect(result).toEqual({ allowed: true, behavior: "allow" });
+    expect(runtime.approvals.listPending()).toHaveLength(0);
+  });
+
+  it("denies host-browser tools for a Bot whose computer is the VM only, even under Full", async () => {
+    const { runtime, service, session } = await setup();
+    harness!.ctx.repos.bots.update(session.botId, {
+      permissionPreset: "full",
+      computer: "docker",
+    });
+    for (const call of [
+      { tool_name: "mcp__playwright__browser_navigate", input: { url: "https://example.com" } },
+      { tool_name: "Bash", input: { command: "start https://example.com" } },
+    ]) {
+      expect(await service.permissionPrompt(session, call)).toEqual({
+        allowed: true,
+        behavior: "deny",
+      });
+    }
+    expect(runtime.approvals.listPending()).toHaveLength(0);
+  });
+
+  it("does not deny the same browser tool for a Bot that also has local computer access", async () => {
+    const { service, session } = await setup();
+    harness!.ctx.repos.bots.update(session.botId, {
+      permissionPreset: "full",
+      computer: "docker+local",
+    });
+    expect(
+      await service.permissionPrompt(session, {
+        tool_name: "mcp__playwright__browser_navigate",
+        input: { url: "https://example.com" },
+      }),
+    ).toEqual({ allowed: true, behavior: "allow" });
   });
 });

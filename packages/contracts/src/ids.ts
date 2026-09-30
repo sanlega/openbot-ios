@@ -24,6 +24,7 @@ export const ID_PREFIXES = {
   triggerEvent: "tev_",
   capCounter: "capctr_",
   inputRequest: "inp_",
+  delegation: "dlg_",
 } as const;
 
 export type IdKind = keyof typeof ID_PREFIXES;

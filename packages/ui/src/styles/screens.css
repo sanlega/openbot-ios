@@ -226,7 +226,12 @@
 }
 
 .inbox-line .row-title {
-  flex: none;
+  /* The name gives way (with an ellipsis) before the row overflows on phones. */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .inbox-what {

@@ -5,10 +5,11 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import { BASE_TOOLS, COS_ONLY_TOOLS, OPENBOT_TOOL_DEFINITIONS } from "../tool-definitions.js";
 
 const API_URL = process.env.OPENBOT_API_URL ?? "http://127.0.0.1:0";
-const SESSION_TOKEN = process.env.OPENBOT_SESSION_TOKEN;
+import { readSessionToken } from "./token.js";
 const COS_TOOLS = process.env.OPENBOT_COS_TOOLS === "1";
 
 async function forwardTool(name: string, args: unknown): Promise<unknown> {
+  const SESSION_TOKEN = readSessionToken();
   if (!SESSION_TOKEN) {
     return { allowed: false, reason: "missing OPENBOT_SESSION_TOKEN" };
   }

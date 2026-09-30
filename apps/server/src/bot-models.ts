@@ -35,22 +35,54 @@ export function pinModelOnSpawn(ctx: CoreContext, chooseEngine: EngineChooser): 
   });
 }
 
-/** Every available engine's models, for the profile's model picker. */
+/** How long a model list is served without asking the engine again. */
+export const MODEL_LIST_FRESH_MS = 60_000;
+
+/**
+ * Every available engine's models, for the profile's model picker. Some engines are slow to
+ * list (OpenCode runs a CLI and probes local model servers), so each engine's last list is
+ * served at once and refreshed in the background once it is older than a minute; a failed
+ * refresh keeps the previous list.
+ */
 export function modelLister(
   ctx: CoreContext,
   deps: TurnMailboxDeps,
   fetchClaudeModels: typeof listClaudeModelsForKey = listClaudeModelsForKey,
+  now: () => number = Date.now,
 ) {
+  const cache = new Map<EngineId, { at: number; models: ModelInfo[] }>();
+  const pending = new Map<EngineId, Promise<ModelInfo[]>>();
+
+  const fetchEngine = async (engine: EngineId): Promise<ModelInfo[]> => {
+    if (engine === "claude") {
+      const apiKey = process.env.ANTHROPIC_API_KEY || (await ctx.vault.get(VAULT_KEYS.anthropic));
+      if (apiKey) return (await fetchClaudeModels(apiKey)).models;
+    }
+    return (await deps.drivers[engine]?.listModels()) ?? [];
+  };
+
+  const refresh = (engine: EngineId): Promise<ModelInfo[]> => {
+    const running = pending.get(engine);
+    if (running) return running;
+    const task = fetchEngine(engine)
+      .then((models) => {
+        cache.set(engine, { at: now(), models });
+        return models;
+      })
+      .catch(() => cache.get(engine)?.models ?? [])
+      .finally(() => pending.delete(engine));
+    pending.set(engine, task);
+    return task;
+  };
+
   return async () => {
     const engines = (Object.keys(deps.drivers) as EngineId[]).filter((e) => deps.drivers[e]);
     return Promise.all(
       engines.map(async (engine): Promise<{ engine: EngineId; models: ModelInfo[] }> => {
-        if (engine === "claude") {
-          const apiKey =
-            process.env.ANTHROPIC_API_KEY || (await ctx.vault.get(VAULT_KEYS.anthropic));
-          if (apiKey) return { engine, models: (await fetchClaudeModels(apiKey)).models };
-        }
-        return { engine, models: (await deps.drivers[engine]?.listModels()) ?? [] };
+        const cached = cache.get(engine);
+        if (!cached) return { engine, models: await refresh(engine) };
+        if (now() - cached.at > MODEL_LIST_FRESH_MS) void refresh(engine);
+        return { engine, models: cached.models };
       }),
     );
   };

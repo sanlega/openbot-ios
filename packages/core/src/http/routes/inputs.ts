@@ -7,6 +7,7 @@ import {
   type InputRequest,
 } from "@openbot/contracts";
 import type { CoreContext } from "../../context.js";
+import { delegationsOf } from "../../delegations.js";
 import { requireAuth } from "../auth.js";
 import { parseOrReject } from "../validation.js";
 
@@ -76,6 +77,7 @@ export function registerInputRoutes(app: FastifyInstance, ctx: CoreContext): voi
       botId: input.botId,
       chainId: input.chainId,
       text: answersMessage(input, stored),
+      delegationId: await resumeDelegation(ctx, input),
     });
     return { input: ctx.repos.inputRequests.getById(id), turn };
   });
@@ -99,9 +101,23 @@ export function registerInputRoutes(app: FastifyInstance, ctx: CoreContext): voi
       botId: input.botId,
       chainId: input.chainId,
       text: `I dismissed your form "${input.title}" without answering it.`,
+      delegationId: await resumeDelegation(ctx, input),
     });
     return { input: ctx.repos.inputRequests.getById(id), turn };
   });
+}
+
+/** A form a delegated worker asked (shown in its requester's thread): its task is back to work. */
+async function resumeDelegation(
+  ctx: CoreContext,
+  input: InputRequest,
+): Promise<string | undefined> {
+  const tracker = delegationsOf(ctx);
+  const open = tracker.openInThread(input.botId, input.threadId);
+  if (!open) return undefined;
+  await tracker.resume(open.id);
+  tracker.expectTurn(open.id);
+  return open.id;
 }
 
 function checkAnswers(

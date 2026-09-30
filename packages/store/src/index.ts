@@ -20,3 +20,4 @@ export * from "./decisions-repo.js";
 export * from "./cap-counters-repo.js";
 export * from "./settings-repo.js";
 export * from "./setup-state-repo.js";
+export * from "./delegations-repo.js";

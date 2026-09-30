@@ -328,7 +328,8 @@ describe("routes the UI depends on", () => {
     expect(res.statusCode).toBe(200);
     const caps = res.json<{ settings: { caps: Record<string, number> } }>().settings.caps;
     expect(caps.s2_newBotsPer24h).toBe(5);
-    expect(caps.s1_cosBotsCap).toBe(6);
+    // Untouched by the PATCH, so still the shipped default (10, loosened for D-023).
+    expect(caps.s1_cosBotsCap).toBe(10);
   });
 
   it("POST /api/threads/:id/stop stops the thread's bot through the mailbox", async () => {

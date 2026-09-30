@@ -500,8 +500,8 @@ export class RoutineOrchestrator {
       void this.ensureWebhookSecret(routine.id);
     }
     this.triggerSources.fileWatch?.syncRoutine(routine);
-    // First run is always a dry run
-    void this.queueRun(routine.id, "manual", { dryRun: true });
+    // First run is always a dry run, started by OpenBot rather than the user.
+    void this.queueRun(routine.id, "test", { dryRun: true });
   }
 
   onRoutineUpdated(routine: Routine): void {

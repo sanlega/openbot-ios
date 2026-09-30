@@ -10,7 +10,11 @@ import { buildRouteQuestions } from "./questions/route.js";
 import { markUntrusted, buildDecisionState } from "./state-builders.js";
 import type { DecisionServiceImpl } from "./decision-service.js";
 
-export function buildRouteState(bot: Bot, task: string): Record<string, unknown> {
+export function buildRouteState(
+  bot: Bot,
+  task: string,
+  ctx: RouteContext,
+): Record<string, unknown> {
   return buildDecisionState({
     bot: {
       id: bot.id,
@@ -20,6 +24,8 @@ export function buildRouteState(bot: Bot, task: string): Record<string, unknown>
       computer: bot.computer,
     },
     task: markUntrusted(task),
+    currentEngine: ctx.currentEngine,
+    currentEngineIdleMinutes: ctx.currentEngineIdleMinutes,
   });
 }
 
@@ -42,7 +48,7 @@ export async function routeBot(
   const questions = buildRouteQuestions(ctx);
   const req: DecideRequest = {
     purpose: "route",
-    state: buildRouteState(bot, task),
+    state: buildRouteState(bot, task, ctx),
     questions,
   };
   const result = await service.decide(req);
@@ -56,7 +62,10 @@ export async function routeBot(
   let band: Band = "human";
 
   if (routeAnswer?.type === "choice") {
-    const [parsedEngine, parsedModel] = routeAnswer.choice.split(":");
+    // Only the first ":" separates engine from model: model ids have their own (`ollama/qwen3:8b`).
+    const sep = routeAnswer.choice.indexOf(":");
+    const parsedEngine = sep > 0 ? routeAnswer.choice.slice(0, sep) : "";
+    const parsedModel = sep > 0 ? routeAnswer.choice.slice(sep + 1) : "";
     if (parsedEngine && parsedModel) {
       engine = parsedEngine as RouteDecision["engine"];
       model = parsedModel;

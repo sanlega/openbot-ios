@@ -1,3 +1,4 @@
+import { isReadOnlySed } from "./read-only-sed.js";
 import { isAbsolute, relative, resolve } from "node:path";
 import type { BrokerRequest } from "./broker-types.js";
 
@@ -14,10 +15,12 @@ const READ_ONLY_TOOLS = new Set([
   "ToolSearch",
   "BashOutput",
   "ExitPlanMode",
+  // Asking the user is not an action: the question itself is the interaction.
+  "AskUserQuestion",
 ]);
 
 /** Engine tools that write one file, named by `file_path`/`notebook_path`/`path`. */
-const FILE_EDIT_TOOLS = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
+const FILE_EDIT_TOOLS = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit", "apply_patch"]);
 
 /** Other tools (e.g. connectors' MCP tools) named for reading. */
 const READ_ONLY_NAME_RE = /^(read|get|list|search|observe|screenshot|status)/i;
@@ -85,11 +88,17 @@ export function classifyToolCall(
   }
   if (FILE_EDIT_TOOLS.has(toolName)) {
     const path = pathOf(args);
+    // A patch can touch several files (Codex's `apply_patch`): all of them must be inside.
+    const paths = Array.isArray(args.paths)
+      ? args.paths.filter((p): p is string => typeof p === "string")
+      : [];
+    const all = paths.length > 0 ? paths : path ? [path] : [];
     return {
       kind: "tool",
       action: toolName,
       target: path,
-      inWorkspace: path && workspaceDir ? isInside(path, workspaceDir) : false,
+      inWorkspace:
+        workspaceDir && all.length > 0 ? all.every((p) => isInside(p, workspaceDir)) : false,
       args,
     };
   }
@@ -147,17 +156,50 @@ function isInside(path: string, dir: string): boolean {
 export function isReadOnlyShell(command: string): boolean {
   // Discarding output is harmless; any other redirect writes a file.
   const cleaned = command.replace(/\d?>\s*\/dev\/null/g, "").replace(/2>&1/g, "");
-  if (/[<>`]|\$\(/.test(cleaned)) return false;
+  // Redirects, backticks and any grouping: `(...)`, `@(...)`, `{...}` and `$(...)` run whatever is inside
+  // them (PowerShell too: `echo (Remove-Item -Recurse x)` is not a read).
+  if (/[<>`(){}]|\$\(/.test(cleaned)) return false;
   const segments = cleaned.split(/&&|\|\||;|\||\n/);
   return segments.every((segment) => {
     const words = segment.trim().split(/\s+/).filter(Boolean);
     if (words.length === 0) return true;
     const [program, ...rest] = words;
     const name = program!.split("/").pop()!;
-    if (name === "git") return rest.length > 0 && READ_ONLY_GIT.has(rest[0]!);
+    if (name === "git") return isReadOnlyGit(rest);
     if (name === "find")
       return !rest.some((w) => /^-(exec|execdir|ok|okdir|delete|fprint)/.test(w));
-    if (name === "sed") return !rest.some((w) => /^-i/.test(w) || w === "--in-place");
+    if (name === "sed") return isReadOnlySed(rest);
+    // Programs that are reads except for one flag or argument that writes a file or runs a program.
+    if (name === "sort")
+      return !rest.some((w) => /^-[a-zA-Z]*o/.test(w) || /^--(output|compress-program)/.test(w));
+    if (name === "uniq") return rest.filter((w) => !w.startsWith("-")).length <= 1; // [input [output]]
+    if (name === "tree") return !rest.some((w) => /^-[a-zA-Z]*o/.test(w));
+    if (name === "rg" || name === "grep" || name === "egrep")
+      return !rest.some((w) => /^--pre(-glob)?/.test(w));
     return READ_ONLY_COMMANDS.has(name);
   });
+}
+
+/** `git status`, `git log`... but not `git branch -D x`, `git remote add`, `git diff --output=f`, `git -c ...`. */
+function isReadOnlyGit(args: string[]): boolean {
+  const [sub, ...rest] = args;
+  if (!sub || !READ_ONLY_GIT.has(sub)) return false;
+  if (rest.some((w) => /^--(output|ext-diff|textconv|exec-path)/.test(w))) return false;
+  if (sub === "branch") {
+    const listing = new Set([
+      "-a",
+      "--all",
+      "-r",
+      "--remotes",
+      "-v",
+      "-vv",
+      "--verbose",
+      "--list",
+      "--show-current",
+    ]);
+    return rest.every((w) => listing.has(w));
+  }
+  if (sub === "remote")
+    return rest.length === 0 || ["-v", "--verbose", "show", "get-url"].includes(rest[0]!);
+  return true;
 }

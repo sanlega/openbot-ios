@@ -1,4 +1,6 @@
 import { describe, expect, it, afterEach, beforeEach } from "vitest";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -60,9 +62,39 @@ describe("JevClient", () => {
     await expect(client.validateKey()).resolves.toMatchObject({ ok: true });
   });
 
-  it("uses a 400ms timeout budget for computer purpose helper", async () => {
+  it("retries a request that timed out (a cold connection can miss the deadline)", async () => {
+    let calls = 0;
+    const slowFirst = createServer((_req, res) => {
+      calls += 1;
+      const reply = () => {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(
+          JSON.stringify({ model: "jev-test", answers: { ok: { type: "noul", noul: 0.1 } } }),
+        );
+      };
+      if (calls === 1) setTimeout(reply, 400);
+      else reply();
+    });
+    await new Promise<void>((resolve) => slowFirst.listen(0, "127.0.0.1", resolve));
+    const { port } = slowFirst.address() as AddressInfo;
+    try {
+      const client = new JevClient({ apiKey: "sk-test", baseUrl: `http://127.0.0.1:${port}` });
+      const result = await client.systemOne({
+        state: "s",
+        questions: { ok: { type: "noul", instructions: "ok?" } } as never,
+        timeoutMs: 150,
+      });
+      expect(result.response.model).toBe("jev-test");
+      expect(calls).toBe(2);
+    } finally {
+      slowFirst.closeAllConnections();
+      await new Promise((resolve) => slowFirst.close(resolve));
+    }
+  });
+
+  it("gives computer decisions a few seconds, not a few hundred ms", async () => {
     const { jevTimeoutMs } = await import("./jev-client.js");
-    expect(jevTimeoutMs("computer")).toBe(400);
+    expect(jevTimeoutMs("computer")).toBe(3000);
     expect(jevTimeoutMs("route")).toBe(1500);
   });
 });

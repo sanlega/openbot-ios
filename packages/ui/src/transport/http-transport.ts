@@ -17,6 +17,8 @@ export class HttpTransport implements Transport {
   readonly mode: TransportMode;
   readonly baseUrl: string;
   private readonly deviceToken?: string;
+  /** Aborted by close(): a closed transport's requests never settle (nothing is left to answer). */
+  private readonly lifetime = new AbortController();
 
   constructor(options: TransportOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, "");
@@ -60,15 +62,25 @@ export class HttpTransport implements Transport {
     body?: unknown,
     init?: RequestInit,
   ): Promise<T> {
-    const res = await fetch(joinUrl(this.baseUrl, path), {
-      ...init,
-      method,
-      headers: this.headers({
-        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-        ...init?.headers,
-      }),
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    const closed = this.lifetime.signal;
+    if (closed.aborted) return new Promise<T>(() => undefined);
+    const signal = init?.signal ? AbortSignal.any([init.signal, closed]) : closed;
+    let res: Response;
+    try {
+      res = await fetch(joinUrl(this.baseUrl, path), {
+        ...init,
+        signal,
+        method,
+        headers: this.headers({
+          ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+          ...init?.headers,
+        }),
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+    } catch (error) {
+      if (closed.aborted) return new Promise<T>(() => undefined);
+      throw error;
+    }
     if (!res.ok) {
       const error = new Error(`${method} ${path} failed: ${res.status}`) as Error & {
         status?: number;
@@ -123,7 +135,7 @@ export class HttpTransport implements Transport {
   }
 
   async close(): Promise<void> {
-    /* no persistent resources for HTTP-only usage */
+    this.lifetime.abort();
   }
 }
 

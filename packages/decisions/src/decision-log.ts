@@ -87,7 +87,11 @@ export function primaryAnswerIdForPurpose(
     case "trigger":
       return "matches_trigger";
     case "computer":
-      return "op";
+      return "action" in questions
+        ? "action"
+        : "op" in questions
+          ? "op"
+          : Object.keys(questions)[0];
     default:
       return Object.keys(questions)[0];
   }

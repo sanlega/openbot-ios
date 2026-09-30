@@ -2,22 +2,32 @@ import { describe, expect, it } from "vitest";
 import { buildCosSystemPrompt, buildNonCosRuleBlock } from "./prompt.js";
 import { DEFAULT_AUTONOMY_CAPS } from "./caps.js";
 
+/** The conservative limits these tests are about; the shipped defaults are looser so the Chief can delegate freely. */
+const STRICT_CAPS = {
+  ...DEFAULT_AUTONOMY_CAPS,
+  cosCreatedBotsMax: 6,
+  newBotsPerDay: 2,
+  spawnCooldownMin: 30,
+};
+
 describe("CoS system prompt", () => {
   it("includes the answer/do/delegate/spawn ladder", () => {
     const prompt = buildCosSystemPrompt({
       userName: "Alice",
       roster: [],
-      caps: DEFAULT_AUTONOMY_CAPS,
+      caps: STRICT_CAPS,
       cosCreatedBotCount: 1,
       spawnsLeftToday: 2,
     });
-    expect(prompt).toContain("FEWEST bots and the FEWEST interruptions");
-    expect(prompt).toContain("Answer it yourself");
-    expect(prompt).toContain("Do the work yourself");
-    expect(prompt).toContain("Delegate it with send_message");
-    expect(prompt).toContain("consider create_bot");
-    expect(prompt).toContain("One-off tasks NEVER get a new bot");
-    expect(prompt).toContain("If you are unsure whether something justifies");
+    const flat = prompt.replace(/\s+/g, " ");
+    expect(flat).toContain("You are the dispatcher");
+    expect(flat).toContain("Delegating is the default");
+    expect(flat).toContain("Answer it yourself only if it is quick");
+    expect(flat).toContain("goes to a bot with send_message");
+    expect(flat).toContain("create one with create_bot without asking the user");
+    expect(flat).toContain("One-off jobs are fine");
+    expect(flat).not.toContain("One-off tasks NEVER get a new bot");
+    expect(flat).toContain("If you are unsure whether to delegate: delegate.");
   });
 
   it("fills roster and limits placeholders", () => {
@@ -40,7 +50,7 @@ describe("CoS system prompt", () => {
           isChiefOfStaff: false,
         },
       ],
-      caps: DEFAULT_AUTONOMY_CAPS,
+      caps: STRICT_CAPS,
       cosCreatedBotCount: 2,
       spawnsLeftToday: 1,
     });

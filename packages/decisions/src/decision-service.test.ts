@@ -102,6 +102,30 @@ describe("DecisionServiceImpl", () => {
     expect(decision.model).toBe("gpt-5");
     expect(decision.band).toBe("auto");
   });
+
+  it("route() keeps a model id that has its own colon (local Ollama models)", async () => {
+    server.scriptedAnswers.route = {
+      type: "choice",
+      choice: "opencode:ollama/qwen3:8b",
+      confidence: 0.95,
+      probabilities: { "opencode:ollama/qwen3:8b": 1 },
+    };
+    const service = createDecisionService({ apiKey: "sk-test", baseUrl });
+    const bot = {
+      id: "bot_2",
+      name: "Local",
+      description: "",
+      routing: { mode: "auto" },
+      computer: "none",
+    } as Bot;
+    const decision = await service.route(bot, "say hi", {
+      availableEngines: ["opencode"],
+      modelsCatalog: { opencode: ["ollama/qwen3:8b"] },
+      localModels: ["opencode:ollama/qwen3:8b"],
+    });
+    expect(decision.engine).toBe("opencode");
+    expect(decision.model).toBe("ollama/qwen3:8b");
+  });
 });
 
 describe("conservativeFallbackAnswers", () => {

@@ -20,6 +20,8 @@ export interface BrokerRequest {
   readOnly?: boolean;
   /** Whether the action's target/effect stays inside the shared workspace directory. Defaults to `true` — callers must explicitly say `false` for known-outside-workspace actions. */
   inWorkspace?: boolean;
+  /** The requesting Bot's computer access; lets the broker keep VM-only Bots off the host. */
+  computerAccess?: "none" | "docker" | "docker+local";
   args?: Record<string, unknown>;
   summary: string;
   detail: string;

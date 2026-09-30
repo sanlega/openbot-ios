@@ -1,3 +1,4 @@
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import type { Bot, McpServerSpec } from "@openbot/contracts";
@@ -22,6 +23,18 @@ export function nodeLaunch(): { command: string; env: Record<string, string> } {
   };
 }
 
+/**
+ * Removes a turn's token file once the turn is over, unless the next turn already rewrote it: a token
+ * left on disk is a bearer credential any process of the same user can read.
+ */
+export function removeTokenFileIfUnchanged(file: string, token: string): void {
+  try {
+    if (readFileSync(file, "utf8") === token) rmSync(file, { force: true });
+  } catch {
+    // Already gone.
+  }
+}
+
 export interface McpComposerInput {
   bot: Bot;
   turnId: string;
@@ -37,7 +50,12 @@ export interface McpComposerInput {
  * Injects CoS-only tools only for the Chief of Staff and appends connector servers.
  */
 export class McpComposer {
-  static openbotServerSpec(harnessUrl: string, sessionToken: string, bot: Bot): McpServerSpec {
+  static openbotServerSpec(
+    harnessUrl: string,
+    sessionToken: string,
+    bot: Bot,
+    tokenFile?: string,
+  ): McpServerSpec {
     return {
       name: "openbot",
       ...nodeLaunch(),
@@ -46,6 +64,7 @@ export class McpComposer {
         ...nodeLaunch().env,
         OPENBOT_API_URL: harnessUrl,
         OPENBOT_SESSION_TOKEN: sessionToken,
+        ...(tokenFile ? { OPENBOT_SESSION_TOKEN_FILE: tokenFile } : {}),
         ...(bot.isChiefOfStaff ? { OPENBOT_COS_TOOLS: "1" } : {}),
       },
     };
@@ -55,6 +74,8 @@ export class McpComposer {
     tokens: SessionTokenService,
     input: Omit<McpComposerInput, "sessionToken" | "connectors"> & {
       connectors?: McpConnectorComposer;
+      /** Directory for the per-Bot token file (kept fresh for engines that reuse a process across turns). */
+      sessionDir?: string;
     },
   ): Promise<{ servers: McpServerSpec[]; token: string; tools: string[] }> {
     const token = tokens.issue({
@@ -64,7 +85,16 @@ export class McpComposer {
       mode: input.mode,
     });
 
-    const servers: McpServerSpec[] = [this.openbotServerSpec(input.harnessUrl, token, input.bot)];
+    let tokenFile: string | undefined;
+    if (input.sessionDir) {
+      mkdirSync(input.sessionDir, { recursive: true });
+      tokenFile = join(input.sessionDir, `${input.bot.id}.token`);
+      writeFileSync(tokenFile, token, { mode: 0o600 });
+    }
+
+    const servers: McpServerSpec[] = [
+      this.openbotServerSpec(input.harnessUrl, token, input.bot, tokenFile),
+    ];
 
     if (input.connectors && input.bot.connectors.length > 0) {
       const connectorServers = await input.connectors.connectorServersForTurn(

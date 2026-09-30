@@ -3,9 +3,9 @@ import type { AutonomyCaps } from "./types.js";
 
 /** Plan §2.2 / research §11.4 defaults (S1–S10, invisible to bots). */
 export const DEFAULT_AUTONOMY_CAPS: AutonomyCaps = {
-  cosCreatedBotsMax: 6,
-  newBotsPerDay: 2,
-  spawnCooldownMin: 30,
+  cosCreatedBotsMax: 10,
+  newBotsPerDay: 8,
+  spawnCooldownMin: 2,
   proactivePerBotHour: 3,
   proactivePerBotDay: 8,
   proactiveGlobalHour: 6,

@@ -154,12 +154,36 @@ export function handleClaudeLine(
       usd: state.usage.usd,
     });
     if (state.isError && !state.errorMessage) {
-      state.errorMessage = typeof line.result === "string" ? line.result : "turn failed";
+      state.errorMessage = describeResultError(line);
     }
     if (state.authFailure || line.result === "Not logged in · Please run /login") {
       state.authFailure = true;
     }
   }
+}
+
+/**
+ * Claude Code's `result` event has no `result` text when a turn ends on a limit or an error;
+ * the reason is in `subtype` (and `errors`). Say what happened instead of "turn failed".
+ */
+export function describeResultError(line: Record<string, unknown>): string {
+  if (typeof line.result === "string" && line.result.trim()) return line.result;
+  // Limits get our own wording (with what to do next); other errors keep the CLI's text.
+  if (line.subtype === "error_max_turns") {
+    const steps = typeof line.num_turns === "number" ? ` (${line.num_turns} steps)` : "";
+    return `Stopped at the step limit for one turn${steps}. Say "continue" to pick up where it left off.`;
+  }
+  if (line.subtype === "error_max_budget_usd") return "Stopped at this turn's spending limit.";
+  const errors = Array.isArray(line.errors)
+    ? line.errors.filter((e): e is string => typeof e === "string" && e.trim() !== "")
+    : [];
+  if (errors.length > 0) return errors.join("; ");
+  if (line.subtype === "error_during_execution") {
+    return "Claude Code hit an error while running a tool.";
+  }
+  return typeof line.subtype === "string"
+    ? `Claude Code ended the turn with an error (${line.subtype}).`
+    : "Claude Code ended the turn with an error and gave no reason.";
 }
 
 export function toTurnResult(state: ClaudeParseState): TurnResult {

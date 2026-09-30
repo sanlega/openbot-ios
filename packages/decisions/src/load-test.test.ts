@@ -117,6 +117,7 @@ describe("WS7 load acceptance (fake-jev)", () => {
         user_requested: { type: "noul", noul: 0.1 },
         existing_can_do: { type: "noul", noul: 0.8 },
         one_off: { type: "noul", noul: 0.7 },
+        substantial_work: { type: "noul", noul: 0.2 },
         recurring_ownership: { type: "noul", noul: 0.2 },
         distinct_boundary: { type: "noul", noul: 0.1 },
         duplicates_existing: { type: "noul", noul: 0.1 },

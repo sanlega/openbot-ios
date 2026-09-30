@@ -141,7 +141,10 @@ a.conn-kind:hover {
 
 .conn-card-actions {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 28px;
 }
 
 .conn-mark {
@@ -181,4 +184,55 @@ a.conn-kind:hover {
 .conn-permissions strong {
   color: var(--text);
   font-weight: 600;
+}
+
+.conn-tool-list summary {
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--text-2);
+  width: fit-content;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.conn-tool-list summary::-webkit-details-marker {
+  display: none;
+}
+
+.conn-tool-list summary::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--fast) var(--ease);
+  margin-right: 2px;
+}
+
+.conn-tool-list[open] summary::before {
+  transform: rotate(45deg);
+}
+
+.conn-tool-list p {
+  margin: 6px 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.conn-tool-group {
+  display: inline-block;
+  min-width: 72px;
+  margin-right: 6px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.conn-suggestions {
+  justify-content: center;
+  margin-top: var(--space-3);
 }

@@ -6,6 +6,7 @@ import type {
   Approval,
   Bot,
   CatalogEntry,
+  ComputerImageStatus,
   ConnectionView,
   Message,
   OBEvent,
@@ -75,7 +76,7 @@ const MOCK_CATALOG: Array<Omit<CatalogEntry, "connected" | "connectionId">> = [
   {
     id: "curated:filesystem",
     name: "Filesystem",
-    publisher: "Model Context Protocol",
+    publisher: "MCP reference server",
     category: "System",
     description: "Read and write files inside one folder you choose.",
     kind: "local",
@@ -96,7 +97,7 @@ const MOCK_CATALOG: Array<Omit<CatalogEntry, "connected" | "connectionId">> = [
   {
     id: "curated:time",
     name: "Time",
-    publisher: "Model Context Protocol",
+    publisher: "MCP reference server",
     category: "Productivity",
     description: "Current time and time-zone conversions.",
     kind: "local",
@@ -153,7 +154,19 @@ export class MockClientApiServer {
   private routines = structuredClone(SEED_ROUTINES);
   private routineRuns = structuredClone(SEED_ROUTINE_RUNS);
   private takeoverByBot = new Map<string, boolean>();
+  private customEngines: Array<{ slug: string; label: string; command: string; args: string[] }> =
+    [];
+  private computerImage: ComputerImageStatus = {
+    state: "ready",
+    tag: "ghcr.io/sanlega/openbot-desktop:latest",
+    source: "registry",
+    localBuildAvailable: true,
+  };
   private connections: ConnectionView[] = [];
+  private logins = new Map<
+    string,
+    { site: string; username?: string; hasPassword: boolean; updatedAt: string }
+  >();
   private push: {
     configured: boolean;
     keyId?: string;
@@ -238,6 +251,23 @@ export class MockClientApiServer {
     return event;
   }
 
+  private setComputerImage(next: Partial<ComputerImageStatus>): void {
+    this.computerImage = { ...this.computerImage, ...next };
+    this.appendEvent({
+      ts: new Date().toISOString(),
+      type: "computer.image_status",
+      payload: { ...this.computerImage },
+    });
+  }
+
+  /** Mirrors the real pull/build → ready|error flow on a short timer, so Settings > Computer sees live progress without a real Docker daemon. */
+  private simulateImageGet(source: "registry" | "local"): void {
+    this.setComputerImage({ state: source === "local" ? "building" : "pulling", source });
+    setTimeout(() => {
+      this.setComputerImage({ state: "ready", detail: undefined });
+    }, 600);
+  }
+
   private async handleMessageSend(
     _ws: WebSocket,
     frame: { threadId: string; text: string },
@@ -319,8 +349,8 @@ export class MockClientApiServer {
         isChiefOfStaff: false,
         createdBy: "user",
         routing: { mode: "auto" },
-        permissionPreset: "workspace_write",
-        computer: "none",
+        permissionPreset: "full",
+        computer: "docker",
         connectors: [],
         limits: {},
       };
@@ -340,6 +370,7 @@ export class MockClientApiServer {
         const last = [...this.messages].reverse().find((m) => m.threadId === t.id);
         view.lastMessagePreview =
           last?.text === "__digest__" ? "Daily digest" : last?.text.slice(0, 80);
+        view.lastMessageAuthor = last?.author.type;
         return view;
       });
       return sendJson(res, 200, { threads });
@@ -401,11 +432,45 @@ export class MockClientApiServer {
     if (method === "GET" && path === "/api/engines") {
       return sendJson(res, 200, { engines: SEED_ENGINES });
     }
+    if (method === "GET" && path === "/api/engines/custom") {
+      return sendJson(res, 200, { engines: this.customEngines });
+    }
+    if (method === "PUT" && path === "/api/engines/custom") {
+      const body = await readJson<{ engines?: unknown }>(req);
+      const engines = body.engines;
+      if (!Array.isArray(engines))
+        return sendJson(res, 400, { error: "expected { engines: [...] }" });
+      this.customEngines = engines as typeof this.customEngines;
+      return sendJson(res, 200, { engines: this.customEngines, restartRequired: true });
+    }
     if (method === "GET" && path === "/api/digest") {
       return sendJson(res, 200, { digest: SEED_DIGEST });
     }
     if (method === "GET" && path === "/api/computer/status") {
       return sendJson(res, 200, { ready: true, provider: "docker" });
+    }
+    if (method === "GET" && path === "/api/computer/image") {
+      return sendJson(res, 200, this.computerImage);
+    }
+    if (method === "POST" && path === "/api/computer/image/build") {
+      if (this.computerImage.state === "pulling" || this.computerImage.state === "building") {
+        return sendJson(res, 409, { error: "already_in_progress" });
+      }
+      const body = await readJson<{ source?: "registry" | "local" }>(req);
+      const source = body.source === "local" ? "local" : "registry";
+      if (source === "local" && !this.computerImage.localBuildAvailable) {
+        return sendJson(res, 400, { error: "local_build_unavailable" });
+      }
+      this.simulateImageGet(source);
+      return sendJson(res, 202, this.computerImage);
+    }
+    if (method === "POST" && path === "/api/computer/image/reset") {
+      if (this.computerImage.state === "pulling" || this.computerImage.state === "building") {
+        return sendJson(res, 409, { error: "already_in_progress" });
+      }
+      this.setComputerImage({ state: "missing", source: undefined, detail: undefined });
+      this.simulateImageGet("registry");
+      return sendJson(res, 202, { state: "missing", tag: this.computerImage.tag });
     }
     if (method === "GET" && path.match(/^\/api\/computer\/screens\/[^/]+\/live$/)) {
       const botId = path.split("/")[4]!;
@@ -514,6 +579,35 @@ export class MockClientApiServer {
       this.remote = { enabled: false, via: undefined, urls: [] };
       return sendJson(res, 200, { ok: true });
     }
+    if (path === "/api/logins" && method === "GET") {
+      return sendJson(res, 200, { logins: [...this.logins.values()] });
+    }
+    const loginRoute = /^\/api\/logins\/([^/]+)$/.exec(path);
+    if (loginRoute && method === "PUT") {
+      const site = decodeURIComponent(loginRoute[1] ?? "")
+        .toLowerCase()
+        .replace(/^www\./, "");
+      if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(site)) {
+        return sendJson(res, 400, {
+          error: "invalid_login",
+          reason: `"${site}" isn't a website address like example.com`,
+        });
+      }
+      const body = await readJson<{ username?: string; password?: string }>(req);
+      this.logins.set(site, {
+        site,
+        username: body.username,
+        hasPassword: Boolean(body.password),
+        updatedAt: new Date().toISOString(),
+      });
+      return sendJson(res, 200, { login: this.logins.get(site) });
+    }
+    if (loginRoute && method === "DELETE") {
+      const site = decodeURIComponent(loginRoute[1] ?? "");
+      return this.logins.delete(site)
+        ? sendJson(res, 200, { ok: true })
+        : sendJson(res, 404, { error: "not_found" });
+    }
     if (method === "GET" && path === "/api/remote/push") {
       return sendJson(res, 200, this.push);
     }
@@ -562,6 +656,14 @@ export class MockClientApiServer {
             ],
           },
           { engine: "codex", models: [{ id: "gpt-5-codex", label: "GPT-5 Codex" }] },
+          {
+            engine: "opencode",
+            models: [
+              { id: "ollama/qwen3:8b", label: "qwen3:8b (Ollama)", local: true },
+              { id: "lmstudio/qwen/qwen3.5-9b", label: "qwen/qwen3.5-9b (LM Studio)", local: true },
+              { id: "opencode/big-pickle", label: "opencode/big-pickle" },
+            ],
+          },
         ],
       });
     }

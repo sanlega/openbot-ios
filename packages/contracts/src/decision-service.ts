@@ -82,6 +82,16 @@ export const RouteContext = z.object({
   availableEngines: z.array(EngineId),
   /** Engine id → model ids from `models.json`. */
   modelsCatalog: z.record(z.string(), z.array(z.string())),
+  /** The engine this Bot's session was most recently active on, if any — switching away loses that engine's own conversation memory (session resume is per bot+engine). */
+  currentEngine: EngineId.optional(),
+  /** Minutes since `currentEngine`'s session was last used; omitted if there's no `currentEngine`. */
+  currentEngineIdleMinutes: z.number().optional(),
+  /** Engine id → display name and what it is good at (D-031), for the route question. */
+  engineInfo: z
+    .record(z.string(), z.object({ label: z.string(), summary: z.string().optional() }))
+    .optional(),
+  /** `engine:model` keys that run on this computer (Ollama, LM Studio): free, private, weaker. */
+  localModels: z.array(z.string()).optional(),
 });
 export type RouteContext = z.infer<typeof RouteContext>;
 

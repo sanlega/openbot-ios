@@ -288,6 +288,24 @@ describe("per-Bot injection and tool classification", () => {
     expect(await service.mcpServersForBot(withNone.id)).toEqual([]);
   });
 
+  it("never gives a browser-automation server to a Bot whose computer is not this one", async () => {
+    const { service, ctx } = await setup();
+    const pw = await service.connect({ catalogId: "curated:playwright", values: {} });
+    const time = await service.connect({ catalogId: "curated:time", values: {} });
+    const vmOnly = { ...makeBot([pw.id, time.id]), computer: "docker" as const };
+    const noComputer = makeBot([pw.id, time.id]);
+    const local = { ...makeBot([pw.id, time.id]), computer: "docker+local" as const };
+    for (const bot of [vmOnly, noComputer, local]) ctx.repos.bots.create(bot);
+
+    // It would open Chrome on the owner's desktop instead of the virtual machine.
+    expect((await service.mcpServersForBot(vmOnly.id)).map((s) => s.name)).toEqual(["time"]);
+    expect((await service.mcpServersForBot(noComputer.id)).map((s) => s.name)).toEqual(["time"]);
+    expect((await service.mcpServersForBot(local.id)).map((s) => s.name)).toEqual([
+      "playwright",
+      "time",
+    ]);
+  });
+
   it("gives two connections of the same entry distinct server names", async () => {
     const { service, ctx } = await setup();
     const a = await service.connect({ catalogId: "curated:time", values: {} });

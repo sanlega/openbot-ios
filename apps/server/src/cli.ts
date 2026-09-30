@@ -6,6 +6,7 @@ import {
   resolveBindHost,
   runDoctor,
 } from "@openbot/core";
+import { resumeCloudflareTunnel } from "@openbot/remote";
 import { bootstrapHarness } from "./bootstrap.js";
 
 import { startFileLog } from "./log-file.js";
@@ -42,6 +43,10 @@ async function serve(): Promise<void> {
   ctx.bindHost = host;
   const address = await app.listen({ port: ctx.config.port, host });
   console.log(`OpenBot server listening on ${address} (bind host: ${host})`);
+  // Bring back the owner's Cloudflare tunnel, if one is configured; in the background.
+  void resumeCloudflareTunnel(ctx).then((result) => {
+    if (result && !result.ok) console.warn(`Cloudflare tunnel didn't start: ${result.reason}`);
+  });
 }
 
 async function doctor(): Promise<void> {

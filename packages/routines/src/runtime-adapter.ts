@@ -49,10 +49,14 @@ export class RoutineRuntimeAdapter implements RoutineRuntime {
     if ("error" in turn) return this.fail(input, turn.error);
 
     const perRun = input.routine.limits.perRun;
+    // Opt-in per bot (off by default, Settings > bot profile): skips the
+    // per-run cost/token cap entirely, so a long task isn't cut off mid-work
+    // and its run isn't reported "capped" just for costing more than perRun.
+    const unrestricted = bot.limits.unrestrictedRoutineBudget === true;
     const cursor = this.ctx.eventBus.latestSeq();
     const outcome = await this.runtime.mailbox.submit({
       ...turn,
-      runBudget: { usd: perRun.usd, tokens: perRun.tokens },
+      runBudget: unrestricted ? undefined : { usd: perRun.usd, tokens: perRun.tokens },
     });
     // Events are stored as soon as they are published, so this sees every one of the turn's.
     const simulated = this.ctx.eventBus
@@ -64,7 +68,7 @@ export class RoutineRuntimeAdapter implements RoutineRuntime {
     // The chain keeps one combined token count; report it as input tokens.
     const usage: TurnUsage = { usd: chain?.usd ?? 0, inputTokens: tokens, outputTokens: 0 };
 
-    if (!input.run.dryRun && (usage.usd > perRun.usd || tokens > perRun.tokens)) {
+    if (!unrestricted && !input.run.dryRun && (usage.usd > perRun.usd || tokens > perRun.tokens)) {
       this.ctx.repos.chains.setStatus(input.run.chainId, "stopped");
       return {
         status: "capped",

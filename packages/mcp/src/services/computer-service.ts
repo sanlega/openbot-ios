@@ -1,5 +1,5 @@
 import { newId, type Approval } from "@openbot/contracts";
-import type { CoreContext } from "@openbot/core";
+import { loginFieldKind, loginForUrl, resolveSecretRef, type CoreContext } from "@openbot/core";
 import {
   ComputerTaskManager,
   DefaultComputerActionBroker,
@@ -167,7 +167,16 @@ export class McpComputerServiceAdapter implements McpComputerService {
       this.manager = new ComputerTaskManager({
         decisionService: this.ctx.decisionService,
         provider: this.ctx.computerProvider,
-        broker: new ApprovalComputerBroker(this.runtime),
+        broker: new ApprovalComputerBroker(
+          this.runtime,
+          (botId) => this.ctx.repos.bots.getById(botId)?.permissionPreset ?? "workspace_write",
+        ),
+        // Typed from the vault at the moment of typing; the engine never holds the value.
+        secrets: {
+          resolveRef: (ref) => resolveSecretRef(this.ctx.vault, ref),
+          loginFor: (url) => loginForUrl(this.ctx.vault, url),
+          fieldKind: loginFieldKind,
+        },
         now: () => this.ctx.clock.now(),
         onUpdate: (snapshot, event) => void this.record(snapshot, event !== undefined),
       });
@@ -185,7 +194,9 @@ export class McpComputerServiceAdapter implements McpComputerService {
     const status =
       snapshot.status === "completed"
         ? "completed"
-        : snapshot.status === "running" || snapshot.status === "needs_input"
+        : snapshot.status === "running" ||
+            snapshot.status === "needs_input" ||
+            snapshot.status === "needs_user"
           ? "running"
           : snapshot.status === "failed" || snapshot.status === "cancelled"
             ? "failed"
@@ -203,7 +214,7 @@ export class McpComputerServiceAdapter implements McpComputerService {
         ? "computer.task_completed"
         : snapshot.status === "escalated"
           ? "computer.escalated"
-          : snapshot.status === "takeover"
+          : snapshot.status === "takeover" || snapshot.status === "needs_user"
             ? "computer.takeover_requested"
             : isStep
               ? "computer.step"
@@ -234,12 +245,27 @@ export class McpComputerServiceAdapter implements McpComputerService {
 class ApprovalComputerBroker implements ComputerActionBroker {
   private readonly rules = new DefaultComputerActionBroker();
 
-  constructor(private readonly runtime?: Runtime) {}
+  constructor(
+    private readonly runtime?: Runtime,
+    private readonly presetFor: (botId: string) => "read_only" | "workspace_write" | "full" = () =>
+      "workspace_write",
+  ) {}
 
   async checkAction(
     input: Parameters<ComputerActionBroker["checkAction"]>[0],
   ): Promise<BrokerDecision> {
     const decision = await this.rules.checkAction(input);
+    // Full means the Bot doesn't ask: its own local-computer steps run unless the step itself is
+    // destructive or touches a sensitive target (those still get a card).
+    if (
+      decision === "ask" &&
+      input.providerId === "local" &&
+      !input.isDestructive &&
+      !input.sensitiveLabel &&
+      this.presetFor(input.botId) === "full"
+    ) {
+      return "allow";
+    }
     if (decision !== "ask" || !this.runtime) return decision;
     const target =
       input.action.target !== undefined
@@ -262,12 +288,17 @@ class ApprovalComputerBroker implements ComputerActionBroker {
         op: input.action.op,
         target,
         page: input.observation.url,
-        ...(input.action.op === "type" ? { text: input.action.text } : {}),
+        // A typed password (or any secret) must never be printed on an approval card.
+        ...(input.action.op === "type"
+          ? {
+              text: isSecretField(target ?? "", targetRole(input)) ? "(hidden)" : input.action.text,
+            }
+          : {}),
       }),
     };
     const evaluated = await this.runtime.broker.evaluate(request, {
       mode: "live",
-      preset: "workspace_write",
+      preset: this.presetFor(input.botId),
     });
     if (evaluated.outcome === "deny" || evaluated.outcome === "simulate") return "deny";
     // Our rules said the user must confirm (destructive, sensitive, or this
@@ -287,6 +318,35 @@ function waitMs(seconds: number | undefined, fallback = DEFAULT_WAIT_S): number 
   return Math.max(0, Math.min(60, seconds ?? fallback)) * 1000;
 }
 
+/** The harness's guidance for what to do with a task in this state (the engine may not remember). */
+function nextStep(snapshot: ComputerTaskSnapshot): string | undefined {
+  switch (snapshot.status) {
+    case "running":
+      return "Still working. Call computer_status with waitSeconds 60 until it finishes; do not end your turn while it runs.";
+    case "needs_input":
+      return `Answer with computer_steer({taskId, text}) for the field "${snapshot.pendingInput?.field ?? ""}". Write the text yourself; only ask the user for something you cannot know.`;
+    case "needs_user": {
+      const need = snapshot.need;
+      const site = need?.site ?? "this site";
+      if (need?.kind === "login") {
+        return `Needs a sign-in for ${site}. Call list_logins first (a saved login is typed automatically). If none, call ask_user with a text field for the username and a "secret" field for the password, then save_login, then computer_steer({taskId, instruction: "Signed in credentials are saved"}). The user may instead sign in themselves on the Computer tab: the task then continues by itself. Nothing else is needed from the user.`;
+      }
+      if (need?.kind === "code") {
+        return `Needs a verification code only the user has. Ask with ask_user (text field "code"), then computer_steer({taskId, instruction: "continue"}); when the task asks for the code field's text (needsText), answer with the code via computer_steer({taskId, text}).`;
+      }
+      return "Needs the user on this step (CAPTCHA, payment or similar). Tell them once, briefly, to finish it on the Computer tab; the task continues by itself when they are done.";
+    }
+    case "escalated":
+    case "takeover":
+    case "failed":
+      return "Not finished. Do not give up or hand this to the user: look at page.visible, then computer_steer({taskId, instruction}) with a different approach (another route to the same goal, a search, a direct URL). It resumes from the same page. Ask the user only for missing data.";
+    case "completed":
+      return "Jev says it is done. Verify against your definition of done using page.visible or computer_screenshot before you report; if it is not really done, computer_steer with what is missing.";
+    default:
+      return undefined;
+  }
+}
+
 function view(snapshot: ComputerTaskSnapshot): ComputerTaskView {
   return {
     taskId: snapshot.taskId,
@@ -294,6 +354,8 @@ function view(snapshot: ComputerTaskSnapshot): ComputerTaskView {
     steps: snapshot.steps.length,
     summary: snapshot.summary,
     needsText: snapshot.pendingInput?.field,
+    needs: snapshot.need ? { ...snapshot.need } : undefined,
+    next: nextStep(snapshot),
     recentSteps: snapshot.steps
       .slice(-5)
       .map((s) =>
@@ -307,4 +369,19 @@ function view(snapshot: ComputerTaskSnapshot): ComputerTaskView {
         ? { url: snapshot.url, title: snapshot.title, visible: snapshot.visible }
         : undefined,
   };
+}
+
+function targetRole(input: Parameters<ComputerActionBroker["checkAction"]>[0]): string | undefined {
+  return input.action.target !== undefined
+    ? input.observation.elements.find((el) => el.index === input.action.target)?.role
+    : undefined;
+}
+
+/** A field whose typed text must never be printed on an approval card. */
+function isSecretField(label: string, role?: string): boolean {
+  return (
+    role === "password" ||
+    loginFieldKind(label, role) === "password" ||
+    /pass(word|code)?|contrase|secret|token|\bcode\b|\bpin\b|otp|2fa|security|verif/i.test(label)
+  );
 }

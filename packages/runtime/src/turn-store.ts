@@ -16,7 +16,7 @@ export class InMemoryTurnStore implements TurnStore {
     const turn: Turn = {
       ...input,
       id: input.id ?? newId("turn"),
-      status: "queued",
+      status: "running",
       usage: { inputTokens: 0, outputTokens: 0, usd: 0 },
       createdAt: this.now(),
     };

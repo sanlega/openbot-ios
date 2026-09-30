@@ -21,7 +21,7 @@ type Device = DevicesResponse["devices"][number] & { revokedAt?: string };
 /** `GET /api/remote/status` as the harness returns it (a superset of the adapter's input). */
 interface RemoteDetail extends HarnessRemoteStatus {
   tailscale?: HarnessRemoteStatus["tailscale"] & { installed?: boolean };
-  cloudflare?: HarnessRemoteStatus["cloudflare"] & { warning?: string };
+  cloudflare?: HarnessRemoteStatus["cloudflare"] & { warning?: string; configured?: boolean };
 }
 
 const VIA_LABEL: Record<Device["via"], string> = {
@@ -360,10 +360,28 @@ function RemoteAccess({
   const cf = remote?.cloudflare;
   const tsOn = summary.enabled && summary.via === "tailscale";
   const cfOn = Boolean(cf?.running);
+  const cfConfigured = cfOn || Boolean(cf?.configured);
   const tsMissing = ts?.installed === false;
   const [busy, setBusy] = useState(false);
   const [token, setToken] = useState("");
+  const [hostnameDraft, setHostnameDraft] = useState<string | null>(null);
+  const [replacing, setReplacing] = useState(false);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [error, setError] = useState<{ which: "ts" | "cf"; text: string } | null>(null);
+
+  const saveHostname = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await transport.put("/api/remote/cloudflare/hostname", { hostname: hostnameDraft ?? "" });
+      setHostnameDraft(null);
+      onChanged();
+    } catch (err) {
+      setError({ which: "cf", text: errorText(err, "Couldn't save the hostname.") });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const toggleTailscale = async () => {
     setBusy(true);
@@ -384,16 +402,34 @@ function RemoteAccess({
     try {
       const res = await transport.post<{ result?: { ok: boolean; reason?: string } }>(
         "/api/remote/cloudflare",
-        { token: token.trim() },
+        token.trim() ? { token: token.trim() } : {},
       );
       if (res.result && !res.result.ok) {
         setError({ which: "cf", text: res.result.reason ?? "The tunnel didn't start." });
       } else {
         setToken("");
+        setReplacing(false);
         onChanged();
       }
     } catch (err) {
       setError({ which: "cf", text: errorText(err, "Couldn't start the tunnel.") });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeCloudflare = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await transport.delete("/api/remote/cloudflare");
+      setConfirmingRemove(false);
+      setReplacing(false);
+      setHostnameDraft(null);
+      setToken("");
+      onChanged();
+    } catch (err) {
+      setError({ which: "cf", text: errorText(err, "Couldn't remove the tunnel.") });
     } finally {
       setBusy(false);
     }
@@ -460,6 +496,8 @@ function RemoteAccess({
               Cloudflare Tunnel
               {cfOn ? (
                 <StatusPill tone="success">Running</StatusPill>
+              ) : cfConfigured ? (
+                <StatusPill tone="muted">Stopped</StatusPill>
               ) : (
                 <StatusPill tone="muted">Off</StatusPill>
               )}
@@ -470,11 +508,100 @@ function RemoteAccess({
               ? cf?.hostname
                 ? `Public at ${cf.hostname}`
                 : "Tunnel is running."
-              : "A public URL through your own Cloudflare account. Paste a tunnel token to start it."
+              : cfConfigured
+                ? "Your tunnel token is saved, but the tunnel isn't running."
+                : "A public URL through your own Cloudflare account. Paste a tunnel token to start it. OpenBot saves it and starts the tunnel each time it opens."
           }
         />
+        {cfConfigured ? (
+          <form
+            className="set-row set-key-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (hostnameDraft !== null && !busy) void saveHostname();
+            }}
+          >
+            <div className="set-secret">
+              <input
+                type="text"
+                placeholder="Public hostname, e.g. openbot.example.com"
+                aria-label="Tunnel public hostname"
+                autoComplete="off"
+                spellCheck={false}
+                value={hostnameDraft ?? cf?.hostname ?? ""}
+                onChange={(e) => setHostnameDraft(e.target.value)}
+              />
+            </div>
+            <button
+              type="submit"
+              className="btn btn-secondary"
+              disabled={busy || hostnameDraft === null}
+            >
+              Save
+            </button>
+          </form>
+        ) : null}
+        {cfConfigured ? (
+          <div className="set-row">
+            <div className="set-inline-actions">
+              {!cfOn ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  disabled={busy}
+                  onClick={() => void connectCloudflare()}
+                >
+                  Start tunnel
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                disabled={busy}
+                onClick={() => setReplacing((v) => !v)}
+              >
+                {replacing ? "Cancel" : "Replace token"}
+              </button>
+              {confirmingRemove ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    disabled={busy}
+                    onClick={() => setConfirmingRemove(false)}
+                  >
+                    Keep
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-danger btn-sm"
+                    disabled={busy}
+                    onClick={() => void removeCloudflare()}
+                  >
+                    {busy ? "Removing…" : "Remove token and stop tunnel"}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  disabled={busy}
+                  onClick={() => setConfirmingRemove(true)}
+                >
+                  Remove token
+                </button>
+              )}
+            </div>
+          </div>
+        ) : null}
+        {cfOn && !cf?.hostname ? (
+          <div className="set-row-note">
+            OpenBot couldn't tell which address your tunnel serves. Enter it above so the phone QR
+            includes it.
+          </div>
+        ) : null}
         {cfOn && cf?.warning ? <div className="set-row-note">{cf.warning}</div> : null}
-        {!cfOn ? (
+        {!cfConfigured || replacing ? (
           <form
             className="set-row set-key-form"
             onSubmit={(e) => {
@@ -494,7 +621,7 @@ function RemoteAccess({
               />
             </div>
             <button type="submit" className="btn btn-secondary" disabled={busy || !token.trim()}>
-              Start tunnel
+              {replacing ? "Use this token" : "Start tunnel"}
             </button>
           </form>
         ) : null}

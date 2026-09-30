@@ -17,6 +17,7 @@ import {
 import type { Transport } from "../../transport/index.js";
 import { useOpenBot } from "../../state/context.js";
 import { EngineCard, type EngineReadiness } from "./EngineCard.js";
+import { engineName } from "../settings/settings-meta.js";
 import {
   fetchEngines,
   fetchSetup,
@@ -58,6 +59,8 @@ export function SetupWizard({ transport, onComplete }: SetupWizardProps) {
     codex: { state: "checking" },
   });
   const [checking, setChecking] = useState(false);
+  // Other agents (Cursor, OpenCode...) that are installed and signed in: any one is enough.
+  const [otherReady, setOtherReady] = useState<string[]>([]);
   const checkedOnce = useRef(false);
 
   // Jev
@@ -96,6 +99,11 @@ export function SetupWizard({ transport, onComplete }: SetupWizardProps) {
     const byId: Partial<Record<EngineId, EngineInfo>> = {};
     for (const e of list) if (e.id === "claude" || e.id === "codex") byId[e.id] = e;
     setEngineInfo(byId);
+    setOtherReady(
+      list
+        .filter((e) => e.id !== "claude" && e.id !== "codex" && e.id !== "fake" && e.available)
+        .map((e) => e.descriptor?.label ?? engineName(e.id)),
+    );
 
     const results = await Promise.all(
       ENGINE_IDS.map((id) =>
@@ -145,7 +153,8 @@ export function SetupWizard({ transport, onComplete }: SetupWizardProps) {
     return null;
   };
 
-  const anyEngine = ENGINE_IDS.some((id) => engines[id].state === "ready");
+  const anyEngine = ENGINE_IDS.some((id) => engines[id].state === "ready") || otherReady.length > 0;
+  const allEngines = ENGINE_IDS.every((id) => engines[id].state === "ready");
 
   const go = (to: Step) => {
     setStep(to);
@@ -315,9 +324,13 @@ export function SetupWizard({ transport, onComplete }: SetupWizardProps) {
               ))}
               <div className="setup-inline-row">
                 <span className="setup-muted">
-                  {anyEngine
-                    ? "You can add the other engine later in Settings."
-                    : "Connect at least one engine to continue."}
+                  {otherReady.length > 0
+                    ? `Also ready: ${otherReady.join(", ")}.`
+                    : allEngines
+                      ? "Both engines are ready. bots can use either one."
+                      : anyEngine
+                        ? "You can add the other engine later in Settings."
+                        : "Connect at least one engine to continue. Cursor, OpenCode (with local models), Gemini and Grok work too: install one and check again."}
                 </span>
                 <button
                   type="button"
@@ -340,7 +353,7 @@ export function SetupWizard({ transport, onComplete }: SetupWizardProps) {
             <div className="setup-stack">
               <ul className="setup-features">
                 <Feature icon={<Route size={16} />} title="Routing">
-                  Picks the right Bot and engine for every task.
+                  Picks the right bot and engine for every task.
                 </Feature>
                 <Feature icon={<ShieldCheck size={16} />} title="Approvals">
                   Flags risky actions so you decide before they happen.
@@ -402,7 +415,11 @@ export function SetupWizard({ transport, onComplete }: SetupWizardProps) {
                     </p>
                   ) : (
                     <p className="field-help" id="setup-jev-help">
-                      Stored encrypted on this computer and only ever sent to TypeSafe.
+                      No key yet?{" "}
+                      <a href="https://console.typesafe.ai/" target="_blank" rel="noreferrer">
+                        Get one in the TypeSafe console
+                      </a>
+                      . It's stored encrypted on this computer and only ever sent to TypeSafe.
                     </p>
                   )}
                 </div>
@@ -422,7 +439,7 @@ export function SetupWizard({ transport, onComplete }: SetupWizardProps) {
                     <span className="pill pill-muted setup-pill">Optional</span>
                   </div>
                   <p className="setup-option-desc">
-                    Chat with your Bots from anywhere over Tailscale, a private network that only
+                    Chat with your bots from anywhere over Tailscale, a private network that only
                     your devices can join.
                   </p>
                   {tailscale === "ok" ? (
@@ -465,6 +482,9 @@ export function SetupWizard({ transport, onComplete }: SetupWizardProps) {
                     value={engines[id].state === "ready" ? "Connected" : "Not connected"}
                   />
                 ))}
+                {otherReady.length > 0 ? (
+                  <SummaryRow ok label="More agents" value={otherReady.join(", ")} />
+                ) : null}
                 <SummaryRow
                   ok={jevOk}
                   label="Jev decision layer"
@@ -508,7 +528,7 @@ export function SetupWizard({ transport, onComplete }: SetupWizardProps) {
 const HEADINGS: Record<Exclude<Step, "welcome">, { title: string; lede: string }> = {
   engines: {
     title: "Connect an engine",
-    lede: "Your Bots think with Claude Code or Codex, using your own account. One is enough.",
+    lede: "Your bots think with Claude Code, Codex or another agent like Cursor or OpenCode, using your own account. One is enough.",
   },
   jev: {
     title: "Add the decision layer",
@@ -520,13 +540,13 @@ const HEADINGS: Record<Exclude<Step, "welcome">, { title: string; lede: string }
   },
   done: {
     title: "You're all set",
-    lede: "Your Chief of Staff is ready. Tell it what you need and it will bring in the right Bots.",
+    lede: "Your Chief of Staff is ready. Tell it what you need and it will bring in the right bots.",
   },
 };
 
 function Progress({ index }: { index: number }) {
-  // Dots for the three numbered steps plus done.
-  const dots = STEPS.slice(1);
+  // One dot per numbered step (engines, decision layer, extras).
+  const dots = STEPS.slice(1, -1);
   return (
     <ol className="setup-progress" aria-label={`Step ${index} of ${dots.length}`}>
       {dots.map((s, i) => (

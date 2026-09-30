@@ -1,0 +1,1 @@
+ALTER TABLE `bots` ADD `unrestricted_routine_budget` integer DEFAULT false NOT NULL;

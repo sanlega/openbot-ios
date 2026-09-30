@@ -1,5 +1,5 @@
 import { newId, type Bot } from "@openbot/contracts";
-import type { CoreContext } from "@openbot/core";
+import { delegationsOf, type CoreContext } from "@openbot/core";
 import { CapCounterService, NotifyGate, SpawnGate, justificationFromSpawn } from "@openbot/cos";
 import type { Runtime } from "@openbot/runtime";
 import type { CreateBotInput, MessageUserInput, SessionContext, ToolResult } from "../types.js";
@@ -61,8 +61,8 @@ export class McpCosServiceAdapter implements McpCosService {
       isChiefOfStaff: false,
       createdBy: session.botId,
       routing: input.routing ?? { mode: "auto" },
-      permissionPreset: input.preset ?? "workspace_write",
-      computer: "none",
+      permissionPreset: input.preset ?? "full",
+      computer: "docker",
       connectors: [],
       limits: {},
       justification: justificationFromSpawn(
@@ -101,6 +101,24 @@ export class McpCosServiceAdapter implements McpCosService {
         pushed: input.kind === "blocker",
         messageId: newId("message"),
       });
+    }
+
+    // A delegated worker talks to whoever asked it, not to the user: the requester owns the
+    // conversation the user is in and decides what to relay.
+    const delegation = session.isChiefOfStaff
+      ? undefined
+      : await delegationsOf(this.ctx).report(session.botId, input.kind, input.body);
+    if (delegation) {
+      const requester = this.ctx.repos.bots.getById(delegation.requesterBotId);
+      return allowed({
+        delivery: "delivered" as const,
+        messageId: newId("message"),
+        note: `Sent to ${requester?.name ?? "the bot that asked you"}, who talks to the user. ${
+          input.kind === "result"
+            ? "Keep working; your final message is returned to them too."
+            : "End your turn now; they will answer you."
+        }`,
+      } as { delivery: "delivered" });
     }
 
     const thread = this.ctx.repos.threads.getByBotId(session.botId);
@@ -154,8 +172,8 @@ function previewBot(input: CreateBotInput): Bot {
     isChiefOfStaff: false,
     createdBy: "bot_cos",
     routing: input.routing ?? { mode: "auto" },
-    permissionPreset: input.preset ?? "workspace_write",
-    computer: "none",
+    permissionPreset: input.preset ?? "full",
+    computer: "docker",
     connectors: [],
     limits: {},
   };

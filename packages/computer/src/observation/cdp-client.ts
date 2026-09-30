@@ -66,6 +66,35 @@ export class CdpClient {
     return result.result?.value as T;
   }
 
+  /** A real mouse click at viewport coordinates (CSS pixels), wherever the window is. */
+  async clickAt(x: number, y: number): Promise<void> {
+    const base = { x, y, button: "left", clickCount: 1 };
+    await this.send("Input.dispatchMouseEvent", { ...base, type: "mouseMoved" });
+    await this.send("Input.dispatchMouseEvent", { ...base, type: "mousePressed" });
+    await this.send("Input.dispatchMouseEvent", { ...base, type: "mouseReleased" });
+  }
+
+  /** Presses a key in the page (Enter, Escape, Tab), wherever window focus is. */
+  async pressKey(key: string): Promise<void> {
+    const codes: Record<string, number> = { Enter: 13, Escape: 27, Tab: 9 };
+    const code = codes[key] ?? 0;
+    const base = { key, code: key, windowsVirtualKeyCode: code, nativeVirtualKeyCode: code };
+    await this.send("Input.dispatchKeyEvent", {
+      ...base,
+      type: "keyDown",
+      ...(key === "Enter" ? { text: "\r", unmodifiedText: "\r" } : {}),
+    });
+    await this.send("Input.dispatchKeyEvent", { ...base, type: "keyUp" });
+  }
+
+  /** Types into the focused field, replacing what it held. */
+  async replaceFocusedText(text: string): Promise<void> {
+    await this.evaluate(
+      "(() => { const el = document.activeElement; if (el && typeof el.select === 'function') el.select(); })()",
+    );
+    await this.send("Input.insertText", { text });
+  }
+
   /** Loads `url` in this tab (not a new one) and waits for the page to load. */
   async navigate(url: string, timeoutMs = 15_000): Promise<void> {
     await this.send("Page.navigate", { url });
@@ -86,6 +115,24 @@ export class CdpClient {
         await fetch(`http://127.0.0.1:${this.port}/json/close/${t.id}`).catch(() => undefined);
       }
     }
+  }
+
+  /** Every cookie of this browser (all sites). */
+  async getAllCookies(): Promise<Array<Record<string, unknown>>> {
+    const result = (await this.send("Network.getAllCookies")) as {
+      cookies?: Array<Record<string, unknown>>;
+    };
+    return result.cookies ?? [];
+  }
+
+  async setCookies(cookies: Array<Record<string, unknown>>): Promise<void> {
+    await this.send("Network.setCookies", { cookies });
+  }
+
+  async deleteCookies(
+    cookies: Array<{ name: string; domain: string; path: string }>,
+  ): Promise<void> {
+    for (const c of cookies) await this.send("Network.deleteCookies", c);
   }
 
   async axTree(): Promise<unknown> {

@@ -106,3 +106,108 @@ dockerIntegration("DockerProvider integration", () => {
     }
   });
 });
+
+describe("DockerProvider concurrent start-up", () => {
+  it("runs one start-up for simultaneous ensureStarted calls (one container, one Docker launch)", async () => {
+    let created = 0;
+    let pings = 0;
+    const provider = new DockerProvider({
+      controlClient: new MemoryControlDaemon(),
+      idleStopMs: 0,
+      docker: {
+        ping: async () => {
+          pings += 1;
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        },
+        listContainers: async () => [],
+        getContainer: () => {
+          throw new Error("unexpected");
+        },
+        createContainer: async () => {
+          created += 1;
+          return { id: "cont_1", start: async () => {} };
+        },
+      },
+    });
+    await Promise.all([
+      provider.ensureStarted(),
+      provider.ensureStarted(),
+      provider.ensureStarted(),
+    ]);
+    expect(created).toBe(1);
+    expect(pings).toBe(1);
+  });
+});
+
+describe("DockerProvider shared workspace and sign-ins (D-032)", () => {
+  function engine(existing?: { binds: string[]; running?: boolean }) {
+    const created: Array<{ HostConfig: { Binds: string[] }; Env: string[] }> = [];
+    let removed = false;
+    return {
+      created,
+      removed: () => removed,
+      docker: {
+        ping: async () => {},
+        listContainers: async () =>
+          existing && !removed ? [{ Id: "old", Names: ["/openbot-desktop"] }] : [],
+        getContainer: () => ({
+          inspect: async () => ({
+            State: { Running: existing?.running ?? true },
+            Config: { Env: ["OPENBOT_CONTROL_TOKEN=saved"] },
+            HostConfig: { Binds: existing?.binds ?? [] },
+          }),
+          start: async () => {},
+          remove: async () => {
+            removed = true;
+          },
+        }),
+        createContainer: async (options: unknown) => {
+          created.push(options as (typeof created)[number]);
+          return { id: "new", start: async () => {} };
+        },
+      },
+    };
+  }
+  const daemon = new MemoryControlDaemon();
+
+  it("mounts the bots' workspace and the browser volume", async () => {
+    const e = engine();
+    await new DockerProvider({
+      docker: e.docker,
+      controlClient: daemon,
+      idleStopMs: 0,
+      workspaceMount: "C:\\Users\\me\\.openbot\\workspace",
+    }).ensureStarted();
+    expect(e.created[0]!.HostConfig.Binds).toEqual([
+      "C:\\Users\\me\\.openbot\\workspace:/workspace",
+      "openbot-browser:/data/browser",
+    ]);
+    expect(e.created[0]!.Env).toContain("OPENBOT_BROWSER_DIR=/data/browser");
+  });
+
+  it("replaces a container made without them", async () => {
+    const e = engine({ binds: [] });
+    await new DockerProvider({
+      docker: e.docker,
+      controlClient: daemon,
+      idleStopMs: 0,
+      workspaceMount: "/home/me/.openbot/workspace",
+    }).ensureStarted();
+    expect(e.removed()).toBe(true);
+    expect(e.created).toHaveLength(1);
+  });
+
+  it("keeps a container that already has them", async () => {
+    const e = engine({
+      binds: ["/home/me/.openbot/workspace:/workspace", "openbot-browser:/data/browser"],
+    });
+    await new DockerProvider({
+      docker: e.docker,
+      controlClient: daemon,
+      idleStopMs: 0,
+      workspaceMount: "/home/me/.openbot/workspace",
+    }).ensureStarted();
+    expect(e.removed()).toBe(false);
+    expect(e.created).toHaveLength(0);
+  });
+});

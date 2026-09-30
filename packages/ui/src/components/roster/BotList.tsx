@@ -4,6 +4,7 @@ import type { ThreadView } from "../../api/types.js";
 import { useOpenBot } from "../../state/context.js";
 import { BotAvatar, type BotStatus } from "../common/BotAvatar.js";
 import { shortTime } from "../common/time.js";
+import { plainText } from "../activity/format.js";
 
 interface BotListProps {
   creating?: boolean;
@@ -50,6 +51,7 @@ export function BotList({
         type="button"
         className="bot-item"
         data-active={active}
+        aria-current={active ? "page" : undefined}
         data-status={status}
         onClick={() => {
           selectThread(thread.id);
@@ -69,7 +71,9 @@ export function BotList({
           <span className="bot-preview">
             {status === "working"
               ? "Working…"
-              : (thread.lastMessagePreview ?? bot.label ?? bot.description)}
+              : thread.lastMessagePreview
+                ? `${thread.lastMessageAuthor === "user" ? "You: " : ""}${plainText(thread.lastMessagePreview)}`
+                : (bot.label ?? bot.description)}
           </span>
         </span>
       </button>

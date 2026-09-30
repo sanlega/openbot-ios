@@ -12,6 +12,7 @@ export interface EngineInfo {
   login?: { ok: boolean; account?: string };
   apiKey?: { ok: boolean };
   available?: boolean;
+  descriptor?: { label: string; kind: "native" | "acp"; loginCommand?: string };
 }
 
 export interface ValidateResult {

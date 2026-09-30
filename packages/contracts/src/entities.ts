@@ -3,7 +3,20 @@ import { z } from "zod";
 /** Plan §4.1. All timestamps are ISO 8601 strings (UTC) at the contract layer; `store` maps them to SQLite integers (unix ms). */
 const isoTimestamp = () => z.string().datetime({ offset: true });
 
-export const EngineId = z.enum(["claude", "codex", "fake"]);
+/**
+ * Engines OpenBot ships a driver for. The set is open (D-031): ACP agents the owner adds
+ * are `acp-<slug>`, so an id is any short lowercase slug, not only one of these.
+ */
+export const BUILTIN_ENGINE_IDS = [
+  "claude",
+  "codex",
+  "opencode",
+  "cursor",
+  "gemini",
+  "grok",
+  "fake",
+] as const;
+export const EngineId = z.string().regex(/^[a-z][a-z0-9-]{1,39}$/, "invalid engine id");
 export type EngineId = z.infer<typeof EngineId>;
 
 export const PermissionPreset = z.enum(["read_only", "workspace_write", "full"]);
@@ -57,6 +70,8 @@ export const Bot = z.object({
   limits: z.object({
     dailyUsd: z.number().nonnegative().optional(),
     dailyTokens: z.number().int().nonnegative().optional(),
+    /** Opt-in, off by default: skips a routine run's own per-run cost/token cap for this bot, so a long task isn't cut off mid-work. The routine's own perRun numbers still show in its settings; this only stops them from interrupting the turn. */
+    unrestrictedRoutineBudget: z.boolean().optional(),
   }),
   justification: BotJustification.optional(),
 });
@@ -413,3 +428,42 @@ export const SetupState = z.object({
   completedAt: isoTimestamp().optional(),
 });
 export type SetupState = z.infer<typeof SetupState>;
+
+/**
+ * A task one Bot handed to another (`send_message`). The runtime, not the model, decides its
+ * state: a turn that ends completes, fails or interrupts it, and the requester is woken.
+ */
+export const DelegationState = z.enum([
+  "submitted",
+  "working",
+  "input_required",
+  "completed",
+  "failed",
+  "interrupted",
+]);
+export type DelegationState = z.infer<typeof DelegationState>;
+
+export const Delegation = z.object({
+  id: z.string(),
+  chainId: z.string(),
+  requesterBotId: z.string(),
+  assigneeBotId: z.string(),
+  /** The thread the human is talking in (the requester's); worker cards and results show there. */
+  ownerThreadId: z.string(),
+  title: z.string(),
+  state: DelegationState,
+  statusMessage: z.string().optional(),
+  /** The assignee's closing text once the delegation ended. */
+  result: z.string().optional(),
+  /** The engine the assignee worked on: follow-up turns stay on it (its session lives there). */
+  engine: z.string().optional(),
+  /** Requester -> assignee messages; capped so two Bots can't ping-pong forever. */
+  roundTrips: z.number().int().nonnegative(),
+  /** A wake for the requester is owed; survives a restart until delivered. */
+  wakePending: z.boolean(),
+  wakeKind: z.string().optional(),
+  createdAt: isoTimestamp(),
+  updatedAt: isoTimestamp(),
+  lastEventAt: isoTimestamp(),
+});
+export type Delegation = z.infer<typeof Delegation>;

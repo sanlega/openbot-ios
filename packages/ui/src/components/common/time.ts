@@ -5,7 +5,7 @@ export function shortTime(iso: string, now = new Date()): string {
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const day = 86_400_000;
   if (d.getTime() >= startOfToday) {
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   }
   if (d.getTime() >= startOfToday - day) return "Yesterday";
   if (d.getTime() >= startOfToday - 6 * day) {
@@ -18,7 +18,7 @@ export function clockTime(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime())
     ? ""
-    : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    : d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
 /** "Today", "Yesterday", or a full date, for day separators in a thread. */

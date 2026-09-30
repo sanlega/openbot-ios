@@ -9,6 +9,12 @@ interface ComputerPanelProps {
   botId: string;
 }
 
+/** The transport only keeps `${method} ${path} failed: ${status}` — no parsed body — so this pulls the status back out to tell "image missing" apart from any other start failure. */
+function statusOf(err: unknown): number | undefined {
+  const match = err instanceof Error ? /: (\d{3})$/.exec(err.message) : null;
+  return match ? Number(match[1]) : undefined;
+}
+
 export function ComputerPanel({ botId }: ComputerPanelProps) {
   const { transport } = useOpenBot();
   const [status, setStatus] = useState<ComputerStatusResponse | null>(null);
@@ -59,7 +65,9 @@ export function ComputerPanel({ botId }: ComputerPanelProps) {
       setStarted((n) => n + 1);
     } catch (cause) {
       setError(
-        `Computer could not be started. Check Docker Desktop and the desktop image. ${String(cause)}`,
+        statusOf(cause) === 409
+          ? "The desktop image isn't ready yet — open Settings > Computer to download it."
+          : `Computer could not be started. Check Docker Desktop and the desktop image. ${String(cause)}`,
       );
       setLoading(false);
     }

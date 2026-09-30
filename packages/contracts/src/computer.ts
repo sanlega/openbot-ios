@@ -70,3 +70,23 @@ export interface ComputerTaskResult {
 export interface ComputerAgent {
   runTask(t: ComputerTaskRequest): Promise<ComputerTaskResult>;
 }
+
+/** Plan §4.7 addendum: the docker provider's desktop image, distinct from container/task status (D-020). */
+export type ComputerImageState = "missing" | "pulling" | "building" | "ready" | "error";
+
+export interface ComputerImageStatus {
+  state: ComputerImageState;
+  tag: string;
+  source?: "registry" | "local";
+  detail?: string;
+  localBuildAvailable: boolean;
+}
+
+/** `packages/computer/docker`'s `ImageManager` implements this; `CoreContext.computerImageManager` (core routes only depend on this shape, never the docker package). */
+export interface ComputerImageManager {
+  getStatus(): ComputerImageStatus;
+  isBusy(): boolean;
+  refresh(): Promise<ComputerImageStatus>;
+  get(source?: "registry" | "local"): Promise<ComputerImageStatus>;
+  reset(removeImage?: boolean): Promise<ComputerImageStatus>;
+}

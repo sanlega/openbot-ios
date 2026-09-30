@@ -34,6 +34,8 @@ export interface ThreadView extends Thread {
   title: string;
   lastMessagePreview?: string;
   lastMessageAt?: string;
+  /** Who wrote the preview ("user" shows as "You: …"). */
+  lastMessageAuthor?: "user" | "bot" | "routine" | "system";
   unreadCount?: number;
 }
 
@@ -192,7 +194,24 @@ export interface EnginesResponse {
     installed: boolean;
     version?: string;
     login: { ok: boolean; account?: string };
+    available?: boolean;
+    /** What the engine is (D-031): name, protocol, how to sign in. */
+    descriptor?: {
+      label: string;
+      kind: "native" | "acp";
+      loginCommand?: string;
+      installUrl?: string;
+      summary?: string;
+    };
   }>;
+}
+
+/** An ACP agent the owner added by command line (`/api/engines/custom`). */
+export interface CustomEngine {
+  slug: string;
+  label: string;
+  command: string;
+  args: string[];
 }
 
 export interface PairQrResponse {

@@ -8,8 +8,7 @@ and run it, see the [README](../README.md). Decisions behind this design are in
 ## How it works
 
 OpenBot is one local **harness** process that owns all state and talks to
-everything else. The desktop app, the phone PWA, the native iOS companion, and any
-other client are thin views
+everything else. The desktop app, the phone PWA, and any other client are thin views
 over its Client API (HTTP + WebSocket).
 
 ```mermaid
@@ -108,32 +107,23 @@ flowchart TB
   foundation --> contracts
 ```
 
-| Package               | Responsibility                                                                                                                                                   |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/contracts`  | Shared zod schemas and TS types: entities, events, `EngineDriver`, `DecisionService`, `Computer`, `ConnectorProvider` SPIs.                                      |
-| `packages/store`      | SQLite schema (Drizzle), numbered migrations, repositories.                                                                                                      |
-| `packages/core`       | Config, durable event bus, Client API (HTTP + WS), setup validators, devices, vault.                                                                             |
-| `packages/runtime`    | Mailbox (one active turn per Bot), chains and limits, permission broker, loop guards, delivery, spend caps.                                                      |
-| `packages/engines`    | `ClaudeDriver`, `CodexDriver`, and a scriptable `FakeEngineDriver`.                                                                                              |
-| `packages/decisions`  | `DecisionService`: Jev client, per-purpose rate budgets, conservative fallbacks, question builders, model router.                                                |
-| `packages/cos`        | Chief of Staff prompt, spawn gate, notify gate, caps S1–S10, digest.                                                                                             |
-| `packages/mcp`        | OpenBot MCP tools, their HTTP route, the stdio shim engines spawn, and the per-turn composer.                                                                    |
-| `packages/computer`   | `Computer` SPI, Docker and local providers, the Jev fast loop, takeover.                                                                                         |
-| `packages/connectors` | MCP servers, the MCP Registry, and tools you or your Bots create.                                                                                                |
-| `packages/remote`     | QR pairing, device keys, E2E framing, Tailscale and Cloudflare managers.                                                                                         |
-| `packages/routines`   | Scheduler, trigger sources, run orchestration, dry runs.                                                                                                         |
-| `packages/ui`         | The React app shared by the desktop and the phone PWA. The native iOS companion uses native React Native screens and shared contracts instead of DOM components. |
-| `apps/server`         | `openbot serve/doctor/pair`, and `bootstrap.ts`, which wires every package together.                                                                             |
-| `apps/desktop`        | Electron main/preload, harness in a `utilityProcess`, tray, packaging.                                                                                           |
-| `apps/mobile`         | Expo Router / React Native companion client for iOS; it uses the existing Client API and device pairing.                                                         |
-
-The native iOS app stores paired device credentials in the iOS Keychain via Expo
-SecureStore. It reconnects to the host's HTTP + WebSocket API and refreshes state when
-the app returns to the foreground. iOS may suspend the app in the background, so a
-live WebSocket is not a notification mechanism. Reliable push requires an APNs sender
-that can receive device tokens and contact APNs. OpenBot has no hosted backend; a
-future push sender must use credentials owned by the user on their desktop host or an
-optional self-hosted relay. No APNs signing key belongs in the app binary.
+| Package               | Responsibility                                                                                                              |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `packages/contracts`  | Shared zod schemas and TS types: entities, events, `EngineDriver`, `DecisionService`, `Computer`, `ConnectorProvider` SPIs. |
+| `packages/store`      | SQLite schema (Drizzle), numbered migrations, repositories.                                                                 |
+| `packages/core`       | Config, durable event bus, Client API (HTTP + WS), setup validators, devices, vault.                                        |
+| `packages/runtime`    | Mailbox (one active turn per Bot), chains and limits, permission broker, loop guards, delivery, spend caps.                 |
+| `packages/engines`    | `ClaudeDriver`, `CodexDriver`, and a scriptable `FakeEngineDriver`.                                                         |
+| `packages/decisions`  | `DecisionService`: Jev client, per-purpose rate budgets, conservative fallbacks, question builders, model router.           |
+| `packages/cos`        | Chief of Staff prompt, spawn gate, notify gate, caps S1–S10, digest.                                                        |
+| `packages/mcp`        | OpenBot MCP tools, their HTTP route, the stdio shim engines spawn, and the per-turn composer.                               |
+| `packages/computer`   | `Computer` SPI, Docker and local providers, the Jev fast loop, takeover.                                                    |
+| `packages/connectors` | MCP servers, the MCP Registry, and tools you or your Bots create.                                                           |
+| `packages/remote`     | QR pairing, device keys, E2E framing, Tailscale and Cloudflare managers.                                                    |
+| `packages/routines`   | Scheduler, trigger sources, run orchestration, dry runs.                                                                    |
+| `packages/ui`         | The React app shared by the desktop and the phone PWA.                                                                      |
+| `apps/server`         | `openbot serve/doctor/pair`, and `bootstrap.ts`, which wires every package together.                                        |
+| `apps/desktop`        | Electron main/preload, harness in a `utilityProcess`, tray, packaging.                                                      |
 
 ### Processes
 
@@ -408,7 +398,7 @@ erDiagram
 - A **chain** is the unit of loop protection: one user request, routine run, or bot
   hand-off, with counters for turns, hops, bot messages, spend, and computer steps.
 - A **message** records how it was delivered: `delivered`, `held`, or `merged`.
-  Held messages appear only under **Activity → Not delivered** and in the digest.
+  Held messages appear only under **Activity → Held for digest** and in the digest.
 - Secrets never enter prompts, events, or logs. Engines get them only as environment
   variables, and connector tokens never reach model context.
 

@@ -12,12 +12,17 @@ const MODEL_LABELS: Record<string, string> = {
   "claude-haiku-4-5": "Haiku 4.5",
 };
 
+/** "claude-opus-5-5" → "Opus 5.5"; ids without a friendly name stay as they are. */
+export function modelLabel(model: string): string {
+  return MODEL_LABELS[model] ?? model;
+}
+
 /** Which engine and model the Bot runs on; "Auto" when Jev picks per turn. */
 export function RouteChip({ route, onOverride }: RouteChipProps) {
   const auto = route.engine === "auto";
   const pct = Math.round(route.confidence * 100);
   const showConfidence = !auto && pct > 0 && pct < 100;
-  const model = MODEL_LABELS[route.model] ?? route.model;
+  const model = modelLabel(route.model);
   return (
     <button
       type="button"

@@ -215,7 +215,7 @@ function FieldInput({ field, value, otherText, onChange, onOther }: FieldInputPr
             required={field.required}
           />
           <span className="field-secure">
-            <Lock size={12} aria-hidden /> Stored securely. The bot never sees the value.
+            <Lock size={12} aria-hidden /> Kept encrypted on this computer. The bot never sees it.
           </span>
         </label>
       );

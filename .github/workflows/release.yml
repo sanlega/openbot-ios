@@ -74,6 +74,33 @@ jobs:
           path: ${{ matrix.files }}
           if-no-files-found: error
 
+  publish-desktop-image:
+    name: Publish desktop image to GHCR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Build and push (D-020: images/desktop, dev-checkout builds stay local-only)"
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: images/desktop/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/sanlega/openbot-desktop:latest
+            ghcr.io/sanlega/openbot-desktop:${{ github.ref_name }}
+
   publish:
     name: Publish GitHub Release
     needs: package
@@ -88,6 +115,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: release-assets
+          pattern: "openbot-*"
           merge-multiple: true
 
       - name: Create checksums

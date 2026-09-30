@@ -69,6 +69,17 @@ describe("BotsRepo (WS1 additions)", () => {
     expect(fetched?.slug).toBe(bot.slug);
   });
 
+  it("defaults unrestrictedRoutineBudget to false, and round-trips it once set", () => {
+    const db = useDb();
+    const repo = new BotsRepo(db);
+    const bot = createBot(db);
+
+    expect(repo.getById(bot.id)?.limits.unrestrictedRoutineBudget).toBe(false);
+
+    repo.update(bot.id, { limits: { unrestrictedRoutineBudget: true } });
+    expect(repo.getById(bot.id)?.limits.unrestrictedRoutineBudget).toBe(true);
+  });
+
   it("archives a bot and excludes it from list() by default", () => {
     const db = useDb();
     const repo = new BotsRepo(db);

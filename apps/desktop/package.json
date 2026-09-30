@@ -1,8 +1,11 @@
 {
   "name": "@openbot/desktop",
-  "version": "0.1.0",
+  "version": "0.1.16",
   "private": true,
   "type": "module",
+  "description": "OpenBot desktop app: manage a roster of persistent Claude Code and Codex bots.",
+  "homepage": "https://github.com/sanlega/OpenBot",
+  "license": "MIT",
   "main": "./dist/main.js",
   "scripts": {
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.preload.json && mv dist/preload.js dist/preload.cjs && node ./scripts/build-harness.mjs",
@@ -13,7 +16,8 @@
     "dist": "electron-builder",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "smoke:packaged:mac": "node ./scripts/smoke-packaged-mac.mjs"
   },
   "dependencies": {
     "@openbot/contracts": "workspace:*",
@@ -36,7 +40,9 @@
     "appId": "com.openbot.desktop",
     "productName": "OpenBot",
     "executableName": "openbot",
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
     "npmRebuild": false,
+    "afterPack": "scripts/after-pack.cjs",
     "directories": {
       "output": "release",
       "buildResources": "resources"
@@ -81,7 +87,8 @@
         "deb"
       ],
       "category": "Utility",
-      "icon": "resources/icon.png"
+      "icon": "resources/icon.png",
+      "maintainer": "OpenBot Contributors"
     }
   }
 }

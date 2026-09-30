@@ -25,16 +25,40 @@ export {
   type TurnMailbox,
   type ComputerTasksControl,
   type LiveComputerTask,
+  type CustomEngineSpec,
+  type CustomEnginesControl,
 } from "./context.js";
 export { EventBus, type PublishInput } from "./event-bus.js";
 export { NdjsonWriter, NullNdjsonWriter } from "./ndjson-writer.js";
 export { FileVault, InMemoryVault, type Vault } from "./vault.js";
+export {
+  LOGIN_VAULT_PREFIX,
+  getLogin,
+  listLogins,
+  loginFieldKind,
+  loginForUrl,
+  removeLogin,
+  resolveSecretRef,
+  saveLogin,
+  siteCandidates,
+  siteKey,
+  type LoginSummary,
+  type StoredLogin,
+} from "./logins.js";
 export {
   DeviceAuth,
   generateDeviceSecret,
   requireOwner as isOwnerIdentity,
   type DeviceIdentity,
 } from "./device-auth.js";
+export {
+  DelegationTracker,
+  delegationsOf,
+  MAX_ROUND_TRIPS,
+  MAX_OPEN_PER_REQUESTER,
+  STALL_AFTER_MS,
+  type DelegatedTurnOutcome,
+} from "./delegations.js";
 export { createModuleHost, type ModuleHost } from "./module-host.js";
 export { runDoctor, type DoctorCheck, type DoctorReport } from "./doctor.js";
 export { buildServer } from "./http/server.js";

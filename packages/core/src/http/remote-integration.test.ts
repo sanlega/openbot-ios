@@ -42,6 +42,58 @@ describe("WS11 remote pairing integration", () => {
     expect(response.json()).toEqual({ error: "encrypted_pairing_required" });
   });
 
+  it("puts an owner-entered tunnel hostname into the pairing QR", async () => {
+    const { app } = await boot();
+    const bad = await app.inject({
+      method: "PUT",
+      url: "/api/remote/cloudflare/hostname",
+      payload: { hostname: "not a host" },
+    });
+    expect(bad.statusCode).toBe(400);
+
+    const saved = await app.inject({
+      method: "PUT",
+      url: "/api/remote/cloudflare/hostname",
+      payload: { hostname: "https://OpenBot.Example.com/app" },
+    });
+    expect(saved.json()).toEqual({ hostname: "openbot.example.com" });
+
+    const qr = await app.inject({ method: "POST", url: "/api/devices/pair/qr" });
+    const body = qr.json<{ qrUrl: string; urls: string[] }>();
+    expect(body.urls).toContain("https://openbot.example.com");
+    expect(body.qrUrl).toMatch(/^https:\/\/openbot\.example\.com\/app#pair=/);
+
+    const cleared = await app.inject({
+      method: "PUT",
+      url: "/api/remote/cloudflare/hostname",
+      payload: { hostname: "" },
+    });
+    expect(cleared.json()).toEqual({ hostname: null });
+  });
+
+  it("reports a saved tunnel token as configured only, and removing clears it", async () => {
+    const { app, test } = await boot();
+    const before = await app.inject({ method: "GET", url: "/api/remote/status" });
+    expect(before.json().cloudflare.configured).toBe(false);
+
+    const noToken = await app.inject({
+      method: "POST",
+      url: "/api/remote/cloudflare",
+      payload: {},
+    });
+    expect(noToken.json().result).toEqual({ ok: false, reason: "no saved tunnel token" });
+
+    await test.ctx.vault.set("remote.cloudflareTunnelToken", "saved-secret-token");
+    const after = await app.inject({ method: "GET", url: "/api/remote/status" });
+    expect(after.json().cloudflare.configured).toBe(true);
+    expect(after.body).not.toContain("saved-secret-token");
+
+    const removed = await app.inject({ method: "DELETE", url: "/api/remote/cloudflare" });
+    expect(removed.json()).toEqual({ ok: true });
+    const gone = await app.inject({ method: "GET", url: "/api/remote/status" });
+    expect(gone.json().cloudflare.configured).toBe(false);
+  });
+
   it("completes QR pairing and serves the WS5 UI shell", async () => {
     const { app, test } = await boot();
     await app.inject({

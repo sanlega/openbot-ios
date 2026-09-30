@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import type { OBEvent } from "@openbot/contracts";
+import { EngineId, type OBEvent } from "@openbot/contracts";
 import type { WebSocket } from "ws";
 import type { CoreContext } from "./context.js";
 import { resolveDeviceIdentity } from "./http/auth.js";
@@ -231,12 +231,12 @@ async function handleCommand(
       typeof text !== "string" ||
       (threadId !== undefined && typeof threadId !== "string") ||
       (chainId !== undefined && typeof chainId !== "string") ||
-      (engine !== undefined && engine !== "claude" && engine !== "codex" && engine !== "fake")
+      (engine !== undefined && (typeof engine !== "string" || !EngineId.safeParse(engine).success))
     ) {
       return {
         ok: false,
         reason:
-          "expected { botId: string, text: string, threadId?: string, chainId?: string, engine?: 'claude'|'codex'|'fake' }",
+          "expected { botId: string, text: string, threadId?: string, chainId?: string, engine?: string (an engine id) }",
       };
     }
     return ctx.mailbox.enqueue({ botId, threadId, chainId, text, engine });

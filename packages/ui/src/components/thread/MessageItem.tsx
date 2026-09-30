@@ -80,7 +80,9 @@ export function MessageItem({ message, bot, bots, grouped, onQuickReply }: Messa
       data-grouped={grouped}
       data-testid={`msg-${message.id}`}
     >
-      <div className="msg-gutter">{grouped ? null : <BotAvatar bot={bot} size={28} />}</div>
+      <div className="msg-gutter">
+        {grouped ? null : <BotAvatar bot={bot} size={28} motion="none" />}
+      </div>
       <div className="msg-content">
         {grouped ? null : (
           <div className="msg-header">
@@ -100,9 +102,9 @@ export function MessageItem({ message, bot, bots, grouped, onQuickReply }: Messa
             {message.delivery === "held" ? (
               <span
                 className="pill pill-muted"
-                title="Held by the notify gate; it goes to the digest"
+                title="You weren't notified about this one; it's in your daily digest"
               >
-                <BellOff size={11} aria-hidden /> Not delivered
+                <BellOff size={11} aria-hidden /> Held for digest
               </span>
             ) : null}
           </div>

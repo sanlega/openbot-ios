@@ -19,6 +19,7 @@ export function registerThreadRoutes(app: FastifyInstance, ctx: CoreContext): vo
           title: bot.name,
           lastMessagePreview: last?.text.slice(0, 80),
           lastMessageAt: last?.createdAt,
+          lastMessageAuthor: last?.author.type,
         },
       ];
     });

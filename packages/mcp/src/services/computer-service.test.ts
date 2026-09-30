@@ -5,6 +5,7 @@ import { createRuntime, InMemoryEventSink } from "@openbot/runtime";
 import { FakeClock } from "@openbot/testkit";
 import { createMcpTestHarness, issueToken, makeBot } from "../test-helpers.js";
 import type { ComputerTaskView } from "../types.js";
+import { candidateId } from "@openbot/computer";
 import { McpComputerServiceAdapter } from "./computer-service.js";
 
 let harness: Awaited<ReturnType<typeof createMcpTestHarness>> | undefined;
@@ -39,10 +40,7 @@ function scriptedJev(script: Array<[op: string, target: string, destructive?: nu
       i += 1;
       return {
         answers: {
-          op: choice(op),
-          target_index: choice(target),
-          key_name: choice("Enter"),
-          scroll_direction: choice("down"),
+          action: choice(candidateId(op, target)),
           is_destructive: { type: "noul", noul: destructive },
         },
         provider: "jev",

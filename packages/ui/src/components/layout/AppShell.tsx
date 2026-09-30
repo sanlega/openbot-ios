@@ -140,6 +140,7 @@ export function AppShell({ showSetup = false }: AppShellProps) {
             type="button"
             className="sidebar-section-link"
             data-active={screen === "bots"}
+            aria-current={screen === "bots" ? "page" : undefined}
             onClick={() => setScreen("bots")}
           >
             Bots
@@ -160,6 +161,7 @@ export function AppShell({ showSetup = false }: AppShellProps) {
                 type="button"
                 className="nav-item"
                 data-active={screen === id}
+                aria-current={screen === id ? "page" : undefined}
                 aria-description={
                   id === "activity" && needsYou > 0 ? `${needsYou} waiting on you` : undefined
                 }
@@ -181,7 +183,7 @@ export function AppShell({ showSetup = false }: AppShellProps) {
         </aside>
         <main className="main-panel">
           {!state.connected && state.everConnected ? (
-            <div className="banner banner-warning" role="status">
+            <div className="banner banner-warning reconnect-toast" role="status">
               <span className="banner-dot" aria-hidden /> Reconnecting to OpenBot…
             </div>
           ) : null}

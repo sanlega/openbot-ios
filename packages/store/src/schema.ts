@@ -41,6 +41,9 @@ export const bots = sqliteTable("bots", {
   connectors: text("connectors", { mode: "json" }).notNull().$type<string[]>(),
   dailyUsd: real("daily_usd"),
   dailyTokens: integer("daily_tokens"),
+  unrestrictedRoutineBudget: integer("unrestricted_routine_budget", { mode: "boolean" })
+    .notNull()
+    .default(false),
   justification: text("justification", { mode: "json" }).$type<BotJustification>(),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
 });
@@ -352,4 +355,31 @@ export const events = sqliteTable(
     payload: text("payload", { mode: "json" }).notNull().$type<Record<string, unknown>>(),
   },
   (t) => [index("events_type_idx").on(t.type), index("events_bot_id_idx").on(t.botId)],
+);
+
+export const delegations = sqliteTable(
+  "delegations",
+  {
+    id: text("id").primaryKey(),
+    chainId: text("chain_id").notNull(),
+    requesterBotId: text("requester_bot_id").notNull(),
+    assigneeBotId: text("assignee_bot_id").notNull(),
+    ownerThreadId: text("owner_thread_id").notNull(),
+    title: text("title").notNull(),
+    state: text("state").notNull(),
+    statusMessage: text("status_message"),
+    result: text("result"),
+    engine: text("engine"),
+    roundTrips: integer("round_trips").notNull().default(1),
+    wakePending: integer("wake_pending", { mode: "boolean" }).notNull().default(false),
+    wakeKind: text("wake_kind"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    lastEventAt: integer("last_event_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [
+    index("delegations_assignee_idx").on(t.assigneeBotId),
+    index("delegations_requester_idx").on(t.requesterBotId),
+    index("delegations_state_idx").on(t.state),
+  ],
 );

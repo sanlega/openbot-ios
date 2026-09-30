@@ -85,7 +85,7 @@ afterEach(async () => {
   home = undefined;
 });
 
-async function setup(script: Script) {
+async function setup(script: Script, botLimits: Bot["limits"] = {}) {
   home = await mkdtemp(join(tmpdir(), "openbot-routine-adapter-"));
   ctx = await createCoreContext({
     config: loadConfig({ env: { OPENBOT_HOME: home }, overrides: { dbPath: ":memory:" } }),
@@ -123,7 +123,7 @@ async function setup(script: Script) {
     permissionPreset: "workspace_write",
     computer: "none",
     connectors: [],
-    limits: {},
+    limits: botLimits,
   };
   core.repos.bots.create(bot);
   core.repos.threads.create({
@@ -212,6 +212,28 @@ describe("RoutineRuntimeAdapter", () => {
     expect(result.usage.usd).toBeGreaterThan(DEFAULT_ROUTINE_LIMITS.perRun.usd);
     expect(core.repos.chains.getById(liveRun.chainId)?.status).toBe("stopped");
     expect(usageEvents).toBeGreaterThan(0);
+  });
+
+  it("a bot opted into unrestrictedRoutineBudget runs past the per-run cap instead of being interrupted", async () => {
+    let usageEvents = 0;
+    const { core, adapter, routine, run } = await setup(
+      async (hooks) => {
+        for (let i = 0; i < 10; i++) {
+          usageEvents += 1;
+          hooks.emit({ type: "usage", inputTokens: 10, outputTokens: 10, usd: 0.2 });
+          await Promise.resolve();
+        }
+      },
+      { unrestrictedRoutineBudget: true },
+    );
+    const liveRun = run(false);
+
+    const result = await adapter.executeRun({ routine, run: liveRun, routineDepth: 0 });
+
+    expect(result.status).toBe("done");
+    expect(result.usage.usd).toBeGreaterThan(DEFAULT_ROUTINE_LIMITS.perRun.usd);
+    expect(core.repos.chains.getById(liveRun.chainId)?.status).toBe("done");
+    expect(usageEvents).toBe(10);
   });
 });
 

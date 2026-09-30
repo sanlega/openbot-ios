@@ -12,6 +12,14 @@ import { createMcpTestHarness, makeBot } from "../test-helpers.js";
 import type { SessionContext } from "../types.js";
 import { McpCosServiceAdapter } from "./cos-service.js";
 
+/** The conservative limits these tests are about; the shipped defaults are looser so the Chief can delegate freely. */
+const STRICT_CAPS = {
+  ...DEFAULT_AUTONOMY_CAPS,
+  cosCreatedBotsMax: 6,
+  newBotsPerDay: 2,
+  spawnCooldownMin: 30,
+};
+
 let harness: Awaited<ReturnType<typeof createMcpTestHarness>> | undefined;
 
 afterEach(async () => {
@@ -80,7 +88,7 @@ async function setup(autonomyCaps: AutonomyCaps) {
 
 describe("McpCosServiceAdapter.createBot caps", () => {
   it("allows two spawns per 24 h (S2) and refuses the third", async () => {
-    const { clock, createBot } = await setup({ ...DEFAULT_AUTONOMY_CAPS, spawnCooldownMin: 0 });
+    const { clock, createBot } = await setup({ ...STRICT_CAPS, spawnCooldownMin: 0 });
 
     expect((await createBot()).allowed).toBe(true);
     clock.advance(60_000);
@@ -95,7 +103,7 @@ describe("McpCosServiceAdapter.createBot caps", () => {
   });
 
   it("does not count refused attempts against the daily cap", async () => {
-    const { clock, createBot } = await setup(DEFAULT_AUTONOMY_CAPS);
+    const { clock, createBot } = await setup(STRICT_CAPS);
 
     expect((await createBot()).allowed).toBe(true);
     // Refused by the S3 cooldown, several times.
@@ -104,12 +112,12 @@ describe("McpCosServiceAdapter.createBot caps", () => {
       expect(refused.allowed).toBe(false);
       if (!refused.allowed) expect(refused.reason).toContain("cooldown");
     }
-    clock.advance(DEFAULT_AUTONOMY_CAPS.spawnCooldownMin * 60_000);
+    clock.advance(STRICT_CAPS.spawnCooldownMin * 60_000);
     expect((await createBot()).allowed).toBe(true);
   });
 
   it("enforces the spawn cooldown (S3) against the current time", async () => {
-    const { clock, createBot } = await setup(DEFAULT_AUTONOMY_CAPS);
+    const { clock, createBot } = await setup(STRICT_CAPS);
 
     expect((await createBot()).allowed).toBe(true);
     clock.advance(29 * 60_000);

@@ -27,6 +27,11 @@ export function buildSpawnQuestions(
       type: "noul",
       instructions: "Is this a one-off task rather than recurring or long-running work?",
     },
+    substantial_work: {
+      type: "noul",
+      instructions:
+        "Is this substantial work (several steps, or more than a few minutes of effort) rather than a quick answer or lookup? Substantial work belongs to a bot so the Chief of Staff stays free.",
+    },
     recurring_ownership: {
       type: "noul",
       instructions:

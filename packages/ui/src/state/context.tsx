@@ -145,12 +145,15 @@ export function OpenBotProvider({ transport, children }: OpenBotProviderProps) {
       if (!selectedThreadId) return;
       const botId = state.threads.get(selectedThreadId)?.botId;
       if (!botId) return;
-      wsRef.current?.send({
+      // A frame on a dropped socket is lost on reconnect: refuse, so the
+      // composer keeps the text.
+      if (!state.connected || !wsRef.current) throw new Error("Not connected to OpenBot");
+      wsRef.current.send({
         command: "message.send",
         payload: { botId, threadId: selectedThreadId, text },
       });
     },
-    [selectedThreadId, state.threads],
+    [selectedThreadId, state.threads, state.connected],
   );
 
   const resolveApproval = useCallback((approvalId: string, resolution: "allow" | "deny") => {

@@ -60,6 +60,27 @@ describe("handleClaudeLine", () => {
     ]);
   });
 
+  it("explains a turn that ended on the step limit instead of saying 'turn failed'", () => {
+    const state = createClaudeParseState();
+    handleClaudeLine(
+      { type: "result", subtype: "error_max_turns", is_error: true, num_turns: 51 },
+      state,
+      { emit: () => undefined },
+    );
+    expect(state.isError).toBe(true);
+    expect(state.errorMessage).toMatch(/step limit.*51 steps.*continue/);
+  });
+
+  it("uses the CLI's own error list when it gives one", () => {
+    const state = createClaudeParseState();
+    handleClaudeLine(
+      { type: "result", subtype: "error_during_execution", is_error: true, errors: ["disk full"] },
+      state,
+      { emit: () => undefined },
+    );
+    expect(state.errorMessage).toBe("disk full");
+  });
+
   it("ends the turn with the CLI's last stderr line when the process exits mid-turn", () => {
     const state = createClaudeParseState();
     handleClaudeLine(

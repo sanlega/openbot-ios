@@ -103,16 +103,36 @@ export function ConnectSheet({ entry, onClose, onConnected }: ConnectSheetProps)
           ) : null}
           {writes.length > 0 || reads.length > 0 ? (
             <div className="conn-permissions">
-              {reads.length > 0 ? (
-                <p>
-                  <strong>Reads without asking:</strong> {reads.map((t) => t.name).join(", ")}
-                </p>
-              ) : null}
-              {writes.length > 0 ? (
-                <p>
-                  <strong>Asks you first:</strong> {writes.map((t) => t.name).join(", ")}
-                </p>
-              ) : null}
+              <p>
+                {reads.length > 0 ? (
+                  <>
+                    <strong>{reads.length}</strong>{" "}
+                    {reads.length === 1 ? "tool reads" : "tools read"} without asking.{" "}
+                  </>
+                ) : null}
+                {writes.length > 0 ? (
+                  <>
+                    <strong>{writes.length}</strong>{" "}
+                    {writes.length === 1 ? "tool changes" : "tools change"} something in{" "}
+                    {entry.name} and always {writes.length === 1 ? "asks" : "ask"} you first.
+                  </>
+                ) : null}
+              </p>
+              <details className="conn-tool-list">
+                <summary>Show tools</summary>
+                {reads.length > 0 ? (
+                  <p>
+                    <span className="conn-tool-group">Reads</span>
+                    {reads.map((t) => humanToolName(t.name)).join(", ")}
+                  </p>
+                ) : null}
+                {writes.length > 0 ? (
+                  <p>
+                    <span className="conn-tool-group">Asks first</span>
+                    {writes.map((t) => humanToolName(t.name)).join(", ")}
+                  </p>
+                ) : null}
+              </details>
             </div>
           ) : (
             <p className="dialog-note">
@@ -150,4 +170,9 @@ export function ConnectSheet({ entry, onClose, onConnected }: ConnectSheetProps)
       </div>
     </div>
   );
+}
+
+/** get_file_contents → "get file contents". */
+function humanToolName(name: string): string {
+  return name.replace(/[_-]+/g, " ").trim();
 }

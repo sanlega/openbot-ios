@@ -8,13 +8,19 @@ import type {
   Screen,
 } from "@openbot/contracts";
 import { type ControlDaemonClient, HttpControlDaemonClient } from "./control-daemon.js";
+import { type DockerLauncherDeps, ensureDockerEngine } from "./docker-launcher.js";
 import { ScreenManager } from "./screen-manager.js";
 
 export interface DockerEngine {
   ping(): Promise<void>;
   getContainer(id: string): {
-    inspect(): Promise<{ State: { Running: boolean }; Config?: { Env?: string[] } }>;
+    inspect(): Promise<{
+      State: { Running: boolean };
+      Config?: { Env?: string[] };
+      HostConfig?: { Binds?: string[] | null };
+    }>;
     start(): Promise<void>;
+    remove?(options?: { force?: boolean }): Promise<unknown>;
   };
   createContainer(options: unknown): Promise<{ start(): Promise<void>; id: string }>;
   listContainers(options?: unknown): Promise<Array<{ Id: string; Names: string[] }>>;
@@ -29,10 +35,28 @@ export interface DockerProviderOptions {
   liveViewBaseUrl?: string;
   controlClient?: ControlDaemonClient;
   idleStopMs?: number;
+  /** How Docker Desktop is started when it isn't running; tests replace it. */
+  launcher?: DockerLauncherDeps;
 }
 
-const DEFAULT_IMAGE = "openbot/desktop:latest";
-const DEFAULT_CONTAINER = "openbot-desktop";
+/** D-020: distributed via GHCR; local `docker build` is a dev-checkout-only fallback (see `image-manager.ts`). */
+export const DEFAULT_IMAGE = "ghcr.io/sanlega/openbot-desktop:latest";
+export const DEFAULT_CONTAINER = "openbot-desktop";
+/** Docker volume with every screen's browser profile and the shared sign-ins (D-032). */
+export const BROWSER_VOLUME = "openbot-browser";
+export const BROWSER_DIR = "/data/browser";
+
+/**
+ * What the desktop container mounts (D-032): the bots' workspace at `/workspace`, so files are
+ * the same on the host, in the VM and for every bot; and the browser volume, so sign-ins
+ * survive the container.
+ */
+export function desktopBinds(workspaceMount?: string): string[] {
+  return [
+    ...(workspaceMount ? [`${workspaceMount}:/workspace`] : []),
+    `${BROWSER_VOLUME}:${BROWSER_DIR}`,
+  ];
+}
 
 /**
  * Docker-backed computer provider (plan WS9): one shared desktop container with
@@ -61,7 +85,17 @@ export class DockerProvider implements ComputerProvider {
     }
   }
 
-  async ensureStarted(): Promise<void> {
+  private starting: Promise<void> | undefined;
+
+  /** Concurrent callers share one start-up (one Docker Desktop launch, one container). */
+  ensureStarted(): Promise<void> {
+    this.starting ??= this.startOnce().finally(() => {
+      this.starting = undefined;
+    });
+    return this.starting;
+  }
+
+  private async startOnce(): Promise<void> {
     if (this.started) {
       if ((await this.status()).ready) {
         this.scheduleIdleStop();
@@ -71,31 +105,48 @@ export class DockerProvider implements ComputerProvider {
     }
 
     const docker = await this.resolveDocker();
-    await docker.ping();
+    // Starts Docker Desktop if it isn't running, or throws a message a person can act on.
+    await ensureDockerEngine(() => docker.ping(), this.options.launcher);
 
     const name = this.options.containerName ?? DEFAULT_CONTAINER;
     const existing = await docker.listContainers({ all: true });
     const match = existing.find((c) => c.Names.some((n) => n === `/${name}`));
 
+    let reuse = false;
     if (match) {
-      this.containerId = match.Id;
       const container = docker.getContainer(match.Id);
       const info = await container.inspect();
       const savedToken = info.Config?.Env?.find((item) =>
         item.startsWith("OPENBOT_CONTROL_TOKEN="),
       );
       if (!savedToken) throw new Error(`desktop container ${name} has no control token`);
-      this.controlToken = savedToken.slice("OPENBOT_CONTROL_TOKEN=".length);
-      if (!info.State.Running) await container.start();
-    } else {
+      const binds = info.HostConfig?.Binds ?? [];
+      const outdated = desktopBinds(this.options.workspaceMount).some((b) => !binds.includes(b));
+      if (outdated && container.remove) {
+        // Made before the shared workspace and browser volume (or for another workspace):
+        // replace it. Its sign-ins were in /tmp and could not be kept anyway.
+        await container.remove({ force: true });
+      } else {
+        reuse = true;
+        this.containerId = match.Id;
+        this.controlToken = savedToken.slice("OPENBOT_CONTROL_TOKEN=".length);
+        if (!info.State.Running) await container.start();
+      }
+    }
+
+    if (!reuse) {
       const image = this.options.image ?? DEFAULT_IMAGE;
       const port = this.options.controlPort ?? 8787;
       const created = await docker.createContainer({
         Image: image,
         name,
-        Env: [`OPENBOT_CONTROL_TOKEN=${this.controlToken}`, "OPENBOT_MAX_SCREENS=4"],
+        Env: [
+          `OPENBOT_CONTROL_TOKEN=${this.controlToken}`,
+          "OPENBOT_MAX_SCREENS=4",
+          `OPENBOT_BROWSER_DIR=${BROWSER_DIR}`,
+        ],
         HostConfig: {
-          Binds: this.options.workspaceMount ? [`${this.options.workspaceMount}:/workspace`] : [],
+          Binds: desktopBinds(this.options.workspaceMount),
           PortBindings: {
             "8787/tcp": [{ HostIp: "127.0.0.1", HostPort: String(port) }],
             "6080/tcp": [{ HostIp: "127.0.0.1", HostPort: "6080" }],
@@ -109,6 +160,10 @@ export class DockerProvider implements ComputerProvider {
     }
 
     this.started = true;
+    await this.waitForDaemon();
+  }
+
+  private async waitForDaemon(): Promise<void> {
     const deadline = Date.now() + 15_000;
     while (!(await this.status()).ready) {
       if (Date.now() >= deadline) {

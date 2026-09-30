@@ -51,6 +51,24 @@ describe("ComputerPanel", () => {
     expect(post).toHaveBeenCalledWith("/api/computer/start");
   });
 
+  it("points to Settings > Computer when the desktop image isn't ready yet (409 image_missing)", async () => {
+    const post = vi.fn(async () => {
+      throw new Error("POST /api/computer/start failed: 409");
+    });
+    setTransport(
+      async (path) =>
+        path === "/api/computer/status" ? { ready: false, provider: "docker" } : { tasks: [] },
+      post,
+    );
+
+    render(<ComputerPanel botId="bot-a" />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Start computer" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The desktop image isn't ready yet — open Settings > Computer to download it.",
+    );
+  });
+
   it("explains that your own desktop is the screen in local mode", async () => {
     const get = vi.fn(async (path: string) =>
       path === "/api/computer/status" ? { ready: true, provider: "local" } : { tasks: [] },

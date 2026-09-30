@@ -117,6 +117,55 @@ describe("Mailbox basic turn lifecycle (against @openbot/engines-fake)", () => {
     ).toBe(true);
   });
 
+  it("a reply of only blank lines counts as no reply, and blank edges are trimmed", async () => {
+    const blank = buildRuntime(new FakeEngineDriver({ replies: ["\n\n"] }));
+    expect((await blank.mailbox.submit(makeInput(blank))).text).toBe(
+      "Finished without returning any text.",
+    );
+    const padded = buildRuntime(new FakeEngineDriver({ replies: ["\n\nPAPAYA\n"] }));
+    expect((await padded.mailbox.submit(makeInput(padded))).text).toBe("PAPAYA");
+  });
+
+  it("a turn that ends on a tool call with no closing text still gets a visible reply, not silence", async () => {
+    const script = async (hooks: TurnHooks): Promise<TurnResult> => {
+      hooks.emit({ type: "session_started", sessionId: "sess_1" });
+      hooks.emit({
+        type: "tool_started",
+        toolName: "write_file",
+        input: { path: "report.md" },
+        toolUseId: "t1",
+      });
+      hooks.emit({ type: "tool_completed", toolUseId: "t1", output: {}, isError: false });
+      // No text_delta at all — the engine ended the turn on the tool call.
+      return turnResult();
+    };
+    const runtime = buildRuntime(new ScriptedEngineDriver(script));
+    const outcome = await runtime.mailbox.submit(makeInput(runtime));
+
+    expect(outcome.status).toBe("completed");
+    expect(outcome.text).toBe(
+      "Finished 1 tool call but didn't return a summary — check Activity for what it did.",
+    );
+    expect(
+      runtime.events
+        .byType("message.created")
+        .some((e) => typeof e.payload.text === "string" && e.payload.text.length > 0),
+    ).toBe(true);
+  });
+
+  it("a turn that ends with neither tool calls nor text still gets a visible reply", async () => {
+    const runtime = buildRuntime(
+      new ScriptedEngineDriver(async (hooks) => {
+        hooks.emit({ type: "session_started", sessionId: "sess_1" });
+        return turnResult();
+      }),
+    );
+    const outcome = await runtime.mailbox.submit(makeInput(runtime));
+
+    expect(outcome.status).toBe("completed");
+    expect(outcome.text).toBe("Finished without returning any text.");
+  });
+
   it("processes only one active turn per Bot, FIFO-queuing the rest", async () => {
     const runtime = buildRuntime(new FakeEngineDriver());
     const input = makeInput(runtime);
@@ -179,24 +228,24 @@ describe("Mailbox basic turn lifecycle (against @openbot/engines-fake)", () => {
 });
 
 describe("Mailbox approvals (permission broker integration)", () => {
-  it("a sensitive computer click ('Send') asks, and the turn only proceeds after the approval is resolved", async () => {
+  it("a sensitive computer click ('Pay now') asks, and the turn only proceeds after the approval is resolved", async () => {
     const script = async (hooks: TurnHooks): Promise<TurnResult> => {
       const decision = await hooks.requestApproval({
         toolName: "computer_click",
-        input: { target: "Send" },
+        input: { target: "Pay now" },
         toolUseId: "t1",
       });
       hooks.emit({ type: "session_started", sessionId: "sess_1" });
       hooks.emit({
         type: "text_delta",
-        text: decision === "allow" ? "clicked Send" : "refused to click",
+        text: decision === "allow" ? "clicked Pay now" : "refused to click",
       });
       return turnResult();
     };
     const runtime = buildRuntime(new ScriptedEngineDriver(script));
 
     const input = makeInput(runtime, {
-      classifyApproval: () => ({ kind: "computer_action", action: "click", target: "Send" }),
+      classifyApproval: () => ({ kind: "computer_action", action: "click", target: "Pay now" }),
     });
     const outcomePromise = runtime.mailbox.submit(input);
 
@@ -208,7 +257,7 @@ describe("Mailbox approvals (permission broker integration)", () => {
 
     const outcome = await outcomePromise;
     expect(outcome.status).toBe("completed");
-    expect(outcome.text).toBe("clicked Send");
+    expect(outcome.text).toBe("clicked Pay now");
   });
 
   it("denies via a built-in deny rule without ever creating an approval card", async () => {
@@ -506,5 +555,87 @@ describe("Mailbox in a dry_run chain", () => {
     expect(decisions).toEqual(["deny", "allow"]);
     const simulated = runtime.events.byType("action.simulated");
     expect(simulated.map((e) => e.payload.action)).toEqual(["Write"]);
+  });
+});
+
+describe("Mailbox auto-allows OpenBot's own tools (allowTools), and only those", () => {
+  const ask =
+    (toolName: string) =>
+    async (hooks: TurnHooks): Promise<TurnResult> => {
+      const decision = await hooks.requestApproval({ toolName, input: {}, toolUseId: "t" });
+      hooks.emit({ type: "text_delta", text: decision });
+      return turnResult();
+    };
+  // Anything that reaches the broker with this classification always raises a card.
+  const alwaysAsks = () => ({
+    kind: "computer_action" as const,
+    action: "click",
+    target: "Pay now",
+  });
+
+  it("lets an OpenBot MCP tool through without a card", async () => {
+    const runtime = buildRuntime(new ScriptedEngineDriver(ask("mcp__openbot__create_bot")));
+    const outcome = await runtime.mailbox.submit(
+      makeInput(runtime, { allowTools: ["mcp__openbot"], classifyApproval: alwaysAsks }),
+    );
+    expect(outcome.status).toBe("completed");
+    expect(runtime.approvals.listPending()).toHaveLength(0);
+  });
+
+  it.each(["mcp__openbot-evil__create_bot", "mcp__openbotx__anything", "shell"])(
+    "still puts %s through the broker",
+    async (toolName) => {
+      const runtime = buildRuntime(new ScriptedEngineDriver(ask(toolName)));
+      const outcomePromise = runtime.mailbox.submit(
+        makeInput(runtime, { allowTools: ["mcp__openbot"], classifyApproval: alwaysAsks }),
+      );
+      await new Promise((r) => setTimeout(r, 0));
+      const pending = runtime.approvals.listPending();
+      expect(pending).toHaveLength(1);
+      runtime.broker.resolveApproval(pending[0]!.id, "deny");
+      await outcomePromise;
+    },
+  );
+});
+
+describe("Mailbox finishTurn", () => {
+  it("runs once per turn, after it, however the turn ended", async () => {
+    const finished: string[] = [];
+    const ok = buildRuntime(new ScriptedEngineDriver(async () => turnResult()));
+    await ok.mailbox.submit(makeInput(ok, { finishTurn: (id) => void finished.push(id) }));
+
+    const boom = buildRuntime(
+      new ScriptedEngineDriver(async () => {
+        throw new Error("engine crashed");
+      }),
+    );
+    const failed = await boom.mailbox.submit(
+      makeInput(boom, { finishTurn: (id) => void finished.push(id) }),
+    );
+    expect(failed.status).toBe("failed");
+
+    const noTools = buildRuntime(new ScriptedEngineDriver(async () => turnResult()));
+    const refused = await noTools.mailbox.submit(
+      makeInput(noTools, {
+        prepareTurn: async () => {
+          throw new Error("tools not ready");
+        },
+        finishTurn: (id) => void finished.push(id),
+      }),
+    );
+    expect(refused.status).toBe("failed");
+    expect(finished).toHaveLength(3);
+  });
+
+  it("a finishTurn that throws does not stall the Bot's queue", async () => {
+    const runtime = buildRuntime(new ScriptedEngineDriver(async () => turnResult()));
+    const outcome = await runtime.mailbox.submit(
+      makeInput(runtime, {
+        finishTurn: () => {
+          throw new Error("cleanup failed");
+        },
+      }),
+    );
+    expect(outcome.status).toBe("completed");
   });
 });

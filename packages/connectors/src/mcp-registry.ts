@@ -182,6 +182,21 @@ export function registryPlan(
   return undefined;
 }
 
+const TLDS = new Set(["com", "io", "ai", "dev", "net", "org", "app", "co", "so", "sh", "me"]);
+
+/**
+ * Registry namespaces are reverse-DNS: "io.github.jane" → "GitHub · jane",
+ * "com.stripe" → "stripe.com"; anything else is shown as it is.
+ */
+export function publisherName(namespace: string): string {
+  if (!namespace) return "Community";
+  const parts = namespace.split(".");
+  if (parts[0] === "io" && parts[1] === "github" && parts[2])
+    return `GitHub · ${parts.slice(2).join(".")}`;
+  if (parts.length >= 2 && TLDS.has(parts[0]!)) return parts.reverse().join(".");
+  return namespace;
+}
+
 /** Community catalogue entry for a registry server (always unverified). */
 export function registryEntry(server: RegistryServer, connectionId?: string): CatalogEntry {
   const plan = registryPlan(server);
@@ -192,12 +207,13 @@ export function registryEntry(server: RegistryServer, connectionId?: string): Ca
         server.name.slice(server.name.indexOf("/") + 1),
       ]
     : ["", server.name];
+  const description = (server.description ?? "").trim();
   return {
     id: `${REGISTRY_PREFIX}${server.name}`,
     name: server.title ?? short,
-    publisher: namespace || "Community",
+    publisher: publisherName(namespace),
     category: "Community",
-    description: server.description ?? "",
+    description: description.charAt(0).toUpperCase() + description.slice(1),
     kind: plan?.template.transport ?? (server.remotes?.length ? "remote" : "local"),
     auth: fields.some((f) => f.secret) ? "token" : "none",
     setup: {

@@ -36,6 +36,7 @@ export class BotsRepo {
         connectors: bot.connectors,
         dailyUsd: bot.limits.dailyUsd,
         dailyTokens: bot.limits.dailyTokens,
+        unrestrictedRoutineBudget: bot.limits.unrestrictedRoutineBudget ?? false,
         justification: bot.justification,
         createdAt: new Date(),
       })
@@ -89,7 +90,11 @@ export class BotsRepo {
         ...(patch.computer !== undefined ? { computer: patch.computer } : {}),
         ...(patch.connectors !== undefined ? { connectors: patch.connectors } : {}),
         ...(patch.limits !== undefined
-          ? { dailyUsd: patch.limits.dailyUsd, dailyTokens: patch.limits.dailyTokens }
+          ? {
+              dailyUsd: patch.limits.dailyUsd,
+              dailyTokens: patch.limits.dailyTokens,
+              unrestrictedRoutineBudget: patch.limits.unrestrictedRoutineBudget ?? false,
+            }
           : {}),
       })
       .where(eq(bots.id, id))
@@ -120,7 +125,11 @@ function toBot(row: BotRow): Bot {
     permissionPreset: row.permissionPreset as Bot["permissionPreset"],
     computer: row.computer as Bot["computer"],
     connectors: row.connectors,
-    limits: { dailyUsd: row.dailyUsd ?? undefined, dailyTokens: row.dailyTokens ?? undefined },
+    limits: {
+      dailyUsd: row.dailyUsd ?? undefined,
+      dailyTokens: row.dailyTokens ?? undefined,
+      unrestrictedRoutineBudget: row.unrestrictedRoutineBudget,
+    },
     justification: row.justification ?? undefined,
   };
 }

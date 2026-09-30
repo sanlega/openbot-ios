@@ -158,10 +158,10 @@ describe("PermissionBroker live evaluation, E6 order", () => {
     expect(decision.outcome).toBe("allow");
   });
 
-  it("a sensitive computer target (e.g. clicking 'Pay'/'Send') always raises a card, even under 'full'", async () => {
+  it("a sensitive computer target (e.g. clicking 'Pay now') always raises a card, even under 'full'", async () => {
     const { broker } = setup(new StubRiskDecisionService(0, 0.99));
     const decision = await broker.evaluate(
-      req({ kind: "computer_action", action: "click", target: "Send" }),
+      req({ kind: "computer_action", action: "click", target: "Pay now" }),
       { mode: "live", preset: "full" },
     );
     expect(decision.outcome).toBe("ask");
@@ -189,6 +189,40 @@ describe("PermissionBroker live evaluation, E6 order", () => {
     expect(decision.outcome).toBe("deny");
   });
 
+  it("under 'full', a shell command Jev rates minor but not none runs without a card", async () => {
+    // The real-world case: Jev band=auto, external_side_effect 0.35 for `git clone`.
+    const { broker, approvalStore } = setup(new StubRiskDecisionService(1.05, 0.95));
+    const decision = await broker.evaluate(
+      req({ action: "Bash", detail: '{"command":"git clone https://example.com/x.git"}' }),
+      { mode: "live", preset: "full" },
+    );
+    expect(decision.outcome).toBe("allow");
+    expect(approvalStore.listPending()).toHaveLength(0);
+  });
+
+  it("under 'full', connector side effects and local-computer actions do not raise a card", async () => {
+    const { broker } = setup(new StubRiskDecisionService(1.05, 0.95));
+    const connector = await broker.evaluate(
+      req({ kind: "connector_action", action: "browser_resize", sideEffect: true }),
+      { mode: "live", preset: "full" },
+    );
+    const local = await broker.evaluate(req({ kind: "local_computer", action: "click" }), {
+      mode: "live",
+      preset: "full",
+    });
+    expect(connector.outcome).toBe("allow");
+    expect(local.outcome).toBe("allow");
+  });
+
+  it("under 'workspace_write' those same actions still ask", async () => {
+    const { broker } = setup(new StubRiskDecisionService(1.05, 0.95));
+    const connector = await broker.evaluate(
+      req({ kind: "connector_action", action: "browser_resize", sideEffect: true }),
+      { mode: "live", preset: "workspace_write" },
+    );
+    expect(connector.outcome).toBe("ask");
+  });
+
   it("read_only preset denies a non-read action via its blanket rule", async () => {
     const { broker } = setup(new StubRiskDecisionService(0, 0.99));
     const decision = await broker.evaluate(req({ action: "write_file" }), {
@@ -213,6 +247,32 @@ describe("PermissionBroker live evaluation, E6 order", () => {
     const { broker } = setup(new StubRiskDecisionService(0, 0.6));
     const decision = await broker.evaluate(req({ action: "harmless_tool" }), {
       mode: "live",
+      preset: "workspace_write",
+    });
+    expect(decision.outcome).toBe("ask");
+  });
+
+  it("under 'full' an uncertain or moderate step runs without asking", async () => {
+    for (const [score, confidence] of [
+      [0, 0.6],
+      [2, 0.95],
+      [3, 0.6],
+    ] as const) {
+      const { broker, events } = setup(new StubRiskDecisionService(score, confidence));
+      const decision = await broker.evaluate(req({ action: "Bash" }), {
+        mode: "live",
+        preset: "full",
+      });
+      expect(decision.outcome).toBe("allow");
+      expect(decision.reason).toMatch(/full access/);
+      expect(events.byType("approval.requested")).toHaveLength(0);
+    }
+  });
+
+  it("under 'full' a step Jev is sure is major and irreversible still asks", async () => {
+    const { broker } = setup(new StubRiskDecisionService(3, 0.95));
+    const decision = await broker.evaluate(req({ action: "Bash" }), {
+      mode: "live",
       preset: "full",
     });
     expect(decision.outcome).toBe("ask");
@@ -233,7 +293,7 @@ describe("PermissionBroker approvals (30 min timeout, resolve)", () => {
     const { broker } = setup(new StubRiskDecisionService(3, 0.6));
     const decision = await broker.evaluate(req({ action: "risky_tool" }), {
       mode: "live",
-      preset: "full",
+      preset: "workspace_write",
     });
     expect(decision.outcome).toBe("ask");
     const pending = broker.waitForApproval(decision.approvalId as string);
@@ -245,7 +305,7 @@ describe("PermissionBroker approvals (30 min timeout, resolve)", () => {
     const { broker } = setup(new StubRiskDecisionService(3, 0.6));
     const decision = await broker.evaluate(req({ action: "risky_tool" }), {
       mode: "live",
-      preset: "full",
+      preset: "workspace_write",
     });
     const pending = broker.waitForApproval(decision.approvalId as string);
     broker.resolveApproval(decision.approvalId as string, "deny");
@@ -256,7 +316,7 @@ describe("PermissionBroker approvals (30 min timeout, resolve)", () => {
     const { broker, events } = setup(new StubRiskDecisionService(3, 0.6));
     const decision = await broker.evaluate(req({ action: "risky_tool" }), {
       mode: "live",
-      preset: "full",
+      preset: "workspace_write",
     });
     const pending = broker.waitForApproval(decision.approvalId as string);
     const resolvedBefore = events.byType("approval.resolved").length;
@@ -272,7 +332,7 @@ describe("PermissionBroker approvals (30 min timeout, resolve)", () => {
     const { broker, clock, approvalStore } = setup(new StubRiskDecisionService(3, 0.6));
     const decision = await broker.evaluate(req({ action: "risky_tool" }), {
       mode: "live",
-      preset: "full",
+      preset: "workspace_write",
     });
     const pending = broker.waitForApproval(decision.approvalId as string);
     clock.advance(APPROVAL_TIMEOUT_MS);
@@ -284,7 +344,7 @@ describe("PermissionBroker approvals (30 min timeout, resolve)", () => {
     const { broker } = setup(new StubRiskDecisionService(3, 0.6));
     const decision = await broker.evaluate(req({ action: "risky_tool" }), {
       mode: "live",
-      preset: "full",
+      preset: "workspace_write",
     });
     broker.resolveApproval(decision.approvalId as string, "allow");
     expect(await broker.waitForApproval(decision.approvalId as string)).toBe("allow");

@@ -67,7 +67,7 @@ function conservativeComputerAnswers(
   const answers: Record<string, JevAnswer> = {};
   for (const [id, question] of Object.entries(questions)) {
     if (question.type === "choice") {
-      const choice = id === "op" ? "wait" : id === "target_index" ? "none" : "";
+      const choice = id === "op" || id === "action" ? "wait" : id === "target_index" ? "none" : "";
       answers[id] = { type: "choice", choice, confidence: 0, probabilities: {} };
     } else if (question.type === "noul") {
       answers[id] = { type: "noul", noul: 1 };

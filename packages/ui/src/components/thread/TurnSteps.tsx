@@ -10,6 +10,7 @@ import {
   ListTodo,
   Loader2,
   MessageSquare,
+  Monitor,
   Pencil,
   Search,
   Terminal,
@@ -44,6 +45,10 @@ export function TurnSteps({
   );
   const steps = turn.steps.length;
   const current = turn.steps[steps - 1];
+  // A computer task can keep going (or wait for text) after the turn replied.
+  const openTask = running
+    ? undefined
+    : turn.steps.find((s) => s.taskStatus === "needs_input" || s.taskStatus === "running");
   const summary = waiting
     ? "Waiting for your approval"
     : running
@@ -52,7 +57,9 @@ export function TurnSteps({
         : "Thinking…"
       : turn.status === "failed"
         ? `Couldn't finish · ${formatDuration(seconds)}`
-        : `Worked for ${formatDuration(seconds)} · ${steps} ${steps === 1 ? "step" : "steps"}`;
+        : openTask
+          ? `Worked for ${formatDuration(seconds)} · computer task ${openTask.taskStatus === "needs_input" ? "needs text" : "still running"}`
+          : `Worked for ${formatDuration(seconds)} · ${steps} ${steps === 1 ? "step" : "steps"}`;
 
   return (
     <details
@@ -68,6 +75,8 @@ export function TurnSteps({
           <Loader2 size={14} className="spin" aria-hidden />
         ) : turn.status === "failed" ? (
           <X size={14} className="turn-failed" aria-hidden />
+        ) : openTask ? (
+          <Monitor size={14} className="turn-waiting" aria-hidden />
         ) : (
           <Check size={14} aria-hidden />
         )}
@@ -87,6 +96,15 @@ export function TurnSteps({
               </span>
               <span className="turn-step-tool">{toolName(step.tool)}</span>
               {detail(step) ? <span className="turn-step-detail">{detail(step)}</span> : null}
+              {step.live?.length ? (
+                <ol className="turn-substeps">
+                  {step.live.map((line) => (
+                    <li key={line.step} data-outcome={line.outcome}>
+                      {line.text}
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
             </li>
           ))}
         </ol>
@@ -138,6 +156,8 @@ function toolName(tool: string): string {
 }
 
 function stepTitle(step: TurnStep): string {
+  const last = step.live?.[step.live.length - 1];
+  if (last && step.status === "running") return `On the computer · ${last.text}`;
   const d = detail(step);
   return d ? `${toolName(step.tool)} ${d}` : `${toolName(step.tool)}…`;
 }
@@ -154,6 +174,7 @@ function iconFor(tool: string): ReactNode {
     return <MessageSquare size={size} />;
   }
   if (tool.endsWith("ask_user")) return <ClipboardList size={size} />;
+  if (/computer_(task|steer|status)$/.test(tool)) return <Monitor size={size} />;
   if (tool.startsWith(OPENBOT_PREFIX)) return <Bot size={size} />;
   return <Wrench size={size} />;
 }
@@ -162,6 +183,7 @@ function iconFor(tool: string): ReactNode {
 function detail(step: TurnStep): string | undefined {
   const input = (step.input ?? {}) as Record<string, unknown>;
   for (const key of [
+    "goal",
     "file_path",
     "path",
     "command",

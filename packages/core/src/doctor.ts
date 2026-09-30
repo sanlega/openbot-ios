@@ -32,6 +32,12 @@ export async function runDoctor(config: CoreConfig): Promise<DoctorReport> {
     checkDataDirWritable(config),
     checkEngineCli("claude", "Claude Code CLI"),
     checkEngineCli("codex", "Codex CLI"),
+    checkEngineCli("opencode", "OpenCode CLI (ACP, local models)"),
+    checkEngineCli("cursor-agent", "Cursor CLI (ACP)"),
+    checkEngineCli("gemini", "Gemini CLI (ACP)"),
+    checkEngineCli("grok", "Grok Build CLI (ACP)"),
+    checkLocalModelServer("Ollama", "http://127.0.0.1:11434/api/tags"),
+    checkLocalModelServer("LM Studio", "http://127.0.0.1:1234/v1/models"),
     checkContainerRuntime(),
     checkCommandOnPath("Tailscale", "tailscale"),
     checkCommandOnPath("cloudflared", "cloudflared"),
@@ -62,6 +68,22 @@ async function checkEngineCli(command: string, label: string): Promise<DoctorChe
     ok: false,
     required: false,
     detail: `${command} not found on PATH — install it, then re-run \`setup/validate\``,
+  };
+}
+
+/** Local model servers (D-031) are optional: OpenCode Bots can use them when they run. */
+async function checkLocalModelServer(label: string, url: string): Promise<DoctorCheck> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(2_000) });
+    if (res.ok) return { name: label, ok: true, required: false, detail: `${label} is running` };
+  } catch {
+    // Not running.
+  }
+  return {
+    name: label,
+    ok: false,
+    required: false,
+    detail: `${label} is not running (optional: start it to give Bots local models)`,
   };
 }
 

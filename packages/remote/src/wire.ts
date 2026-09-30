@@ -1,5 +1,7 @@
 import type { Clock } from "@openbot/contracts";
 import { CloudflareManager } from "./cloudflare-manager.js";
+import { ensureCloudflared } from "./cloudflared-binary.js";
+import { join } from "node:path";
 import { E2EFraming } from "./framing.js";
 import { generateX25519KeyPair, type X25519KeyPair } from "./crypto.js";
 import { PairingService } from "./pairing.js";
@@ -19,6 +21,8 @@ export interface RemoteServicesOptions {
   tailscale?: TailscaleManager;
   cloudflare?: CloudflareManager;
   hostKeys?: X25519KeyPair;
+  /** OpenBot's data directory; a downloaded `cloudflared` is kept in its `bin/`. */
+  openbotHome?: string;
 }
 
 /** Everything WS11 owns, wired once at harness boot. */
@@ -40,7 +44,13 @@ export async function createRemoteServices(
     pairing: new PairingService(options.clock, hostKeys),
     framing: new E2EFraming(),
     tailscale: options.tailscale ?? new TailscaleManager(),
-    cloudflare: options.cloudflare ?? new CloudflareManager(),
+    cloudflare:
+      options.cloudflare ??
+      (options.openbotHome
+        ? new CloudflareManager(undefined, "cloudflared", () =>
+            ensureCloudflared({ binDir: join(options.openbotHome!, "bin") }),
+          )
+        : new CloudflareManager()),
     hostKeys,
   };
 }

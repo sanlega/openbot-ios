@@ -8,6 +8,8 @@ import type { ConnectorCatalogEntry, ConnectorConnection } from "./types.js";
 
 type Tab = "gallery" | "community" | "connected";
 
+const COMMUNITY_SUGGESTIONS = ["Slack", "Postgres", "Google Drive", "Figma", "Stripe", "Jira"];
+
 /**
  * Connectors: the user's apps as MCP servers. Connected once per account, then
  * assigned per bot in the bot's profile. Community entries come from the public
@@ -49,6 +51,13 @@ export function ConnectorsView() {
   // Community search hits the public registry, so only when that tab is open.
   useEffect(() => {
     if (tab !== "community") return;
+    // The registry lists thousands of servers alphabetically with no ranking:
+    // show suggestions until the user searches, not an arbitrary first page.
+    if (!query.trim()) {
+      setCommunity([]);
+      setCommunityError(null);
+      return;
+    }
     let cancelled = false;
     const timer = setTimeout(() => {
       transport
@@ -90,7 +99,11 @@ export function ConnectorsView() {
       const key = entry.category ?? "Other";
       groups.set(key, [...(groups.get(key) ?? []), entry]);
     }
-    return [...groups.entries()];
+    // What you can connect today first; OAuth sign-in ("coming soon") last.
+    const soon = (e: ConnectorCatalogEntry) => (e.auth === "oauth" && !e.connected ? 1 : 0);
+    return [...groups.entries()].map(
+      ([category, entries]) => [category, [...entries].sort((a, b) => soon(a) - soon(b))] as const,
+    );
   }, [visibleCurated]);
 
   const disconnect = async (connectionId: string) => {
@@ -187,6 +200,20 @@ export function ConnectorsView() {
               ) : null}
               {community === null ? (
                 <ConnectorSkeleton />
+              ) : community.length === 0 && !query.trim() ? (
+                <div className="empty-state">
+                  <p className="empty-title">Search the MCP Registry</p>
+                  <p className="empty-text">
+                    Thousands of servers, published by their authors. Try one of these:
+                  </p>
+                  <div className="quick-replies conn-suggestions">
+                    {COMMUNITY_SUGGESTIONS.map((s) => (
+                      <button key={s} type="button" className="chip" onClick={() => setQuery(s)}>
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ) : community.length === 0 ? (
                 <div className="empty-state">
                   <p className="empty-title">Nothing found</p>
@@ -315,16 +342,20 @@ function ConnectorCard({
       <div className="conn-meta">
         <span className="conn-kind">
           {entry.kind === "remote" ? <Cloud size={12} /> : <HardDrive size={12} />}
-          {entry.kind === "remote" ? "Hosted by the app" : "Runs on this computer"}
+          {entry.kind === "remote"
+            ? `Hosted by ${entry.publisher && !/reference server/i.test(entry.publisher) ? entry.publisher : "the provider"}`
+            : "Runs on this computer"}
         </span>
         {writes > 0 ? <span className="conn-kind">Can make changes</span> : null}
+      </div>
+      <div className="conn-card-actions">
         {entry.setup?.docsUrl ? (
           <a className="conn-kind" href={entry.setup.docsUrl} target="_blank" rel="noreferrer">
             Docs <ExternalLink size={11} />
           </a>
-        ) : null}
-      </div>
-      <div className="conn-card-actions">
+        ) : (
+          <span />
+        )}
         {entry.connected ? (
           <span className="pill pill-success">Connected</span>
         ) : oauthSoon ? (

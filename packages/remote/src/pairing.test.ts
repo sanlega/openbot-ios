@@ -54,4 +54,11 @@ describe("PairingService", () => {
     expect(payload.pairSecret).toBe(session.pairSecret);
     expect(payload.urls).toEqual(session.urls);
   });
+
+  it("builds an http QR URL for a LAN-only host", () => {
+    const pairing = new PairingService(new FakeClock(new Date()), generateX25519KeyPair());
+    const session = pairing.createSession(["http://192.168.1.20:4577"]);
+    const qrUrl = pairing.buildQrUrl("192.168.1.20:4577", session, "http");
+    expect(qrUrl).toMatch(/^http:\/\/192\.168\.1\.20:4577\/app#pair=/);
+  });
 });

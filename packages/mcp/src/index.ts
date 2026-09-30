@@ -3,7 +3,7 @@
  * session tokens, and per-turn MCP config composer.
  */
 export { SessionTokenService, generateSessionSecret } from "./session-token.js";
-export { McpComposer } from "./composer.js";
+export { McpComposer, removeTokenFileIfUnchanged } from "./composer.js";
 export { integrateMcp, type IntegrateMcpOptions } from "./integrate.js";
 export { registerInternalToolRoutes, type InternalToolsOptions } from "./http/register.js";
 export { createToolRouter, ToolRouter } from "./handlers.js";

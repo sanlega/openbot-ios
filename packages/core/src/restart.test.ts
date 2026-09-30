@@ -66,7 +66,7 @@ describe("state survives a restart", () => {
       permissionPreset: "workspace_write" as const,
       computer: "none" as const,
       connectors: [],
-      limits: {},
+      limits: { unrestrictedRoutineBudget: false },
     };
     first.repos.bots.create(bot);
     const published = await first.eventBus.publish({

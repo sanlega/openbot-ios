@@ -1,5 +1,5 @@
 import type { Bot } from "@openbot/contracts";
-import type { CoreContext } from "@openbot/core";
+import { delegationsOf, type CoreContext } from "@openbot/core";
 import { classifyToolCall, type Runtime } from "@openbot/runtime";
 import type {
   ReportDoneInput,
@@ -33,6 +33,17 @@ export class McpRuntimeServiceAdapter implements McpRuntimeService {
     const toThread = this.ctx.repos.threads.getByBotId(target.id);
     if (!toThread) return refused(`no thread for bot ${target.id}`);
 
+    if (target.id === session.botId) return refused("a bot cannot delegate to itself");
+    const tracker = delegationsOf(this.ctx);
+    const opened = tracker.open({
+      requesterBotId: session.botId,
+      assigneeBotId: target.id,
+      chainId: session.chainId,
+      text: input.text,
+    });
+    if (!opened.ok) return refused(opened.reason);
+    const { delegation, continued } = opened;
+
     const result = await this.runtime.delivery.sendBotToBot({
       chainId: session.chainId,
       fromBotId: session.botId,
@@ -40,15 +51,22 @@ export class McpRuntimeServiceAdapter implements McpRuntimeService {
       toThreadId: toThread.id,
       text: input.text,
       mode: session.mode,
+      delegationId: delegation.id,
     });
 
     if (result.outcome === "refused") {
+      if (!continued) tracker.abandon(delegation.id, result.reason ?? "delivery refused");
       return refused(result.reason ?? "delivery refused");
     }
     if (result.outcome === "simulated") {
       return allowed({ queued: false, simulated: true } as { queued: boolean });
     }
-    return allowed({ queued: true });
+    return allowed({
+      queued: true,
+      delegation_id: delegation.id,
+      continued,
+      note: "Its result comes back to you on its own as a new message; do not poll or wait for it. End your turn once the user is informed.",
+    } as { queued: boolean });
   }
 
   async requestApproval(
@@ -57,21 +75,39 @@ export class McpRuntimeServiceAdapter implements McpRuntimeService {
   ): Promise<ToolResult<{ approvalId: string }>> {
     const expiresAt = new Date(this.ctx.clock.now().getTime() + 30 * 60_000).toISOString();
     const approval = this.runtime.approvals.create({
-      kind: "tool",
+      kind: "bot_request",
       botId: session.botId,
       chainId: session.chainId,
       summary: input.summary,
       detail: input.detail,
       expiresAt,
     });
-    this.ctx.repos.approvals.create(approval);
+    // The runtime approval store already persisted it (the repo-backed one writes the row).
     await this.ctx.eventBus.publish({
       type: "approval.requested",
       botId: session.botId,
       chainId: session.chainId,
-      payload: { id: approval.id, kind: approval.kind },
+      payload: {
+        id: approval.id,
+        approvalId: approval.id,
+        kind: approval.kind,
+        summary: approval.summary,
+        detail: approval.detail,
+        expiresAt: approval.expiresAt,
+      },
     });
-    return allowed({ approvalId: approval.id });
+    // A delegated worker waits on the user, not on its requester: its task is blocked, not done.
+    if (!session.isChiefOfStaff) {
+      await delegationsOf(this.ctx).needsAnswer(
+        session.botId,
+        `waiting for the user's approval: ${input.summary}`,
+      );
+    }
+    return allowed({
+      approvalId: approval.id,
+      instruction:
+        "The approval card is in front of the user. End your turn now; you get their answer as your next message.",
+    } as { approvalId: string });
   }
 
   async reportDone(
@@ -104,13 +140,21 @@ export class McpRuntimeServiceAdapter implements McpRuntimeService {
         kind: "tool",
         action: input.tool_name,
         args: (input.input ?? {}) as Record<string, unknown>,
+        computerAccess:
+          this.ctx.repos.bots.getById(session.botId)?.computer ?? session.bot.computer,
         ...classifyToolCall(input.tool_name, input.input, this.ctx.config.workspaceDir),
         summary: `Permission prompt: ${input.tool_name}`,
         detail: JSON.stringify(input.input ?? {}),
         // A connector tool: writes the catalogue marks (or does not know) need a card.
         ...this.ctx.connectorService?.classifyTool(session.botId, input.tool_name, input.input),
       },
-      { mode: session.mode, preset: session.bot.permissionPreset },
+      {
+        mode: session.mode,
+        // The Bot as it is now: a preset changed mid-turn applies to the very next action.
+        preset:
+          this.ctx.repos.bots.getById(session.botId)?.permissionPreset ??
+          session.bot.permissionPreset,
+      },
     );
     if (decision.outcome === "allow") {
       return allowed({ behavior: "allow" as const });

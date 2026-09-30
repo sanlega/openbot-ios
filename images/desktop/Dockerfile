@@ -5,7 +5,7 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY packages packages
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter @openbot/contracts --filter @openbot/decisions --filter @openbot/computer --filter @openbot/computer-docker run build
+RUN pnpm --filter "@openbot/computer-docker..." run build
 
 FROM debian:bookworm-slim
 
@@ -36,7 +36,7 @@ COPY --from=build /repo/packages/computer/docker/dist/desktop-daemon.js ./deskto
 COPY images/desktop/entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
-RUN mkdir -p /workspace
+RUN mkdir -p /workspace /data/browser
 VOLUME ["/workspace"]
 
 EXPOSE 8787 6080

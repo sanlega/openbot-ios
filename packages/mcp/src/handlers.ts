@@ -5,7 +5,7 @@ import {
   type InputRequest,
   type Message,
 } from "@openbot/contracts";
-import type { CoreContext } from "@openbot/core";
+import { delegationsOf, getLogin, listLogins, saveLogin, type CoreContext } from "@openbot/core";
 import type { McpToolServices } from "./services/interfaces.js";
 import { TOOL_INPUT_SCHEMAS } from "./tool-schemas.js";
 import { COS_ONLY_TOOLS } from "./tool-definitions.js";
@@ -20,6 +20,7 @@ const SIDE_EFFECT_TOOLS = new Set([
   "archive_bot",
   "ask_user",
   "cancel_input",
+  "save_login",
   "request_approval",
   "computer_task",
   "computer_steer",
@@ -84,6 +85,20 @@ export class ToolRouter {
           session,
           parsed.data as { title: string; intro?: string; fields: InputField[] },
         );
+      case "list_logins":
+        return allowed({ logins: await listLogins(this.ctx.vault) });
+      case "save_login": {
+        const login = parsed.data as { site: string; username?: string; password?: string };
+        // A Bot may add a login, never overwrite one: only the owner changes or removes them.
+        if (await getLogin(this.ctx.vault, login.site)) {
+          return refused(
+            `a login for ${login.site} is already saved`,
+            "ask the owner to change it in Settings > Computer > Saved logins",
+          );
+        }
+        const saved = await saveLogin(this.ctx.vault, login.site, login, this.ctx.clock.now());
+        return saved.ok ? allowed({ saved: true, site: saved.site }) : refused(saved.reason);
+      }
       case "cancel_input":
         return this.cancelInput(session, (parsed.data as { request_id: string }).request_id);
       case "archive_bot":
@@ -137,8 +152,15 @@ export class ToolRouter {
       if (ids.has(field.id)) return refused(`duplicate field id: ${field.id}`);
       ids.add(field.id);
     }
-    const thread = this.ctx.repos.threads.getByBotId(session.botId);
+    const tracker = delegationsOf(this.ctx);
+    // A delegated worker's form appears where the user is talking (the requester's thread), named
+    // after the worker; its answer still goes back to the worker.
+    const delegation = session.isChiefOfStaff ? undefined : tracker.current(session.botId);
+    const thread = delegation
+      ? this.ctx.repos.threads.getById(delegation.ownerThreadId)
+      : this.ctx.repos.threads.getByBotId(session.botId);
     if (!thread) return refused(`no thread for bot ${session.botId}`);
+    const asker = delegation ? this.ctx.repos.bots.getById(session.botId) : undefined;
 
     const now = this.ctx.clock.now().toISOString();
     const request: InputRequest = {
@@ -157,7 +179,9 @@ export class ToolRouter {
       id: newId("message"),
       threadId: thread.id,
       author: { type: "bot", id: session.botId },
-      text: input.intro ? `${input.title}\n\n${input.intro}` : input.title,
+      text: `${asker ? `${asker.name} asks: ` : ""}${
+        input.intro ? `${input.title}\n\n${input.intro}` : input.title
+      }`,
       attachments: [],
       chainId: session.chainId,
       hop: 0,
@@ -189,6 +213,8 @@ export class ToolRouter {
         inputRequestId: request.id,
       },
     });
+    if (delegation)
+      await tracker.needsAnswer(session.botId, `waiting for the user: ${input.title}`);
     return allowed({
       request_id: request.id,
       status: "pending" as const,
@@ -271,6 +297,25 @@ export class ToolRouter {
       archived: Boolean(bot.archivedAt),
       lastActiveAt: bot.lastActiveAt,
       routing: bot.routing,
+      ...this.workStatus(bot),
+    };
+  }
+
+  /** What the bot is doing for another bot, so a requester can check on it (never what it said). */
+  private workStatus(bot: Bot): Record<string, unknown> {
+    const open = delegationsOf(this.ctx).openFor(bot.id);
+    return {
+      ...(open
+        ? {
+            task: {
+              id: open.id,
+              title: open.title,
+              state: open.state,
+              statusMessage: open.statusMessage,
+              askedBy: open.requesterBotId,
+            },
+          }
+        : {}),
     };
   }
 }

@@ -5,6 +5,7 @@ import type { Band, DecideResult, JevAnswer, Observation, Purpose } from "@openb
 import type { DecisionService } from "@openbot/contracts";
 import { FakeComputerProvider } from "@openbot/computer-fake";
 import { runFastLoop, type FastLoopResult } from "../fast-loop.js";
+import { candidateId } from "../candidates.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const evalRoot = join(here, "../../evals");
@@ -52,18 +53,13 @@ export class ScriptedDecisionService implements DecisionService {
       targetChoice = index !== undefined ? String(index) : "none";
     }
 
+    const id = candidateId(step.op, targetChoice);
     const answers: Record<string, JevAnswer> = {
-      op: {
+      action: {
         type: "choice",
-        choice: step.op,
+        choice: id,
         confidence,
-        probabilities: { [step.op]: 1 },
-      },
-      target_index: {
-        type: "choice",
-        choice: targetChoice,
-        confidence,
-        probabilities: { [targetChoice]: 1 },
+        probabilities: { [id]: 1 },
       },
       is_destructive: {
         type: "noul",

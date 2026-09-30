@@ -8,6 +8,7 @@ import {
   type EngineDriver,
   type EngineStatus,
   type ModelInfo,
+  type RouteContext,
   type TurnHandle,
   type TurnHooks,
   type TurnInput,
@@ -258,6 +259,38 @@ describe("createTurnMailbox (message.send → engine turn)", () => {
     expect(core.repos.engineSessions.getForBotAndEngine(bot.id, "claude")?.sessionId).toBe(
       "claude-session",
     );
+  });
+
+  it("tells the router which engine is already active for this Bot, and for how long", async () => {
+    const claude = new RecordingDriver("claude", ["claude-sonnet"]);
+    const codex = new RecordingDriver("codex", ["gpt-codex"]);
+    const { core, mailbox, addBot, settle } = await setup({ claude, codex });
+    const { bot } = addBot();
+
+    const seen: RouteContext[] = [];
+    core.decisionService = {
+      decide: () => {
+        throw new Error("not used by this test");
+      },
+      route: async (_bot, _task, ctx) => {
+        seen.push(ctx);
+        return { engine: "claude", model: "claude-sonnet", band: "auto", decisionId: "dec_test" };
+      },
+      band: () => "auto",
+      budgets: () => {
+        throw new Error("not used by this test");
+      },
+      validateKey: async () => ({ ok: true }),
+    };
+
+    await mailbox.enqueue({ botId: bot.id, text: "start the report" });
+    await settle();
+    expect(seen[0]?.currentEngine).toBeUndefined();
+
+    await mailbox.enqueue({ botId: bot.id, text: "continue" });
+    await settle();
+    expect(seen[1]?.currentEngine).toBe("claude");
+    expect(seen[1]?.currentEngineIdleMinutes).toBe(0);
   });
 
   it("uses a stored API key for the engine, and the CLI login otherwise", async () => {

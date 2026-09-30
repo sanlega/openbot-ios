@@ -1,0 +1,12 @@
+{
+  "id": "evt_01ARZ3NDEKTSV4RRFFQ69G5FAW",
+  "seq": 1,
+  "ts": "2026-09-27T00:00:00.000Z",
+  "type": "computer.image_status",
+  "payload": {
+    "state": "pulling",
+    "tag": "ghcr.io/sanlega/openbot-desktop:latest",
+    "source": "registry",
+    "localBuildAvailable": false
+  }
+}

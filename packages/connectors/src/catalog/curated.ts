@@ -188,7 +188,7 @@ export const CURATED_CONNECTORS: readonly CuratedConnector[] = [
   {
     slug: "git",
     name: "Git",
-    publisher: "Model Context Protocol",
+    publisher: "MCP reference server",
     category: "Development",
     description: "Read and change a local Git repository: status, diffs, log, commits, branches.",
     kind: "local",
@@ -300,7 +300,7 @@ export const CURATED_CONNECTORS: readonly CuratedConnector[] = [
   {
     slug: "time",
     name: "Time",
-    publisher: "Model Context Protocol",
+    publisher: "MCP reference server",
     category: "Productivity",
     description: "Current time and time-zone conversions.",
     kind: "local",
@@ -331,7 +331,7 @@ export const CURATED_CONNECTORS: readonly CuratedConnector[] = [
   {
     slug: "memory",
     name: "Memory",
-    publisher: "Model Context Protocol",
+    publisher: "MCP reference server",
     category: "Knowledge",
     description: "A local knowledge graph the Bot can remember facts in across conversations.",
     kind: "local",
@@ -361,7 +361,7 @@ export const CURATED_CONNECTORS: readonly CuratedConnector[] = [
   {
     slug: "sequential-thinking",
     name: "Sequential Thinking",
-    publisher: "Model Context Protocol",
+    publisher: "MCP reference server",
     category: "Knowledge",
     description: "A scratchpad tool for breaking a problem into revisable steps.",
     kind: "local",
@@ -447,7 +447,7 @@ export const CURATED_CONNECTORS: readonly CuratedConnector[] = [
   {
     slug: "fetch",
     name: "Fetch",
-    publisher: "Model Context Protocol",
+    publisher: "MCP reference server",
     category: "Web",
     description: "Fetch a web page and read it as Markdown.",
     kind: "local",
@@ -523,7 +523,7 @@ export const CURATED_CONNECTORS: readonly CuratedConnector[] = [
   {
     slug: "filesystem",
     name: "Filesystem",
-    publisher: "Model Context Protocol",
+    publisher: "MCP reference server",
     category: "System",
     description: "Read and write files inside one folder you choose.",
     kind: "local",

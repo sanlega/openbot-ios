@@ -34,6 +34,8 @@ export interface EnqueueTurnInput extends TurnInput {
    * depend on it — e.g. the OpenBot MCP server, whose session token names the turn.
    */
   prepareTurn?: (turnId: string) => Promise<Partial<Pick<TurnInput, "mcpServers">>>;
+  /** Called when the turn is over, however it ended: clean up whatever `prepareTurn` set up. */
+  finishTurn?: (turnId: string) => void | Promise<void>;
   /** Per-run cap (routine runs): the turn is interrupted once its chain's usage exceeds it. */
   runBudget?: { usd?: number; tokens?: number };
 }
@@ -44,6 +46,8 @@ export interface TurnOutcome {
   sessionId?: string;
   text?: string;
   reason?: string;
+  /** `text` is the harness's stand-in for a turn that returned none. */
+  synthesized?: boolean;
 }
 
 interface QueuedTurn {
@@ -71,6 +75,7 @@ export interface MailboxOptions {
   sessions?: SessionStore;
 }
 
+const NO_REPLY_RE = /^NO_REPLY[.!]?$/i;
 const MESSAGE_USER_TOOL = "message_user";
 const SEND_MESSAGE_TOOL = "send_message";
 
@@ -211,6 +216,7 @@ export class Mailbox {
           turnId,
           payload: { errorMessage: reason },
         });
+        await this.finish(input, turnId);
         resolve({ status: "failed", turnId, reason });
         this.pump(botId);
         return;
@@ -218,10 +224,12 @@ export class Mailbox {
     }
 
     let replyText = "";
+    let toolCallCount = 0;
     const pendingToolEffects: Promise<void>[] = [];
 
     const hooks: TurnHooks = {
       emit: (e: EngineEvent) => {
+        if (e.type === "tool_started") toolCallCount += 1;
         this.handleEngineEvent({ botId, input, turnId, event: e, pendingToolEffects }, (t) => {
           replyText += t;
         });
@@ -246,6 +254,7 @@ export class Mailbox {
     } finally {
       this.active.delete(botId);
     }
+    await this.finish(input, turnId);
     await Promise.all(pendingToolEffects);
 
     const status = result.isError
@@ -259,6 +268,21 @@ export class Mailbox {
     } else if (status === "failed" && storedSessionId) {
       // Don't keep resuming a session the engine just failed on.
       this.opts.sessions?.clear(botId, input.engine);
+    }
+    // A reply of exactly NO_REPLY means "nothing to add" (a harness update the user already saw).
+    let synthesized = false;
+    if (status === "completed") replyText = replyText.trim();
+    if (status === "completed" && NO_REPLY_RE.test(replyText)) replyText = "";
+    // Local models often open their answer with blank lines (or reply with nothing else).
+    else if (status === "completed" && replyText.trim().length === 0) {
+      synthesized = true;
+      // The engine can end a turn on a tool call with no closing text (seen with
+      // Codex/gpt-5.5 on multi-step tasks) — without this, the turn is silently
+      // dropped: no message, no error, nothing the user can see went wrong.
+      replyText =
+        toolCallCount > 0
+          ? `Finished ${toolCallCount} tool call${toolCallCount === 1 ? "" : "s"} but didn't return a summary — check Activity for what it did.`
+          : "Finished without returning any text.";
     }
     this.opts.events.emit({
       ts: this.opts.clock.now().toISOString(),
@@ -307,6 +331,7 @@ export class Mailbox {
       sessionId: result.sessionId,
       text: replyText,
       reason: result.errorMessage,
+      synthesized,
     });
     this.pump(botId);
   }
@@ -426,11 +451,25 @@ export class Mailbox {
     });
   }
 
+  /** Runs the caller's cleanup; whatever it does, it must never stall the Bot's queue. */
+  private async finish(input: EnqueueTurnInput, turnId: string): Promise<void> {
+    try {
+      await input.finishTurn?.(turnId);
+    } catch {
+      // Cleanup only.
+    }
+  }
+
   private async handleApprovalRequest(
     botId: string,
     input: EnqueueTurnInput,
     r: ToolApprovalRequest,
   ): Promise<"allow" | "deny"> {
+    // OpenBot's own tools carry their own gates (spawn/notify gates, caps, dry-run simulation); the
+    // engine must not put a card in front of the user for them (Claude gets the same via allowTools).
+    if (input.allowTools.some((p) => r.toolName === p || r.toolName.startsWith(`${p}__`))) {
+      return "allow";
+    }
     const classified = {
       ...defaultClassify(r, input.cwd),
       ...(input.classifyApproval?.(r) ?? {}),
@@ -444,6 +483,7 @@ export class Mailbox {
       sideEffect: classified.sideEffect,
       readOnly: classified.readOnly,
       inWorkspace: classified.inWorkspace,
+      computerAccess: input.bot.computer,
       args: classified.args ?? ((r.input ?? {}) as Record<string, unknown>),
       summary: classified.summary ?? `${r.toolName} requested by ${botId}`,
       detail: classified.detail ?? JSON.stringify(r.input ?? {}),

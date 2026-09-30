@@ -1,4 +1,11 @@
-import type { Approval, Bot, InputRequest, Message, OBEvent } from "@openbot/contracts";
+import type {
+  Approval,
+  Bot,
+  ComputerImageStatus,
+  InputRequest,
+  Message,
+  OBEvent,
+} from "@openbot/contracts";
 import type { RoutePreview, ThreadView } from "../api/types.js";
 
 export interface TurnStep {
@@ -6,6 +13,10 @@ export interface TurnStep {
   tool: string;
   input: unknown;
   status: "running" | "done" | "error";
+  /** What a computer task did on screen, one line per step, as it happens. */
+  live?: Array<{ step: number; text: string; outcome?: string }>;
+  /** The computer task's own status (it can outlive the turn that started it). */
+  taskStatus?: string;
 }
 
 /** What a Bot did during one turn: shown folded above its reply, like a "thinking" block. */
@@ -38,6 +49,10 @@ export interface UiState {
   turnByMessage: Map<string, string>;
   /** `ask_user` forms by id. */
   inputs: Map<string, InputRequest>;
+  /** Open delegations by id: the worker and the thread the user follows the task in. */
+  delegations: Map<string, { assigneeBotId: string; ownerThreadId: string; state: string }>;
+  /** The docker provider's desktop image (Settings > Computer); null until the first `computer.image_status` event or GET. */
+  computerImage: ComputerImageStatus | null;
   connected: boolean;
   /** Set once the WebSocket first opens, so "Reconnecting…" never shows during start-up. */
   everConnected: boolean;
@@ -61,6 +76,8 @@ export function createInitialState(
     turns: new Map(),
     turnByMessage: new Map(),
     inputs: new Map(),
+    delegations: new Map(),
+    computerImage: null,
     connected: false,
     everConnected: false,
     replayDone: false,
@@ -103,6 +120,7 @@ function upsertMessage(state: UiState, message: Message): void {
   const thread = state.threads.get(message.threadId);
   if (thread) {
     thread.lastMessagePreview = message.text.slice(0, 80);
+    thread.lastMessageAuthor = message.author.type;
     if (!thread.lastMessageAt || message.createdAt > thread.lastMessageAt) {
       thread.lastMessageAt = message.createdAt;
     }
@@ -126,6 +144,7 @@ export function uiReducer(state: UiState, action: UiAction): UiState {
       // Turn activity comes only from events; a re-hydrate must not drop it.
       next.turns = state.turns;
       next.turnByMessage = state.turnByMessage;
+      next.computerImage = state.computerImage;
       next.lastSeq = state.lastSeq;
       next.seenEventIds = state.seenEventIds;
       next.connected = state.connected;
@@ -263,6 +282,24 @@ function applyEvent(state: UiState, event: OBEvent): void {
       state.approvals.set(approval.id, approval);
       break;
     }
+    case "delegation.updated": {
+      const d = p.delegation as
+        { id?: string; assigneeBotId?: string; ownerThreadId?: string; state?: string } | undefined;
+      if (d?.id && d.assigneeBotId && d.ownerThreadId && d.state) {
+        const open =
+          d.state === "submitted" || d.state === "working" || d.state === "input_required";
+        if (open) {
+          state.delegations.set(d.id, {
+            assigneeBotId: d.assigneeBotId,
+            ownerThreadId: d.ownerThreadId,
+            state: d.state,
+          });
+        } else {
+          state.delegations.delete(d.id);
+        }
+      }
+      break;
+    }
     case "approval.resolved": {
       const id = String(p.approvalId ?? p.id ?? "");
       const existing = state.approvals.get(id);
@@ -316,10 +353,8 @@ function applyEvent(state: UiState, event: OBEvent): void {
           ...turn,
           endedAt: event.ts,
           status: event.type === "turn.completed" ? "done" : "failed",
-          errorMessage:
-            event.type === "turn.failed" && typeof p.errorMessage === "string"
-              ? p.errorMessage
-              : undefined,
+          // Interruptions carry their reason too ("OpenBot restarted before…").
+          errorMessage: typeof p.errorMessage === "string" ? p.errorMessage : undefined,
           steps: turn.steps.map((s) => (s.status === "running" ? { ...s, status: "done" } : s)),
         });
       }
@@ -369,12 +404,92 @@ function applyEvent(state: UiState, event: OBEvent): void {
       }
       break;
     }
+    case "computer.task_started":
+    case "computer.step":
+    case "computer.escalated": {
+      const turn = runningTurnOf(state, event.botId);
+      if (!turn) break;
+      const index = findLastIndex(turn.steps, (s) => /computer_(task|steer)$/.test(s.tool));
+      if (index < 0) break;
+      const status = typeof p.status === "string" ? p.status : undefined;
+      if (status) {
+        const withStatus = [...turn.steps];
+        withStatus[index] = { ...withStatus[index]!, taskStatus: status };
+        state.turns.set(turn.id, { ...turn, steps: withStatus });
+      }
+      const raw = p.step as
+        | { step?: number; op?: string; target?: string; outcome?: string; reason?: string }
+        | undefined;
+      if (!raw || typeof raw.step !== "number") break;
+      const current = state.turns.get(turn.id)!;
+      const target = current.steps[index]!;
+      const line = { step: raw.step, text: describeComputerStep(raw), outcome: raw.outcome };
+      const live = [...(target.live ?? []).filter((l) => l.step !== raw.step), line].sort(
+        (a, b) => a.step - b.step,
+      );
+      const steps = [...current.steps];
+      steps[index] = { ...target, live };
+      state.turns.set(turn.id, { ...current, steps });
+      break;
+    }
+    case "computer.image_status": {
+      state.computerImage = p as unknown as ComputerImageStatus;
+      break;
+    }
     default:
       break;
   }
 }
 
 /** The activity record for an event's turn, created on first sight (bus order is not guaranteed). */
+/** Computer events carry the Bot but not the turn: use that Bot's running turn. */
+function runningTurnOf(state: UiState, botId?: string): TurnActivity | undefined {
+  if (!botId) return undefined;
+  let latest: TurnActivity | undefined;
+  for (const turn of state.turns.values()) {
+    if (turn.botId !== botId || turn.status !== "running") continue;
+    if (!latest || turn.startedAt > latest.startedAt) latest = turn;
+  }
+  return latest;
+}
+
+function findLastIndex<T>(items: T[], test: (item: T) => boolean): number {
+  for (let i = items.length - 1; i >= 0; i -= 1) if (test(items[i]!)) return i;
+  return -1;
+}
+
+/** One computer step in words: "Clicked “Search”", "Typed into “Search”", … */
+export function describeComputerStep(step: {
+  op?: string;
+  target?: string;
+  outcome?: string;
+  reason?: string;
+}): string {
+  const on = step.target ? ` “${step.target}”` : "";
+  if (step.outcome === "done") return step.reason ?? "Done";
+  if (step.outcome && step.outcome !== "executed") {
+    return step.reason ?? `Stopped (${step.outcome})`;
+  }
+  switch (step.op) {
+    case "click":
+      return `Clicked${on}`;
+    case "type":
+      return `Typed into${on}`;
+    case "select":
+      return `Chose${on}`;
+    case "key":
+      return "Pressed a key";
+    case "scroll":
+      return "Scrolled";
+    case "navigate":
+      return "Opened a page";
+    case "wait":
+      return "Waited for the page";
+    default:
+      return step.op ? `${step.op}${on}` : "Worked on the screen";
+  }
+}
+
 function turnFor(state: UiState, event: OBEvent): TurnActivity | undefined {
   if (!event.turnId || !event.botId) return undefined;
   const existing = state.turns.get(event.turnId);

@@ -153,7 +153,11 @@ export async function createBot(
   harness: TestHarness,
   input: Record<string, unknown>,
 ): Promise<CreatedBot> {
-  const res = await api<CreatedBot>(harness, "/api/bots", { body: input });
+  // These scenarios are about the permission flow (cards, gates), so unless a test says otherwise its
+  // Bots use the ordinary write-in-workspace preset, not the Full one new Bots get by default.
+  const res = await api<CreatedBot>(harness, "/api/bots", {
+    body: { permissionPreset: "workspace_write", ...input },
+  });
   if (res.status !== 201) throw new Error(`create bot failed: ${JSON.stringify(res)}`);
   return res.body;
 }

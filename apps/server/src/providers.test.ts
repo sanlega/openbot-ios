@@ -6,10 +6,16 @@ import type { EngineStatus } from "@openbot/contracts";
 import { FakeClock } from "@openbot/testkit";
 import { createCoreContext } from "@openbot/core";
 import { FakeComputerProvider } from "@openbot/computer-fake";
-import { FakeDecisionService, KeyedDecisionService, UNCONFIGURED_MODEL } from "@openbot/decisions";
+import {
+  FakeDecisionService,
+  FakeJevServer,
+  KeyedDecisionService,
+  UNCONFIGURED_MODEL,
+} from "@openbot/decisions";
 import { FakeEngineDriver } from "@openbot/engines-fake";
 import { ClaudeDriver } from "@openbot/engines-claude";
 import { CodexDriver } from "@openbot/engines-codex";
+import { AcpDriver, customProfile, type AcpProfile } from "@openbot/engines-acp";
 import { bootstrapProviders, type ProviderDetection } from "./providers.js";
 
 const readyClaude: EngineStatus = {
@@ -84,10 +90,48 @@ describe("bootstrapProviders", () => {
     expect(result.drivers.codex).toBeInstanceOf(CodexDriver);
     expect(result.drivers.fake).toBeUndefined();
     expect(result.computerProvider?.id).toBe("docker");
+    expect(result.computerImageManager?.getStatus()).toMatchObject({
+      tag: "ghcr.io/sanlega/openbot-desktop:latest",
+      state: "missing",
+    });
     expect(result.availableEngines).toEqual(["claude", "codex"]);
 
     ctx.closeDb();
     process.env = prev;
+  });
+
+  it("records every Jev decision in the decisions table", async () => {
+    const prev = { ...process.env };
+    delete process.env.OPENBOT_FAKE_JEV;
+    delete process.env.JEV_API_KEY;
+    const jev = new FakeJevServer({ apiKey: "ts_live_key_1234567890" });
+    const { url } = await jev.listen();
+    process.env.JEV_BASE_URL = url;
+    try {
+      const ctx = await testContext();
+      await ctx.vault.set("typesafe.apiKey", "ts_live_key_1234567890");
+      const { decisionService } = await bootstrapProviders(ctx, mockDetection());
+
+      await decisionService.decide({
+        purpose: "computer",
+        state: "a page",
+        questions: {
+          action: {
+            type: "choice",
+            instructions: "Next?",
+            criteria: { wait: "Wait", done: "Done" },
+          },
+        },
+      });
+
+      const rows = ctx.repos.decisions.list({ purpose: "computer" });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ provider: "jev", purpose: "computer" });
+      ctx.closeDb();
+    } finally {
+      await jev.close();
+      process.env = prev;
+    }
   });
 
   it("marks the TypeSafe setup step as not connected when the saved key is missing", async () => {
@@ -154,6 +198,7 @@ describe("bootstrapProviders", () => {
     expect(result.drivers.fake).toBeInstanceOf(FakeEngineDriver);
     expect(result.drivers.claude).toBeUndefined();
     expect(result.computerProvider).toBeInstanceOf(FakeComputerProvider);
+    expect(result.computerImageManager).toBeUndefined();
 
     ctx.closeDb();
     process.env = prev;
@@ -187,6 +232,62 @@ describe("bootstrapProviders", () => {
     const result = await bootstrapProviders(ctx, mockDetection());
 
     expect(result.computerProvider?.id).toBe("local");
+    expect(result.computerImageManager).toBeUndefined();
+
+    ctx.closeDb();
+    process.env = prev;
+  });
+
+  it("wires every ACP engine that is installed and signed in, and describes all of them", async () => {
+    const prev = { ...process.env };
+    delete process.env.OPENBOT_FAKE_ENGINES;
+    process.env.OPENBOT_FAKE_JEV = "1";
+    const ctx = await testContext();
+    const profile = (id: string, installed: boolean, signedIn: boolean): AcpProfile => ({
+      id,
+      label: id.toUpperCase(),
+      binaries: [installed ? process.execPath : join(ctx.config.openbotHome, "missing")],
+      loginCommand: `${id} login`,
+      async detect() {
+        return { version: "1", login: { ok: signedIn } };
+      },
+      async listModels() {
+        return [];
+      },
+      async launch() {
+        return { args: [], env: {}, systemPrompt: "prompt" };
+      },
+    });
+    const result = await bootstrapProviders(
+      ctx,
+      mockDetection({
+        detectCodex: vi.fn(async () => missingEngine),
+        acpProfiles: () => [
+          profile("opencode", true, true),
+          profile("cursor", true, false),
+          profile("gemini", false, false),
+        ],
+      }),
+    );
+    expect(result.availableEngines).toEqual(["claude", "opencode"]);
+    expect(result.drivers.opencode).toBeInstanceOf(AcpDriver);
+    expect(result.drivers.cursor).toBeUndefined();
+    expect(ctx.engineStatuses?.cursor).toMatchObject({ installed: true, login: { ok: false } });
+    expect(ctx.engineStatuses?.gemini).toMatchObject({ installed: false });
+    expect(ctx.engineDescriptors?.cursor).toMatchObject({
+      label: "CURSOR",
+      kind: "acp",
+      loginCommand: "cursor login",
+    });
+    expect(ctx.engineDescriptors?.claude).toMatchObject({ kind: "native" });
+
+    await ctx.customEngines?.save([
+      { slug: "goose", label: "Goose", command: "goose", args: ["acp"] },
+    ]);
+    expect(ctx.customEngines?.list()).toEqual([
+      { slug: "goose", label: "Goose", command: "goose", args: ["acp"] },
+    ]);
+    expect(customProfile(ctx.customEngines!.list()[0]!).id).toBe("acp-goose");
 
     ctx.closeDb();
     process.env = prev;

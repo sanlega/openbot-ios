@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { computeBindHostFlags, type CoreContext } from "../../context.js";
 import { requireAuth, requireOwner } from "../auth.js";
 import { parseOrReject } from "../validation.js";
+import { hasCloudflareToken, removeCloudflareTunnel, startCloudflareTunnel } from "@openbot/remote";
 import { CloudflareTunnelBody, DecisionsQuery } from "../schemas.js";
 
 /**
@@ -13,7 +14,9 @@ export function registerRemoteAndAuditRoutes(app: FastifyInstance, ctx: CoreCont
     if (!requireAuth(request, reply)) return;
     const flags = computeBindHostFlags(ctx);
     const tailscale = ctx.remote ? await ctx.remote.tailscale.status() : undefined;
-    const cloudflare = ctx.remote ? ctx.remote.cloudflare.status() : undefined;
+    const cloudflare = ctx.remote
+      ? { ...ctx.remote.cloudflare.status(), configured: await hasCloudflareToken(ctx) }
+      : undefined;
     return { ...flags, setup: ctx.repos.setupState.get(), tailscale, cloudflare };
   });
 
@@ -54,22 +57,19 @@ export function registerRemoteAndAuditRoutes(app: FastifyInstance, ctx: CoreCont
     if (!ctx.remote) {
       return reply.code(501).send({ error: "not_implemented", reason: "remote module not wired" });
     }
-    const result = await ctx.remote.cloudflare.start(body.token);
-    ctx.repos.setupState.patch({ cloudflare: { ok: result.ok } });
-    if (result.ok) {
-      await ctx.eventBus.publish({
-        type: "remote.status",
-        payload: {
-          tailscale: { enabled: false },
-          cloudflare: {
-            enabled: true,
-            hostname: result.hostname,
-            accessWarning: result.accessWarning,
-          },
-        },
-      });
-    }
+    // Starts with the pasted token (saved to the vault once it works) or the saved one.
+    const result = await startCloudflareTunnel(ctx, body.token);
     return { result };
+  });
+
+  // Stops the tunnel and forgets the saved token and hostname, so a different token can be added.
+  app.delete("/api/remote/cloudflare", async (request, reply) => {
+    if (!requireOwner(request, reply)) return;
+    if (!ctx.remote) {
+      return reply.code(501).send({ error: "not_implemented", reason: "remote module not wired" });
+    }
+    await removeCloudflareTunnel(ctx);
+    return { ok: true };
   });
 
   app.get("/api/usage", async (request, reply) => {

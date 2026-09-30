@@ -19,13 +19,66 @@ import type { BrokerRequest } from "./broker-types.js";
  */
 
 const CREDENTIAL_PATH_RE =
-  /(\.ssh\/|\.aws[/\\]credentials|\.npmrc|id_rsa|\.pem(\s|$)|credentials\.json|\bkeychain\b|secrets?\.json|\.git-credentials)/i;
-const DB_OR_VAULT_RE = /(openbot\.db|vault\.bin|\.openbot[/\\](db|vault))/i;
+  /(\.ssh[/\\]+|\.aws[/\\]+credentials|\.npmrc|id_rsa|id_ed25519|\.pem(\s|$)|credentials\.json|\bkeychain\b|secrets?\.json|\.git-credentials|\.codex[/\\]+auth\.json|codex-home[/\\]+auth\.json)/i;
+/**
+ * OpenBot's own secrets: the database, the vault, and the per-turn session tokens engines are given.
+ * The `(?![/\\])` keeps the separator run from backtracking: in a JSON-doubled Windows path
+ * (`.openbot\\workspace`) it would match one backslash and lose the workspace exception.
+ */
+const DB_OR_VAULT_RE =
+  /(openbot\.db|vault\.bin|vault\.key|\.openbot[/\\]+(?![/\\])(?!(?:workspace|uploads)(?:[/\\"'\s]|$))|(?:^|[\s"'/\\])sessions[/\\]+[^\s"'/\\]*\.token)/i;
 const SUDO_RE = /\bsudo\b/i;
 const RM_RF_RE = /\brm\s+(-\w*r\w*f\w*|-\w*f\w*r\w*)\b/i;
 
-/** plan §5 WS2: "sensitive computer targets" — matched against a computer action's observed element label. */
-export const SENSITIVE_COMPUTER_TARGET_RE = /pay|buy|send|delete|transfer|submit order|confirm/i;
+/** Browser-automation tools (Playwright/Puppeteer MCP servers, `browser_*` tools) run a browser on the host. */
+const HOST_BROWSER_TOOL_RE = /playwright|puppeteer|(^|[^a-z])browser_[a-z_]+/i;
+const BROWSER_NAMES =
+  "google[- ]?chrome|chromium|chrome|msedge|microsoft[- ]edge|edge|firefox|brave|opera|vivaldi|safari";
+/** Commands that open something with the desktop's default handler, pointed at a page or a browser. */
+const OPEN_IN_BROWSER_RE = new RegExp(
+  String.raw`(^|[;&|(]\s*|\bcmd(\.exe)?\s+/c\s+|\bpowershell(\.exe)?\s+(-\w+\s+)*)` +
+    String.raw`(start|start-process|open|xdg-open|gio\s+open|explorer(\.exe)?|sensible-browser|x-www-browser)\b` +
+    String.raw`[^;&|]*?(https?:|file:|\.html?\b|${BROWSER_NAMES})`,
+  "i",
+);
+/** A browser program itself started as the command, plain or by a quoted path with spaces. */
+const BROWSER_BINARY_RE = new RegExp(
+  String.raw`(^|[;&|(]\s*)("[^"]*[\\/](${BROWSER_NAMES})(\.exe)?"|([^\s"]*[\\/])?(${BROWSER_NAMES})(\.exe)?(\s|$))`,
+  "i",
+);
+/** A quoted command handed to a shell: `sh -c "..."`, `powershell -Command '...'`, `cmd /c "..."`. */
+const WRAPPED_COMMAND_RE = /(?:-c|-command|\/c)\s+(["'])(.*?)\1/gi;
+/** Dev servers and opener tools that pop the host's browser open. */
+const OPEN_FLAG_RE = /\s--open(\s|=|$)|\bwslview\b|\binvoke-item\b|\bsensible-browser\b/i;
+/** Scripts that start a browser or an automation library from code. */
+const BROWSER_SCRIPT_RE =
+  /webbrowser\.open|python3?\s+-m\s+webbrowser|\b(npx|pnpm\s+(exec|dlx)|yarn|bunx|node|python3?)\s+[^;&|]*\b(playwright|puppeteer|selenium)\b|\bplaywright\s+(test|codegen|install|open|screenshot|show-report)\b/i;
+
+/** True when the action would drive a browser on the user's own computer instead of the VM. */
+export function usesHostBrowser(req: BrokerRequest): boolean {
+  if (HOST_BROWSER_TOOL_RE.test(`${req.action} ${req.summary}`)) return true;
+  const command = (req.args as { command?: unknown } | undefined)?.command;
+  if (typeof command !== "string") return false;
+  // The command itself, and whatever a shell wrapper runs: `sh -c "open https://x"`.
+  const inner = [...command.matchAll(WRAPPED_COMMAND_RE)].map((m) => m[2] ?? "");
+  return [command, ...inner].some(
+    (text) =>
+      OPEN_IN_BROWSER_RE.test(text) ||
+      BROWSER_BINARY_RE.test(text) ||
+      BROWSER_SCRIPT_RE.test(text) ||
+      OPEN_FLAG_RE.test(text),
+  );
+}
+
+/**
+ * "Sensitive computer targets": what spends money or destroys data, matched against the observed
+ * element label as whole words. Sending or confirming what the request asked for is not sensitive.
+ * Keep in sync with `packages/computer/src/sensitive-target.ts`.
+ */
+export const SENSITIVE_COMPUTER_TARGET_RE = new RegExp(
+  String.raw`(^|[^\p{L}])(pay( now)?|payment|buy( now)?|purchase|checkout|place (your |my )?order|submit order|transfer( funds| money)?|wire|donate|delete( (my )?(account|forever|permanently|all))?|remove (my )?account|close (my )?account|deactivate|erase|pagar|pago|comprar|compra|eliminar( cuenta)?|borrar|transferir|donar|supprimer|acheter|payer|löschen|kaufen|bezahlen)([^\p{L}]|$)`,
+  "iu",
+);
 
 function haystackOf(req: BrokerRequest): string {
   return [req.action, req.target, req.detail, req.summary, JSON.stringify(req.args ?? {})].join(
@@ -40,6 +93,9 @@ function haystackOf(req: BrokerRequest): string {
  */
 export function builtinDenyReason(req: BrokerRequest): string | undefined {
   const haystack = haystackOf(req);
+  if (req.computerAccess && req.computerAccess !== "docker+local" && usesHostBrowser(req)) {
+    return "uses this computer's browser; this Bot's computer is the virtual machine (use computer_task)";
+  }
   if (CREDENTIAL_PATH_RE.test(haystack)) return "targets a credential path";
   if (DB_OR_VAULT_RE.test(haystack)) return "targets the OpenBot database or vault";
   if (SUDO_RE.test(haystack)) return "invokes sudo";
@@ -55,7 +111,10 @@ export function builtinDenyReason(req: BrokerRequest): string | undefined {
  * `Rule`s so they participate in the same deny>ask>allow merge as user/preset
  * rules, but nothing outranks `ask` except an explicit `deny` — never `allow`.
  */
-export function builtinAskRules(req: BrokerRequest): Rule[] {
+export function builtinAskRules(
+  req: BrokerRequest,
+  preset?: "read_only" | "workspace_write" | "full",
+): Rule[] {
   const now = new Date().toISOString();
   const rules: Rule[] = [];
   if (
@@ -67,7 +126,9 @@ export function builtinAskRules(req: BrokerRequest): Rule[] {
       builtinRule("ask", `sensitive computer target: "${req.target}"`, { computerOp: "*" }, now),
     );
   }
-  if (req.kind === "connector_action" && req.sideEffect) {
+  // "Full" means the Bot doesn't ask: connector side effects and the Bot's own local-computer
+  // actions run without a card. Sensitive computer targets (paying, deleting) still ask.
+  if (req.kind === "connector_action" && req.sideEffect && preset !== "full") {
     rules.push(
       builtinRule(
         "ask",
@@ -79,7 +140,7 @@ export function builtinAskRules(req: BrokerRequest): Rule[] {
       ),
     );
   }
-  if (req.kind === "local_computer") {
+  if (req.kind === "local_computer" && preset !== "full") {
     rules.push(builtinRule("ask", "local-machine action (ask every time by default)", {}, now));
   }
   return rules;

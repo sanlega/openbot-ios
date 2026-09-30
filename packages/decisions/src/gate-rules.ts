@@ -26,9 +26,11 @@ export function evaluateSpawnGate(input: SpawnGateInput): SpawnGateResult {
       (routeChoice === "new_bot" &&
         routeConfidence >= 0.7 &&
         noul("existing_can_do") <= 0.3 &&
-        noul("one_off") <= 0.4 &&
+        (noul("one_off") <= 0.4 || noul("substantial_work") >= 0.6) &&
         noul("duplicates_existing") <= 0.3 &&
-        (noul("recurring_ownership") >= 0.7 || noul("distinct_boundary") >= 0.7)));
+        (noul("recurring_ownership") >= 0.7 ||
+          noul("distinct_boundary") >= 0.7 ||
+          noul("substantial_work") >= 0.6)));
 
   const suggestion = allow ? null : routeChoice === "new_bot" ? "cos_itself" : routeChoice;
   return { allow, suggestion };

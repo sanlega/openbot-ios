@@ -138,11 +138,16 @@ export function metaFor(table: Record<string, NumberSettingMeta>, key: string): 
 const ENGINE_NAMES: Record<string, string> = {
   claude: "Claude Code",
   codex: "Codex CLI",
+  opencode: "OpenCode",
+  cursor: "Cursor",
+  gemini: "Gemini CLI",
+  grok: "Grok Build",
   fake: "Test engine",
 };
 
+/** A friendly engine name; owner-added ACP agents are `acp-<slug>`. */
 export function engineName(id: string): string {
-  return ENGINE_NAMES[id] ?? humanizeKey(id);
+  return ENGINE_NAMES[id] ?? humanizeKey(id.replace(/^acp-/, ""));
 }
 
 /** "vcodex-cli 0.157.1", "2.1.283 (Claude Code)" → "0.157.1", "2.1.283". */

@@ -95,6 +95,10 @@ export type ComputerTaskView = {
   summary?: string;
   /** Set when the task waits for text: answer with computer_steer({taskId, text}). */
   needsText?: string;
+  /** Set while the task is paused on a step only the user can do (sign-in, a code, a CAPTCHA). */
+  needs?: { kind: string; site?: string; message: string };
+  /** What to do with this result: the harness's guidance for the current state. */
+  next?: string;
   recentSteps: string[];
   /** While running: opening, looking, deciding, or acting. */
   phase?: string;

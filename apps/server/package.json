@@ -1,6 +1,6 @@
 {
   "name": "@openbot/server",
-  "version": "0.1.0",
+  "version": "0.1.16",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -39,6 +39,7 @@
     "@openbot/core": "workspace:*",
     "@openbot/cos": "workspace:*",
     "@openbot/decisions": "workspace:*",
+    "@openbot/engines-acp": "workspace:*",
     "@openbot/engines-claude": "workspace:*",
     "@openbot/engines-codex": "workspace:*",
     "@openbot/engines-common": "workspace:*",

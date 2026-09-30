@@ -18,6 +18,29 @@ export interface ModelInfo {
   id: string;
   label: string;
   contextWindow?: number;
+  /** Runs on this computer (Ollama, LM Studio): free and private, usually slower and weaker. */
+  local?: boolean;
+}
+
+/**
+ * What an engine is, for Setup/Settings, doctor and Jev's route question (D-031).
+ * `kind: "acp"` engines speak the Agent Client Protocol.
+ */
+export interface EngineDescriptor {
+  id: string;
+  label: string;
+  kind: "native" | "acp";
+  /** Command the owner runs to sign in, when the CLI has one. */
+  loginCommand?: string;
+  installUrl?: string;
+  /** One line for the routing question: what this engine is good at. */
+  summary?: string;
+  capabilities: {
+    /** A later turn continues the same conversation. */
+    resume: boolean;
+    /** Text sent while a turn runs reaches it (otherwise it is queued for when the turn ends). */
+    steer: boolean;
+  };
 }
 
 export interface TurnInput {
@@ -78,8 +101,10 @@ export interface TurnHandle {
 }
 
 export interface EngineDriver {
-  /** `'claude' | 'codex' | 'fake'`. */
+  /** A built-in id (`BUILTIN_ENGINE_IDS`) or `acp-<slug>` for an owner-added ACP agent. */
   id: string;
+  /** Optional for older drivers: the harness falls back to the id as label. */
+  describe?(): EngineDescriptor;
   detect(): Promise<EngineStatus>;
   validateKey(key: string): Promise<{ ok: boolean; reason?: string }>;
   listModels(): Promise<ModelInfo[]>;

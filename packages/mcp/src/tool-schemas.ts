@@ -121,6 +121,12 @@ export const TOOL_INPUT_SCHEMAS: Record<string, z.ZodTypeAny> = {
     reason: z.string().min(1),
     user_requested: z.boolean().default(false),
   }),
+  list_logins: z.object({}),
+  save_login: z.object({
+    site: z.string().min(1),
+    username: z.string().optional(),
+    password: z.string().optional(),
+  }),
   list_routines: z.object({}),
   permission_prompt: PermissionPromptSchema,
 };

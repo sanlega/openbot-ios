@@ -6,9 +6,10 @@ import { parseOrReject } from "../validation.js";
 import { SetupValidateBody, UpdateSettingsBody } from "../schemas.js";
 
 const DEFAULT_CAPS: Settings["caps"] = {
-  s1_cosBotsCap: 6,
-  s2_newBotsPer24h: 2,
-  s3_spawnCooldownMin: 30,
+  // Loose on purpose: the Chief delegates by default and creates the bots it needs (D-023).
+  s1_cosBotsCap: 10,
+  s2_newBotsPer24h: 8,
+  s3_spawnCooldownMin: 2,
   s4_proactivePerBotPerHour: 3,
   s4_proactivePerBotPerDay: 8,
   s5_proactiveAllBotsPerHour: 6,

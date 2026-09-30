@@ -1,20 +1,36 @@
+import { join } from "node:path";
 import type {
+  ComputerImageManager,
   ComputerProvider,
   DecisionService,
+  EngineDescriptor,
   EngineDriver,
   EngineId,
   EngineStatus,
 } from "@openbot/contracts";
 import type { CoreContext } from "@openbot/core";
 import { FakeComputerProvider } from "@openbot/computer-fake";
-import { createDockerProvider } from "@openbot/computer-docker";
+import {
+  createDockerProvider,
+  createImageManager,
+  findLocalDockerfile,
+} from "@openbot/computer-docker";
 import { LocalProvider } from "@openbot/computer-local";
 import {
   createDecisionService,
+  DecisionLog,
   FakeDecisionService,
   JevClient,
   KeyedDecisionService,
 } from "@openbot/decisions";
+import {
+  AcpDriver,
+  builtinAcpProfiles,
+  customProfiles,
+  readEnginePrefs,
+  writeEnginePrefs,
+  type AcpProfile,
+} from "@openbot/engines-acp";
 import { ClaudeDriver, detectClaude } from "@openbot/engines-claude";
 import { CodexDriver, detectCodex } from "@openbot/engines-codex";
 import { validateAnthropicKey, validateOpenAiKey } from "@openbot/engines-common";
@@ -29,19 +45,50 @@ export const VAULT_KEYS = {
 export interface ProviderDetection {
   detectClaude: typeof detectClaude;
   detectCodex: typeof detectCodex;
+  /** ACP engines to offer (D-031): production passes the built-in ones plus the owner's custom ones; none when omitted. */
+  acpProfiles?: (openbotHome: string) => AcpProfile[];
 }
 
 export interface BootstrapProvidersResult {
   decisionService: DecisionService;
   drivers: Partial<Record<EngineId, EngineDriver>>;
   computerProvider?: ComputerProvider;
-  engineStatuses: { claude: EngineStatus; codex: EngineStatus };
+  computerImageManager?: ComputerImageManager;
+  engineStatuses: Record<string, EngineStatus>;
+  engineDescriptors: Record<string, EngineDescriptor>;
   availableEngines: EngineId[];
+}
+
+const NATIVE_DESCRIPTORS: Record<string, EngineDescriptor> = {
+  claude: {
+    id: "claude",
+    label: "Claude Code",
+    kind: "native",
+    loginCommand: "claude auth login",
+    installUrl: "https://claude.com/product/claude-code",
+    summary:
+      "Anthropic's Claude Code agent: strong at coding, writing and careful multi-step work.",
+    capabilities: { resume: true, steer: true },
+  },
+  codex: {
+    id: "codex",
+    label: "Codex",
+    kind: "native",
+    loginCommand: "codex login",
+    installUrl: "https://developers.openai.com/codex/cli",
+    summary: "OpenAI's Codex agent: strong at coding and long autonomous tasks.",
+    capabilities: { resume: true, steer: true },
+  },
+};
+
+function defaultAcpProfiles(openbotHome: string): AcpProfile[] {
+  return [...builtinAcpProfiles(), ...customProfiles(readEnginePrefs(openbotHome))];
 }
 
 const defaultDetection: ProviderDetection = {
   detectClaude,
   detectCodex,
+  acpProfiles: defaultAcpProfiles,
 };
 
 function fakeFlag(name: string): boolean {
@@ -58,16 +105,33 @@ export async function bootstrapProviders(
   detection: ProviderDetection = defaultDetection,
 ): Promise<BootstrapProvidersResult> {
   const decisionService = resolveDecisionService(ctx);
-  const { drivers, engineStatuses, availableEngines } = await resolveEngineDrivers(detection);
-  const computerProvider = resolveComputerProvider();
+  const { drivers, engineStatuses, engineDescriptors, availableEngines } =
+    await resolveEngineDrivers(ctx, detection);
+  const computerProvider = resolveComputerProvider(ctx);
+  const computerImageManager =
+    computerProvider.id === "docker" ? resolveComputerImageManager(ctx) : undefined;
 
   registerSetupValidators(ctx, decisionService, detection);
   await reconcileTypesafeSetup(ctx);
 
   ctx.availableEngines = availableEngines;
   ctx.engineStatuses = engineStatuses;
+  ctx.engineDescriptors = engineDescriptors;
+  const home = ctx.config.openbotHome;
+  ctx.customEngines = {
+    list: () => readEnginePrefs(home).custom,
+    save: (custom) => writeEnginePrefs(home, { ...readEnginePrefs(home), custom }),
+  };
 
-  return { decisionService, drivers, computerProvider, engineStatuses, availableEngines };
+  return {
+    decisionService,
+    drivers,
+    computerProvider,
+    computerImageManager,
+    engineStatuses,
+    engineDescriptors,
+    availableEngines,
+  };
 }
 
 /**
@@ -82,23 +146,47 @@ function resolveDecisionService(ctx: CoreContext): DecisionService {
   const baseUrl = process.env.JEV_BASE_URL || undefined;
   return new KeyedDecisionService({
     getApiKey: async () => process.env.JEV_API_KEY || (await ctx.vault.get(VAULT_KEYS.typesafe)),
-    create: (apiKey) => createDecisionService({ apiKey, baseUrl }),
+    // Every decision lands in the `decisions` table (Audit, and diagnosing a task later).
+    create: (apiKey) =>
+      createDecisionService({ apiKey, baseUrl, decisionLog: new DecisionLog(ctx.repos.decisions) }),
     probeKey: (apiKey) => new JevClient({ apiKey, baseUrl }).validateKey(),
   });
 }
 
-async function resolveEngineDrivers(detection: ProviderDetection): Promise<{
+async function resolveEngineDrivers(
+  ctx: CoreContext,
+  detection: ProviderDetection,
+): Promise<{
   drivers: Partial<Record<EngineId, EngineDriver>>;
-  engineStatuses: { claude: EngineStatus; codex: EngineStatus };
+  engineStatuses: Record<string, EngineStatus>;
+  engineDescriptors: Record<string, EngineDescriptor>;
   availableEngines: EngineId[];
 }> {
-  const claudeStatus = await detection.detectClaude();
-  const codexStatus = await detection.detectCodex();
+  const enginesDir = join(ctx.config.openbotHome, "engines");
+  const acpDrivers = (detection.acpProfiles?.(ctx.config.openbotHome) ?? []).map(
+    (profile) => new AcpDriver(profile, { enginesDir }),
+  );
+  // Every CLI is probed at once: a slow or missing one must not hold up the rest.
+  const [claudeStatus, codexStatus, ...acpStatuses] = await Promise.all([
+    detection.detectClaude(),
+    detection.detectCodex(),
+    ...acpDrivers.map((d) => d.detect()),
+  ]);
+  const engineStatuses: Record<string, EngineStatus> = {
+    claude: claudeStatus!,
+    codex: codexStatus!,
+  };
+  const engineDescriptors: Record<string, EngineDescriptor> = { ...NATIVE_DESCRIPTORS };
+  acpDrivers.forEach((driver, i) => {
+    engineStatuses[driver.id] = acpStatuses[i]!;
+    engineDescriptors[driver.id] = driver.describe();
+  });
 
   if (fakeFlag("OPENBOT_FAKE_ENGINES")) {
     return {
       drivers: { fake: new FakeEngineDriver() },
-      engineStatuses: { claude: claudeStatus, codex: codexStatus },
+      engineStatuses,
+      engineDescriptors,
       availableEngines: ["fake"],
     };
   }
@@ -106,30 +194,45 @@ async function resolveEngineDrivers(detection: ProviderDetection): Promise<{
   const drivers: Partial<Record<EngineId, EngineDriver>> = {};
   const availableEngines: EngineId[] = [];
 
-  if (engineReady(claudeStatus)) {
+  if (engineReady(claudeStatus!)) {
     drivers.claude = new ClaudeDriver();
     availableEngines.push("claude");
   }
-  if (engineReady(codexStatus)) {
+  if (engineReady(codexStatus!)) {
     drivers.codex = new CodexDriver();
     availableEngines.push("codex");
   }
+  acpDrivers.forEach((driver, i) => {
+    const status = acpStatuses[i]!;
+    // ACP CLIs sign in themselves; an installed one that says it is signed in is ready.
+    if (status.installed && status.login.ok) {
+      drivers[driver.id] = driver;
+      availableEngines.push(driver.id);
+    }
+  });
 
-  return {
-    drivers,
-    engineStatuses: { claude: claudeStatus, codex: codexStatus },
-    availableEngines,
-  };
+  return { drivers, engineStatuses, engineDescriptors, availableEngines };
 }
 
-function resolveComputerProvider(): ComputerProvider {
+function resolveComputerProvider(ctx: CoreContext): ComputerProvider {
   if (fakeFlag("OPENBOT_FAKE_COMPUTER")) return new FakeComputerProvider();
 
   if (fakeFlag("OPENBOT_LOCAL_COMPUTER")) return new LocalProvider();
 
   // Keep the provider wired even while Docker Desktop is starting. Its start
   // operation checks the daemon again, so opening Docker needs no app restart.
-  return createDockerProvider();
+  // D-032: the virtual machine sees the bots' workspace at /workspace (same files everywhere).
+  return createDockerProvider({ workspaceMount: ctx.config.workspaceDir });
+}
+
+/** Gets/resets the docker provider's desktop image (D-020); every status change is published as `computer.image_status`. */
+function resolveComputerImageManager(ctx: CoreContext): ComputerImageManager {
+  return createImageManager({
+    localDockerfile: findLocalDockerfile(),
+    onStatus: (status) => {
+      void ctx.eventBus.publish({ type: "computer.image_status", payload: { ...status } });
+    },
+  });
 }
 
 /**

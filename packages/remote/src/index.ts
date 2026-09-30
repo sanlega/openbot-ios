@@ -22,6 +22,14 @@ export {
 } from "./pairing.js";
 export { E2EFraming, DeviceE2ESession, ClientE2ESession } from "./framing.js";
 export { TailscaleManager, type TailscaleStatus, type ExecFn } from "./tailscale-manager.js";
+export {
+  CLOUDFLARE_TOKEN_VAULT_KEY,
+  hasCloudflareToken,
+  removeCloudflareTunnel,
+  resumeCloudflareTunnel,
+  startCloudflareTunnel,
+  type CloudflareTunnelContext,
+} from "./cloudflare-tunnel.js";
 export { CloudflareManager, type CloudflareStatus, type SpawnFn } from "./cloudflare-manager.js";
 export {
   createRemoteServices,
@@ -40,6 +48,7 @@ export {
 export {
   isPrivateIPv4,
   lanAddresses,
+  normalizeHostname,
   readNetworkPrefs,
   writeNetworkPrefs,
   type NetworkPrefs,

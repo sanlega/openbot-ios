@@ -46,6 +46,14 @@ export function CommandPalette({
   const [active, setActive] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
 
+  // Give focus back to whatever opened the palette (the ⌘K button, a row…).
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    return () => {
+      if (opener && document.contains(opener)) opener.focus();
+    };
+  }, []);
+
   const commands = useMemo<Command[]>(() => {
     const bots: Command[] = (openbot?.threads ?? []).flatMap((thread) => {
       const bot = openbot?.bots.find((b) => b.id === thread.botId);
@@ -55,8 +63,8 @@ export function CommandPalette({
           id: `bot-${bot.id}`,
           group: "Bots" as const,
           label: bot.name,
-          hint: bot.isChiefOfStaff ? "Chief of Staff" : bot.label,
-          icon: <BotAvatar bot={bot} size={20} />,
+          hint: bot.isChiefOfStaff && bot.name !== "Chief of Staff" ? "Chief of Staff" : bot.label,
+          icon: <BotAvatar bot={bot} size={20} motion="none" />,
           keywords: bot.description,
           run: () => onOpenThread?.(thread.id),
         },
