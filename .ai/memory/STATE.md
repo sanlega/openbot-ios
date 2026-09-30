@@ -16,9 +16,11 @@ _Last updated: 2026-09-30 by Claude_
 - TestFlight: `apps/mobile/scripts/testflight.sh` (TEAM_ID env) archives with the push
   entitlements, time-based build number, and uploads as internal-testing only. A
   `--no-upload` run succeeded (Apple Distribution signature, aps-environment production).
-  Waiting on the owner: create the App Store Connect app record for `ai.openbot.mobile`,
-  decide the export-compliance answer (app.json has `usesNonExemptEncryption: true`, so
-  App Store Connect will ask for compliance before testing), and confirm the first upload.
+  First upload done 2026-09-30 (build 202609301849, App Store Connect app "OpenBot
+  Remote"). The owner declared the app exempt from export compliance for now
+  (`usesNonExemptEncryption: false`); it can change per build (set it true and add the
+  approved `ITSEncryptionExportComplianceCode`). A `true` value without a code makes the
+  upload fail with "Invalid Export Compliance Code".
 - Push status: the iPhone runs a Release build signed with the owner's now-paid team and
   the push entitlement (profile valid for a year). The owner's APNs key was verified
   against Apple (sandbox and production). Host changes for the Windows desktop are on
